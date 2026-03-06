@@ -408,17 +408,43 @@ function moonPos(date,lat,lng){
 
 function moonT(ds,lat,lng){
   const base=new Date(ds+'T00:00:00+09:00'); // JST 0時基準
-  let rise=null,set=null,prev=null;
-  for(let h=0;h<=25;h+=0.5){
+  let rise=null,set=null,prev=null,prevT=null;
+  // まず5分刻みで大まかに検出
+  for(let h=0;h<=25.1;h+=10/60){
     const t=new Date(base.getTime()+h*3600000);
     const p=moonPos(t,lat,lng);
     if(prev!==null){
-      if(prev<=0&&p.alt>0&&!rise)rise=new Date(base.getTime()+h*3600000);
-      if(prev>0&&p.alt<=0&&!set)set=new Date(base.getTime()+h*3600000);
+      if(prev<=0&&p.alt>0&&!rise){
+        // 二分探索で精度向上
+        let lo=prevT,hi=t;
+        for(let i=0;i<8;i++){
+          const mid=new Date((lo.getTime()+hi.getTime())/2);
+          if(moonPos(mid,lat,lng).alt>0) hi=mid; else lo=mid;
+        }
+        rise=new Date((lo.getTime()+hi.getTime())/2);
+      }
+      if(prev>0&&p.alt<=0&&!set){
+        let lo=prevT,hi=t;
+        for(let i=0;i<8;i++){
+          const mid=new Date((lo.getTime()+hi.getTime())/2);
+          if(moonPos(mid,lat,lng).alt<0) hi=mid; else lo=mid;
+        }
+        set=new Date((lo.getTime()+hi.getTime())/2);
+      }
     }
-    prev=p.alt;
+    prev=p.alt; prevT=t;
   }
   return{rise,set};
+}
+
+// moonTキャッシュ
+let _moonTCache={key:null,result:null};
+function moonTCached(ds,lat,lng){
+  const key=`${ds}_${lat.toFixed(4)}_${lng.toFixed(4)}`;
+  if(_moonTCache.key===key) return _moonTCache.result;
+  const result=moonT(ds,lat,lng);
+  _moonTCache={key,result};
+  return result;
 }
 
 function jst(d){
@@ -474,42 +500,50 @@ function drawMoonPhase(age){
   ctx.save();
   ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.clip();
 
-  // phase: 0=新月, 0.25=上弦, 0.5=満月, 0.75=下弦
-  // 明るい側：p<0.5は右、p>=0.5は左
-  // 楕円の横軸 = r * cos(2π*p)
-  //   p=0: cos=1 → 楕円幅r（影が右半円+楕円でほぼ全体）
-  //   p=0.25: cos=0 → 楕円幅0（ちょうど半月）
-  //   p=0.5: cos=-1 → 楕円幅r（満月、影なし）
-  //   p=0.75: cos=0 → 楕円幅0（下弦半月）
-  const p = phase; // 0=新月, 0.25=上弦, 0.5=満月, 0.75=下弦
-  const k = Math.cos(2 * Math.PI * p);
+  // 正しい月相描画
+  // illum = (1-cos(2π*p))/2 : 0=新月, 0.5=半月, 1=満月
+  // 上弦(p<0.5): 右が光る / 下弦(p>=0.5): 左が光る
+  // 楕円x軸 = r*(2*illum-1): -r(新月)→0(半月)→r(満月)
+  const p = phase;
+  const illum = (1 - Math.cos(2 * Math.PI * p)) / 2; // 0〜1
+  const ex = r * (2 * illum - 1); // -r〜r （負=欠け側、正=光る側）
+
+  // 全体を影で塗る
+  ctx.fillStyle='#060810';
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();
+
+  // グラデーション
+  const moonGrad2=ctx.createRadialGradient(cx-4,cy-4,2,cx,cy,r);
+  moonGrad2.addColorStop(0,'#fffde8');
+  moonGrad2.addColorStop(0.6,'#e8d5a0');
+  moonGrad2.addColorStop(1,'#b89840');
+  ctx.fillStyle=moonGrad2;
+
+  ctx.save();
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.clip();
 
   if(p < 0.5){
-    // 上半期：左側を影にする（右が光る）
-    // まず左半円を影で塗る
+    // 右が光る
     ctx.beginPath();
-    ctx.arc(cx, cy, r, Math.PI/2, -Math.PI/2, false); // 左半円
-    ctx.closePath(); ctx.fill();
-    // 楕円で調整：k>0なら楕円も影（三日月）、k<0なら楕円を光で戻す
+    ctx.arc(cx,cy,r,-Math.PI/2,Math.PI/2,false); // 右半円
+    ctx.closePath();ctx.fill();
+    // 楕円で調整: ex>0→左にも光追加(満月寄り), ex<0→右の光を削る(新月寄り)
     ctx.beginPath();
-    ctx.ellipse(cx, cy, r * Math.abs(k), r, 0, 0, Math.PI*2);
-    if(k > 0){
-      ctx.fill(); // 右側にも影を追加（細い月）
-    } else {
-      ctx.fillStyle = 'transparent'; // 使わない
-    }
+    ctx.ellipse(cx,cy,Math.abs(ex),r,0,0,Math.PI*2);
+    if(ex > 0){ctx.fill();}                          // 左側に光追加
+    else{ctx.fillStyle='#060810';ctx.fill();}        // 右側の光を削る
   } else {
-    // 下半期：右側を影にする（左が光る）
+    // 左が光る
     ctx.beginPath();
-    ctx.arc(cx, cy, r, -Math.PI/2, Math.PI/2, false); // 右半円
-    ctx.closePath(); ctx.fill();
-    // 楕円で調整
+    ctx.arc(cx,cy,r,Math.PI/2,-Math.PI/2,false); // 左半円
+    ctx.closePath();ctx.fill();
     ctx.beginPath();
-    ctx.ellipse(cx, cy, r * Math.abs(k), r, 0, 0, Math.PI*2);
-    if(k > 0){
-      ctx.fill(); // 左側にも影を追加（有明月）
-    }
+    ctx.ellipse(cx,cy,Math.abs(ex),r,0,0,Math.PI*2);
+    if(ex > 0){ctx.fill();}                          // 右側に光追加
+    else{ctx.fillStyle='#060810';ctx.fill();}        // 左側の光を削る
   }
+
+  ctx.restore();
 
   ctx.restore();
 
@@ -525,7 +559,7 @@ function calcSunMoon(){
   const lat=sLat!==null?sLat:T[cur].lat;
   const lng=sLng!==null?sLng:T[cur].lng;
   const sun=sunT(new Date(ds+'T03:00:00Z'),lat,lng); // JST正午=UTC03:00
-  const moon=moonT(ds,lat,lng);
+  const moon=moonTCached(ds,lat,lng);
   document.getElementById('t-sr').textContent=sun?jst(sun.rise):'—';
   document.getElementById('t-ss').textContent=sun?jst(sun.set):'—';
   document.getElementById('t-mr').textContent=jst(moon.rise);
@@ -619,19 +653,26 @@ function drawView(dist,tAz,va){
     ctx.fillStyle=mg;ctx.shadowColor='rgba(200,150,50,.5)';ctx.shadowBlur=mr*0.6;
     ctx.fill();ctx.shadowBlur=0;
 
-    // 影（欠けた部分）
+    // 影（欠けた部分）- 正しいアルゴリズム
     ctx.save();
     ctx.beginPath();ctx.arc(0,0,mr,0,Math.PI*2);ctx.clip();
+    const illum2=(1-Math.cos(2*Math.PI*phase))/2;
+    const ex2=mr*(2*illum2-1);
+    // 全体を影で塗る
     ctx.fillStyle='rgba(6,8,16,.92)';
-    const kk=Math.cos(2*Math.PI*phase);
+    ctx.beginPath();ctx.arc(0,0,mr,0,Math.PI*2);ctx.fill();
+    // 光る半円
+    const mg2=ctx.createRadialGradient(-mr*.3,-mr*.3,1,0,0,mr);
+    mg2.addColorStop(0,'#fffde8');mg2.addColorStop(.5,'#e8d5a0');mg2.addColorStop(1,'#b89840');
+    ctx.fillStyle=mg2;
     if(phase<0.5){
-      // 右が光る：左半円を影
-      ctx.beginPath();ctx.arc(0,0,mr,Math.PI/2,-Math.PI/2,false);ctx.closePath();ctx.fill();
-      if(kk>0){ctx.beginPath();ctx.ellipse(0,0,mr*kk,mr,0,0,Math.PI*2);ctx.fill();}
-    } else {
-      // 左が光る：右半円を影
       ctx.beginPath();ctx.arc(0,0,mr,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();
-      if(kk>0){ctx.beginPath();ctx.ellipse(0,0,mr*kk,mr,0,0,Math.PI*2);ctx.fill();}
+      ctx.beginPath();ctx.ellipse(0,0,Math.abs(ex2),mr,0,0,Math.PI*2);
+      if(ex2>0){ctx.fill();}else{ctx.fillStyle='rgba(6,8,16,.92)';ctx.fill();}
+    } else {
+      ctx.beginPath();ctx.arc(0,0,mr,Math.PI/2,-Math.PI/2,false);ctx.closePath();ctx.fill();
+      ctx.beginPath();ctx.ellipse(0,0,Math.abs(ex2),mr,0,0,Math.PI*2);
+      if(ex2>0){ctx.fill();}else{ctx.fillStyle='rgba(6,8,16,.92)';ctx.fill();}
     }
     ctx.restore();
 
@@ -949,7 +990,7 @@ function suggest(dist,tAz,va){
   const ta=angS(t.h,dist);
   const opt=Math.max(9,Math.min(1600,Math.round(MOON/ta*focal)));
   const ds=document.getElementById('idate').value;
-  const moon=ds?moonT(ds,sLat,sLng):{rise:null,set:null};
+  const moon=ds?moonTCached(ds,sLat,sLng):{rise:null,set:null};
 
   let s='';
   if(dist<1){s=`⚠️ 近すぎます（${dist.toFixed(2)}km）\n月と対象を同フレームに収めるには最低3km以上離れてください。`;}
