@@ -466,9 +466,10 @@ function initMap(){
               return;
             }
           }
+          const decodedText=decodeURIComponent(text);
           const reAt=/@(-?\d+\.?\d*),(-?\d+\.?\d*)/;
           const reQ=/[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/;
-          const m=reAt.exec(text)||reQ.exec(text);
+          const m=reAt.exec(decodedText)||reQ.exec(decodedText);
           if(m){
             sLat=parseFloat(m[1]);
             sLng=parseFloat(m[2]);
