@@ -406,7 +406,7 @@ function moonPos(date,lat,lng){
 }
 
 function moonT(ds,lat,lng){
-  const base=new Date(ds+'T00:00:00Z');
+  const base=new Date(ds+'T00:00:00+09:00'); // JST 0時基準
   let rise=null,set=null,prev=null;
   for(let h=0;h<=25;h+=0.5){
     const t=new Date(base.getTime()+h*3600000);
@@ -575,7 +575,7 @@ function drawView(dist,tAz,va){
   const ts=document.getElementById('itime').value;
   let mAz=null,mAlt=null,moonVisible=false;
   if(ds&&ts&&sLat!==null){
-    const mp=moonPos(new Date(`${ds}T${ts}:00Z`),sLat,sLng);
+    const mp=moonPos(new Date(`${ds}T${ts}:00+09:00`),sLat,sLng);
     mAz=mp.az; mAlt=mp.alt;
     moonVisible=(mAlt>-5);
   }
@@ -891,7 +891,7 @@ function drawCompass(tAz,va){
   // 月方向
   const ds=document.getElementById('idate').value,ts=document.getElementById('itime').value;
   if(ds&&ts){
-    const mp=moonPos(new Date(`${ds}T${ts}:00Z`),sLat,sLng);
+    const mp=moonPos(new Date(`${ds}T${ts}:00+09:00`),sLat,sLng);
     const mr2=(mp.az-90)*Math.PI/180;
     ctx.strokeStyle='#7eb8e8';ctx.lineWidth=1.5;ctx.setLineDash([3,3]);
     ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+(r-12)*Math.cos(mr2),cy+(r-12)*Math.sin(mr2));ctx.stroke();
