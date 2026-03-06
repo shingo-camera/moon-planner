@@ -523,7 +523,7 @@ function calcSunMoon(){
   // 撮影地点があればその座標、なければ選択中の対象座標を使用
   const lat=sLat!==null?sLat:T[cur].lat;
   const lng=sLng!==null?sLng:T[cur].lng;
-  const sun=sunT(new Date(ds+'T12:00:00Z'),lat,lng);
+  const sun=sunT(new Date(ds+'T03:00:00Z'),lat,lng); // JST正午=UTC03:00
   const moon=moonT(ds,lat,lng);
   document.getElementById('t-sr').textContent=sun?jst(sun.rise):'—';
   document.getElementById('t-ss').textContent=sun?jst(sun.set):'—';
@@ -531,7 +531,7 @@ function calcSunMoon(){
   document.getElementById('t-ms').textContent=jst(moon.set);
 
   // 月齢・月相
-  const age=moonAge(new Date(ds+'T12:00:00Z'));
+  const age=moonAge(new Date(ds+'T03:00:00Z'));
   document.getElementById('p-age').innerHTML=`${age.toFixed(1)}<span>日</span>`;
   document.getElementById('p-name').textContent=moonPhaseName(age);
   drawMoonPhase(age);
@@ -605,7 +605,7 @@ function drawView(dist,tAz,va){
   if(moonVisible){
     // 月相計算
     const ds2=document.getElementById('idate').value;
-    const age=ds2?moonAge(new Date(ds2+'T12:00:00Z')):0;
+    const age=ds2?moonAge(new Date(ds2+'T03:00:00Z')):0;
     const phase=age/29.53058867;
 
     ctx.save();
