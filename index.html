@@ -428,6 +428,52 @@ function initMap(){
     }
   });
   new LocCtrl().addTo(map);
+
+  // クリップボードからStreetView URL読み取りボタン
+  const ClipCtrl=L.Control.extend({
+    options:{position:'topright'},
+    onAdd(){
+      const btn=L.DomUtil.create('button','leaflet-bar');
+      btn.title='StreetView URLをクリップボードから読み取り';
+      btn.style.cssText='width:30px;height:30px;background:#111320;border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:#e8eaf0;';
+      btn.innerHTML='📋';
+      L.DomEvent.on(btn,'click',L.DomEvent.stopPropagation);
+      L.DomEvent.on(btn,'click',async()=>{
+        try{
+          const text=await navigator.clipboard.readText();
+          // Google Maps/StreetView URLから緯度経度を抽出
+          // 形式: @緯度,経度, または ?q=緯度,経度
+          const reAt=/@(-?\d+\.?\d*),(-?\d+\.?\d*)/;
+          const reQ=/[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/;
+          const m=reAt.exec(text)||reQ.exec(text);
+          if(m){
+            sLat=parseFloat(m[1]);
+            sLng=parseFloat(m[2]);
+            // 有効な座標範囲チェック
+            if(sLat>=-90&&sLat<=90&&sLng>=-180&&sLng<=180){
+              btn.innerHTML='✅';
+              setTimeout(()=>btn.innerHTML='📋',1500);
+              if(map)map.setView([sLat,sLng],map.getZoom());
+              onPick();
+            }else{
+              btn.innerHTML='❌';
+              setTimeout(()=>btn.innerHTML='📋',1500);
+            }
+          }else{
+            // 無効なテキストは無視（フラッシュのみ）
+            btn.innerHTML='❌';
+            setTimeout(()=>btn.innerHTML='📋',1500);
+          }
+        }catch(e){
+          // 許可拒否などは無視
+          btn.innerHTML='❌';
+          setTimeout(()=>btn.innerHTML='📋',1500);
+        }
+      });
+      return btn;
+    }
+  });
+  new ClipCtrl().addTo(map);
 }
 
 function addTargetPin(){
