@@ -353,6 +353,7 @@ function layout(){
   cv2.style.width=diagW+'px'; cv2.style.height=diagH+'px';
 
   // 再描画
+  if(map) map.invalidateSize();
   if(sLat!==null){
     const t=T[cur];
     const d=hav(sLat,sLng,t.lat,t.lng);
