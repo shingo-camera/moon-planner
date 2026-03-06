@@ -155,7 +155,22 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 /* ダイアグラム側 */
 #diag-wrap{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;}
 
-/* Leafletポップアップ */
+/* 扇形凡例 */
+#fan-legend{
+  position:absolute;top:8px;left:8px;z-index:1000;
+  display:flex;flex-direction:column;gap:3px;
+  pointer-events:none;
+}
+.fan-legend-item{
+  display:flex;align-items:center;gap:5px;
+  background:rgba(10,12,20,.72);
+  border-radius:3px;padding:2px 6px 2px 4px;
+  border-left:3px solid transparent;
+}
+.fan-legend-item span{
+  font-family:'Space Mono',monospace;font-size:9px;
+  color:#111;font-weight:700;white-space:nowrap;
+}
 .leaflet-popup-content-wrapper{background:#181c2e!important;color:#e8eaf0!important;
   border:1px solid #252a40!important;border-radius:7px!important;box-shadow:none!important;}
 .leaflet-popup-tip{background:#181c2e!important;}
@@ -257,6 +272,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
     <div id="mapbox">
       <div id="map"></div>
       <div id="hint">📍 地図をクリックして撮影地点を選択</div>
+      <div id="fan-legend"></div>
     </div>
 
     <!-- プレビューパネル -->
@@ -786,6 +802,16 @@ function drawOneFan(tLat,tLng,azStart,azEnd,color,opacity,label,distMax){
   fanLayers.push(lbl);
 }
 
+function updateFanLegend(items){
+  const el=document.getElementById('fan-legend');
+  if(!el)return;
+  el.innerHTML=items.map(({color,label})=>
+    `<div class="fan-legend-item" style="background:${color}cc;border-left-color:${color};">
+      <span>${label}</span>
+    </div>`
+  ).join('');
+}
+
 function drawFans(ds, moon){
   if(!map)return;
   clearFans();
@@ -811,24 +837,22 @@ function drawFans(ds, moon){
   const DIST_MAX=15;
   const STEP=30*60*1000;
   const SLOTS=4;
+  const legendItems=[];
 
   if(sunsetMode){
-    // ━━ 夕日モード ━━
     const sun=sunT(new Date(ds+'T03:00:00Z'),t.lat,t.lng);
     if(!sun||!sun.set)return;
-    // 日の入り前2時間を30分刻み4枚（濃い→薄い→濃い方向）
     const colors=['#ff6622','#ff8844','#ffaa66','#ffcc88'];
     for(let i=0;i<SLOTS;i++){
       const t0=new Date(sun.set.getTime()-(SLOTS-i)*STEP);
       const t1=new Date(sun.set.getTime()-(SLOTS-i-1)*STEP);
-      // 太陽位置：sunPos相当（簡易）
       const sp0=sunPos(t0,t.lat,t.lng);
       const sp1=sunPos(t1,t.lat,t.lng);
-      const label=`日の入り-${(SLOTS-i)*30}〜-${(SLOTS-i-1)*30}分 (${jst(t0)}〜${jst(t1)})`;
+      const label=`🌅 ${jst(t0)}〜${jst(t1)}`;
       drawOneFan(t.lat,t.lng,sp0.az,sp1.az,colors[i],0.6+i*0.1,label,DIST_MAX);
+      legendItems.push({color:colors[i],label});
     }
   }else{
-    // ━━ 月モード ━━
     if(moon.rise){
       const colors=['#ff9944','#ffbb44','#ffdd88','#ffeeaa'];
       for(let i=0;i<SLOTS;i++){
@@ -836,8 +860,9 @@ function drawFans(ds, moon){
         const t1=new Date(moon.rise.getTime()+(i+1)*STEP);
         const mp0=moonPos(t0,t.lat,t.lng);
         const mp1=moonPos(t1,t.lat,t.lng);
-        const label=`月の出+${i*30}〜+${(i+1)*30}分 (${jst(t0)}〜${jst(t1)})`;
+        const label=`🌕出 ${jst(t0)}〜${jst(t1)}`;
         drawOneFan(t.lat,t.lng,mp0.az,mp1.az,colors[i],0.9-i*0.15,label,DIST_MAX);
+        legendItems.push({color:colors[i],label});
       }
     }
     if(moon.set){
@@ -847,11 +872,13 @@ function drawFans(ds, moon){
         const t1=new Date(moon.set.getTime()-(SLOTS-i-1)*STEP);
         const mp0=moonPos(t0,t.lat,t.lng);
         const mp1=moonPos(t1,t.lat,t.lng);
-        const label=`月の入り-${(SLOTS-i)*30}〜-${(SLOTS-i-1)*30}分 (${jst(t0)}〜${jst(t1)})`;
+        const label=`🌑入 ${jst(t0)}〜${jst(t1)}`;
         drawOneFan(t.lat,t.lng,mp0.az,mp1.az,colors[i],0.6+i*0.1,label,DIST_MAX);
+        legendItems.push({color:colors[i],label});
       }
     }
   }
+  updateFanLegend(legendItems);
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
