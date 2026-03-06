@@ -565,9 +565,8 @@ function drawView(dist,tAz,va){
 
   const vaTop = va;
 
-  // 先端が水平方向中央（cx）に来るよう水平線を動的設定
-  // 先端Y = horizon - vaTop*pyV → 先端をH*0.15に固定
-  const targetTopY  = H * 0.15;
+  // 先端を画面中央（50%）に固定→月が頂上付近に重なるシミュレーションに最適
+  const targetTopY  = H * 0.50;
   const horizon     = targetTopY + vaTop * pyV;
   const targetBaseY = horizon;
 
@@ -633,7 +632,7 @@ function drawView(dist,tAz,va){
 
   // ── 対象シルエット ──
   // 根元Y=targetBaseY、高さ=vaTop*px（対象てっぺんまでのピクセル高）
-  const th=Math.max(vaTop*px, 4);  // てっぺんまでのpx高さ
+  const th=Math.max(vaTop*pyV, 4);  // てっぺんまでのpx高さ（垂直スケール）
 
   // 横幅：実際の物理幅を角度→ピクセルに変換
   // PLの塔：底面幅約60m、岐阜城：山裾幅約180m
@@ -669,10 +668,11 @@ function drawView(dist,tAz,va){
     // 16方位インデックス（0〜15、1方位=22.5°）
     const idx = Math.round(rel / 22.5) % 16;
 
-    const mountainH = th * 0.58;
-    const castleH   = th * 0.42;
+    const mountainH = targetBaseY - targetTopY;  // 山+城の総高さ
+    const castleH   = mountainH * 0.42;
+    const mountainH2= mountainH * 0.58;
     const mBaseY    = targetBaseY;
-    const mTopY     = mBaseY - mountainH;
+    const mTopY     = mBaseY - mountainH2;
     const cBaseY    = mTopY;
 
     // ── 金華山シルエット（方向で稜線変化）──
