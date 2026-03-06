@@ -474,30 +474,40 @@ function drawMoonPhase(age){
   ctx.save();
   ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.clip();
 
-  // phase: 0=新月, 0.25=上弦, 0.5=満月, 0.75=下弦, 1=新月
-  const p=phase;
-  ctx.fillStyle='#060810';
+  // phase: 0=新月, 0.25=上弦, 0.5=満月, 0.75=下弦
+  // 明るい側：p<0.5は右、p>=0.5は左
+  // 楕円の横軸 = r * cos(2π*p)
+  //   p=0: cos=1 → 楕円幅r（影が右半円+楕円でほぼ全体）
+  //   p=0.25: cos=0 → 楕円幅0（ちょうど半月）
+  //   p=0.5: cos=-1 → 楕円幅r（満月、影なし）
+  //   p=0.75: cos=0 → 楕円幅0（下弦半月）
+  const k = Math.cos(2 * Math.PI * p); // 1→0→-1→0→1
 
-  if(p<0.5){
-    // 新月→満月（右側が光る）
-    // 左半円を影で塗る
+  if(p < 0.5){
+    // 上半期：左側を影にする（右が光る）
+    // まず左半円を影で塗る
     ctx.beginPath();
-    ctx.arc(cx,cy,r,-Math.PI/2,Math.PI/2,true); // 左半円
-    ctx.closePath();ctx.fill();
-    // 楕円で調整
-    const k=Math.cos(2*Math.PI*p); // 1→0→-1
+    ctx.arc(cx, cy, r, Math.PI/2, -Math.PI/2, false); // 左半円
+    ctx.closePath(); ctx.fill();
+    // 楕円で調整：k>0なら楕円も影（三日月）、k<0なら楕円を光で戻す
     ctx.beginPath();
-    ctx.ellipse(cx,cy,r*Math.abs(k),r,-Math.PI/2,0,Math.PI*2);
-    if(k>0){ctx.fill();} // まだ欠けている
+    ctx.ellipse(cx, cy, r * Math.abs(k), r, 0, 0, Math.PI*2);
+    if(k > 0){
+      ctx.fill(); // 右側にも影を追加（細い月）
+    } else {
+      ctx.fillStyle = 'transparent'; // 使わない
+    }
   } else {
-    // 満月→新月（左側が光る）
+    // 下半期：右側を影にする（左が光る）
     ctx.beginPath();
-    ctx.arc(cx,cy,r,Math.PI/2,-Math.PI/2,true); // 右半円
-    ctx.closePath();ctx.fill();
-    const k=Math.cos(2*Math.PI*p);
+    ctx.arc(cx, cy, r, -Math.PI/2, Math.PI/2, false); // 右半円
+    ctx.closePath(); ctx.fill();
+    // 楕円で調整
     ctx.beginPath();
-    ctx.ellipse(cx,cy,r*Math.abs(k),r,-Math.PI/2,0,Math.PI*2);
-    if(k<0){ctx.fill();}
+    ctx.ellipse(cx, cy, r * Math.abs(k), r, 0, 0, Math.PI*2);
+    if(k > 0){
+      ctx.fill(); // 左側にも影を追加（有明月）
+    }
   }
 
   ctx.restore();
@@ -531,8 +541,8 @@ function calcSunMoon(){
 // DRAW
 // ───────────────────────────
 function redraw(dist,tAz,va){
-  drawView(dist,tAz,va);
-  drawCompass(tAz,va);
+  try{drawView(dist,tAz,va);}catch(e){console.error('drawView error:',e);}
+  try{drawCompass(tAz,va);}catch(e){console.error('drawCompass error:',e);}
 }
 
 // 視野角プレビュー
@@ -564,11 +574,11 @@ function drawView(dist,tAz,va){
   const pyV = H / fvV;   // 垂直1度あたりpx
   const cx=W/2;
 
-  const vaTop = va;
+  const vaTop = Math.max(va, 0.01); // 0以下防止
 
   // 先端を画面中央（50%）に固定→月が頂上付近に重なるシミュレーションに最適
   const targetTopY  = H * 0.50;
-  const horizon     = targetTopY + vaTop * pyV;
+  const horizon     = Math.min(targetTopY + vaTop * pyV, H * 1.5); // 画面外に出すぎない
   const targetBaseY = horizon;
 
   // ── 月の位置 ──
@@ -612,14 +622,15 @@ function drawView(dist,tAz,va){
     ctx.save();
     ctx.beginPath();ctx.arc(0,0,mr,0,Math.PI*2);ctx.clip();
     ctx.fillStyle='rgba(6,8,16,.92)';
+    const kk=Math.cos(2*Math.PI*phase);
     if(phase<0.5){
-      ctx.beginPath();ctx.arc(0,0,mr,-Math.PI/2,Math.PI/2,true);ctx.closePath();ctx.fill();
-      const k=Math.cos(2*Math.PI*phase);
-      if(k>0){ctx.beginPath();ctx.ellipse(0,0,mr*k,mr,-Math.PI/2,0,Math.PI*2);ctx.fill();}
+      // 右が光る：左半円を影
+      ctx.beginPath();ctx.arc(0,0,mr,Math.PI/2,-Math.PI/2,false);ctx.closePath();ctx.fill();
+      if(kk>0){ctx.beginPath();ctx.ellipse(0,0,mr*kk,mr,0,0,Math.PI*2);ctx.fill();}
     } else {
-      ctx.beginPath();ctx.arc(0,0,mr,Math.PI/2,-Math.PI/2,true);ctx.closePath();ctx.fill();
-      const k=Math.cos(2*Math.PI*phase);
-      if(k<0){ctx.beginPath();ctx.ellipse(0,0,mr*(-k),mr,-Math.PI/2,0,Math.PI*2);ctx.fill();}
+      // 左が光る：右半円を影
+      ctx.beginPath();ctx.arc(0,0,mr,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();
+      if(kk>0){ctx.beginPath();ctx.ellipse(0,0,mr*kk,mr,0,0,Math.PI*2);ctx.fill();}
     }
     ctx.restore();
 
@@ -969,10 +980,12 @@ function setF(v){
   document.getElementById('fslider').value=v;
   document.getElementById('fn').innerHTML=`${v}<span>mm</span>`;
   document.querySelectorAll('.pb').forEach(b=>b.classList.toggle('on',parseInt(b.textContent)===v));
-  if(sLat!==null){
-    const t=T[cur],d=hav(sLat,sLng,t.lat,t.lng),az=brng(sLat,sLng,t.lat,t.lng);
-    drawView(d,az,elAng(d,sElev,t.elev,t.h));
-  } else drawView(5,180,5);
+  try{
+    if(sLat!==null){
+      const t=T[cur],d=hav(sLat,sLng,t.lat,t.lng),az=brng(sLat,sLng,t.lat,t.lng);
+      drawView(d,az,elAng(d,sElev,t.elev,t.h));
+    } else drawView(5,180,5);
+  }catch(e){console.error('setF draw error:',e);}
 }
 
 // ───────────────────────────
@@ -997,9 +1010,11 @@ window.addEventListener('load',()=>{
   });
   const onTimeChange=()=>{
     if(sLat!==null){
-      const t=T[cur],d=hav(sLat,sLng,t.lat,t.lng),az=brng(sLat,sLng,t.lat,t.lng);
-      drawView(d,az,elAng(d,sElev,t.elev,t.h));
-      drawCompass(az,elAng(d,sElev,t.elev,t.h));
+      try{
+        const t=T[cur],d=hav(sLat,sLng,t.lat,t.lng),az=brng(sLat,sLng,t.lat,t.lng);
+        drawView(d,az,elAng(d,sElev,t.elev,t.h));
+        drawCompass(az,elAng(d,sElev,t.elev,t.h));
+      }catch(e){console.error('onTimeChange error:',e);}
     }
   };
   document.getElementById('itime').addEventListener('change', onTimeChange);
