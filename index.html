@@ -81,6 +81,14 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;heigh
 .sg .st{font-family:'Space Mono',monospace;font-size:9px;color:var(--ac);margin-bottom:5px;}
 .sg p{font-size:10px;color:var(--tx);line-height:1.8;white-space:pre-line;}
 
+.phase-box{background:var(--sur2);border:1px solid var(--bd);border-radius:7px;
+  padding:9px 11px;display:flex;align-items:center;gap:12px;}
+#cv-phase{border-radius:50%;flex-shrink:0;}
+.phase-info .lb{font-size:8px;color:var(--sub);font-family:'Space Mono',monospace;margin-bottom:3px;}
+.phase-age{font-family:'Space Mono',monospace;font-size:18px;font-weight:700;color:var(--ac);}
+.phase-age span{font-size:10px;color:var(--sub);margin-left:2px;}
+.phase-name{font-size:11px;color:var(--tx);margin-top:2px;}
+
 /* RIGHT */
 #rgt{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
 #mapbox{flex:1;min-height:0;position:relative;}
@@ -162,6 +170,15 @@ canvas{flex:1;border-radius:4px;background:#060810;display:block;width:100%;heig
         <div class="tmc"><div class="ic2">🌇</div><div><div class="lb">日の入 (SUNSET)</div><div class="tv" id="t-ss">—</div></div></div>
         <div class="tmc"><div class="ic2">🌕</div><div><div class="lb">月の出 (MOONRISE)</div><div class="tv" id="t-mr">—</div></div></div>
         <div class="tmc"><div class="ic2">🌑</div><div><div class="lb">月の入 (MOONSET)</div><div class="tv" id="t-ms">—</div></div></div>
+      </div>
+      <!-- 月齢・月相 -->
+      <div class="phase-box">
+        <canvas id="cv-phase" width="64" height="64"></canvas>
+        <div class="phase-info">
+          <div class="lb">月齢 (MOON AGE)</div>
+          <div class="phase-age" id="p-age">—</div>
+          <div class="phase-name" id="p-name">—</div>
+        </div>
       </div>
     </div>
     <div>
@@ -293,7 +310,7 @@ function brng(a,b,c,d){
 }
 function elAng(dKm,se,te,th){return Math.atan2((te+th)-se,dKm*1000)*180/Math.PI;}
 function angS(hM,dKm){return Math.atan2(hM,dKm*1000)*180/Math.PI;}
-function fovD(f){return 2*Math.atan(36/(2*f))*180/Math.PI;}
+function fovD(f){return 2*Math.atan(36/(2*f))*180/Math.PI;} // 35mm換算（フルサイズ水平36mm）
 // 方位角差（-180〜+180）
 function azDiff(a,b){let d=((b-a)+360)%360;return d>180?d-360:d;}
 const MOON=0.53;
@@ -363,16 +380,105 @@ function jst(d){
   return new Date(d.getTime()+9*3600000).toISOString().substr(11,5);
 }
 
+// ── 月齢計算 ──
+function moonAge(date){
+  // 既知の新月基準日（2000-01-06 18:14 UTC）からの経過
+  const known=new Date('2000-01-06T18:14:00Z');
+  const cycle=29.53058867;
+  const diff=(date-known)/(1000*60*60*24);
+  return((diff%cycle)+cycle)%cycle;
+}
+
+// 月相名
+function moonPhaseName(age){
+  if(age<1.0)  return'新月 🌑';
+  if(age<6.5)  return'三日月 🌒';
+  if(age<8.5)  return'上弦の月 🌓';
+  if(age<13.5) return'十三夜月 🌔';
+  if(age<15.5) return'満月 🌕';
+  if(age<20.5) return'十六夜月 🌖';
+  if(age<22.5) return'下弦の月 🌗';
+  if(age<28.0) return'有明月 🌘';
+  return'新月 🌑';
+}
+
+// 月相をCanvasに描画（日本から見た北半球表示）
+function drawMoonPhase(age){
+  const cv=document.getElementById('cv-phase');
+  const ctx=cv.getContext('2d');
+  const W=64,H=64,cx=32,cy=32,r=28;
+  cv.width=W;cv.height=H;
+  ctx.clearRect(0,0,W,H);
+
+  const phase=age/29.53058867; // 0〜1
+
+  // 背景（宇宙）
+  ctx.fillStyle='#060810';
+  ctx.beginPath();ctx.arc(cx,cy,r+1,0,Math.PI*2);ctx.fill();
+
+  // 月の明るい部分（常に描く）
+  const moonGrad=ctx.createRadialGradient(cx-4,cy-4,2,cx,cy,r);
+  moonGrad.addColorStop(0,'#fffde8');
+  moonGrad.addColorStop(0.6,'#e8d5a0');
+  moonGrad.addColorStop(1,'#b89840');
+  ctx.fillStyle=moonGrad;
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();
+
+  // 影（欠けた部分）をclip+描画
+  ctx.save();
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.clip();
+
+  // phase: 0=新月, 0.25=上弦, 0.5=満月, 0.75=下弦, 1=新月
+  const p=phase;
+  ctx.fillStyle='#060810';
+
+  if(p<0.5){
+    // 新月→満月（右側が光る）
+    // 左半円を影で塗る
+    ctx.beginPath();
+    ctx.arc(cx,cy,r,-Math.PI/2,Math.PI/2,true); // 左半円
+    ctx.closePath();ctx.fill();
+    // 楕円で調整
+    const k=Math.cos(2*Math.PI*p); // 1→0→-1
+    ctx.beginPath();
+    ctx.ellipse(cx,cy,r*Math.abs(k),r,-Math.PI/2,0,Math.PI*2);
+    if(k>0){ctx.fill();} // まだ欠けている
+  } else {
+    // 満月→新月（左側が光る）
+    ctx.beginPath();
+    ctx.arc(cx,cy,r,Math.PI/2,-Math.PI/2,true); // 右半円
+    ctx.closePath();ctx.fill();
+    const k=Math.cos(2*Math.PI*p);
+    ctx.beginPath();
+    ctx.ellipse(cx,cy,r*Math.abs(k),r,-Math.PI/2,0,Math.PI*2);
+    if(k<0){ctx.fill();}
+  }
+
+  ctx.restore();
+
+  // 縁取り
+  ctx.strokeStyle='rgba(200,169,110,.3)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
+}
+
 function calcSunMoon(){
   const ds=document.getElementById('idate').value;
   if(!ds)return;
-  const lat=sLat||T[cur].lat,lng=sLng||T[cur].lng;
+  // 撮影地点があればその座標、なければ選択中の対象座標を使用
+  const lat=sLat!==null?sLat:T[cur].lat;
+  const lng=sLng!==null?sLng:T[cur].lng;
   const sun=sunT(new Date(ds+'T12:00:00Z'),lat,lng);
   const moon=moonT(ds,lat,lng);
   document.getElementById('t-sr').textContent=sun?jst(sun.rise):'—';
   document.getElementById('t-ss').textContent=sun?jst(sun.set):'—';
   document.getElementById('t-mr').textContent=jst(moon.rise);
   document.getElementById('t-ms').textContent=jst(moon.set);
+
+  // 月齢・月相
+  const age=moonAge(new Date(ds+'T12:00:00Z'));
+  document.getElementById('p-age').innerHTML=`${age.toFixed(1)}<span>日</span>`;
+  document.getElementById('p-name').textContent=moonPhaseName(age);
+  drawMoonPhase(age);
 }
 
 // ───────────────────────────
@@ -440,14 +546,41 @@ function drawView(dist,tAz,va){
     moonY=horizon - mAlt*px;
   }
 
-  // 月を描画（対象シルエットの下に描くと隠れるので先に描く）
+  // 月を描画（月相反映）
   const mr=Math.max((MOON/2)*px, 2);
   if(moonVisible){
-    const mg=ctx.createRadialGradient(moonX-mr*.3,moonY-mr*.3,1,moonX,moonY,mr);
-    mg.addColorStop(0,'#fffde8');mg.addColorStop(.4,'#f5e6c8');mg.addColorStop(1,'#c49020');
-    ctx.beginPath();ctx.arc(moonX,moonY,mr,0,6.28);
-    ctx.fillStyle=mg;ctx.shadowColor='rgba(200,150,50,.6)';ctx.shadowBlur=10;
+    // 月相計算
+    const ds2=document.getElementById('idate').value;
+    const age=ds2?moonAge(new Date(ds2+'T12:00:00Z')):0;
+    const phase=age/29.53058867;
+
+    ctx.save();
+    ctx.translate(moonX,moonY);
+
+    // 満月ベース
+    const mg=ctx.createRadialGradient(-mr*.3,-mr*.3,1,0,0,mr);
+    mg.addColorStop(0,'#fffde8');mg.addColorStop(.5,'#e8d5a0');mg.addColorStop(1,'#b89840');
+    ctx.beginPath();ctx.arc(0,0,mr,0,Math.PI*2);
+    ctx.fillStyle=mg;ctx.shadowColor='rgba(200,150,50,.5)';ctx.shadowBlur=mr*0.6;
     ctx.fill();ctx.shadowBlur=0;
+
+    // 影（欠けた部分）
+    ctx.save();
+    ctx.beginPath();ctx.arc(0,0,mr,0,Math.PI*2);ctx.clip();
+    ctx.fillStyle='rgba(6,8,16,.92)';
+    if(phase<0.5){
+      ctx.beginPath();ctx.arc(0,0,mr,-Math.PI/2,Math.PI/2,true);ctx.closePath();ctx.fill();
+      const k=Math.cos(2*Math.PI*phase);
+      if(k>0){ctx.beginPath();ctx.ellipse(0,0,mr*k,mr,-Math.PI/2,0,Math.PI*2);ctx.fill();}
+    } else {
+      ctx.beginPath();ctx.arc(0,0,mr,Math.PI/2,-Math.PI/2,true);ctx.closePath();ctx.fill();
+      const k=Math.cos(2*Math.PI*phase);
+      if(k<0){ctx.beginPath();ctx.ellipse(0,0,mr*(-k),mr,-Math.PI/2,0,Math.PI*2);ctx.fill();}
+    }
+    ctx.restore();
+
+    ctx.restore();
+
     // ラベル
     ctx.fillStyle='rgba(126,184,232,.75)';ctx.font=`8px 'Space Mono',monospace`;
     ctx.textAlign='center';
@@ -457,50 +590,199 @@ function drawView(dist,tAz,va){
   // ── 対象シルエット ──
   // 根元Y=targetBaseY、高さ=vaTop*px（対象てっぺんまでのピクセル高）
   const th=Math.max(vaTop*px, 4);  // てっぺんまでのpx高さ
-  const tw=Math.max(th*0.13, 3);   // 横幅
+
+  // 横幅：実際の物理幅を角度→ピクセルに変換
+  // PLの塔：底面直径約15m、岐阜城：山裾幅約180m
+  const physW = cur==='pl' ? 15 : 180;
+  const tw = Math.max(angS(physW, dist) * px, 2);
 
   ctx.fillStyle='#0e172a';ctx.strokeStyle='rgba(200,169,110,.35)';ctx.lineWidth=.8;
 
   if(cur==='pl'){
-    // PLの塔：塔身＋アンテナ
+    // PLの塔：円筒形の塔に水平リングが重なる特徴的な形状
     const bY=targetBaseY, tY=targetTopY;
-    const antennaH=th*0.08;
-    ctx.beginPath();
-    ctx.moveTo(cx,       tY+antennaH);        // アンテナ根元
-    ctx.lineTo(cx+tw*.5, tY+th*.35);
-    ctx.lineTo(cx+tw*.22,tY+th*.55);
-    ctx.lineTo(cx+tw*.5, bY);
-    ctx.lineTo(cx-tw*.5, bY);
-    ctx.lineTo(cx-tw*.22,tY+th*.55);
-    ctx.lineTo(cx-tw*.5, tY+th*.35);
-    ctx.closePath();ctx.fill();ctx.stroke();
-    // アンテナ
-    ctx.strokeStyle='rgba(200,169,110,.5)';ctx.lineWidth=1;
-    ctx.beginPath();ctx.moveTo(cx,tY+antennaH);ctx.lineTo(cx,tY);ctx.stroke();
-  } else {
-    // 岐阜城：金華山＋天守閣
-    // 山の部分（建物高さの約70%）
-    const mountainH=th*0.55;
-    const castleH=th*0.45;
-    const mBaseY=targetBaseY;
-    const mTopY=targetBaseY-mountainH;
-    ctx.beginPath();
-    ctx.moveTo(cx-tw*2.8,mBaseY);
-    ctx.lineTo(cx,mTopY);
-    ctx.lineTo(cx+tw*2.8,mBaseY);
-    ctx.closePath();ctx.fillStyle='#0a1320';ctx.fill();ctx.strokeStyle='rgba(200,169,110,.2)';ctx.stroke();
-    // 天守閣本体
+    const coreW = tw * 0.28;  // 中央円筒の幅
+
+    // 塔の中心軸（細い円筒）
     ctx.fillStyle='#0e172a';
-    const cw=tw*0.9, ch=castleH*0.65;
-    const cBaseY=mTopY;
-    ctx.fillRect(cx-cw/2,cBaseY-ch,cw,ch);
-    ctx.strokeStyle='rgba(200,169,110,.35)';ctx.strokeRect(cx-cw/2,cBaseY-ch,cw,ch);
-    // 屋根
+    ctx.strokeStyle='rgba(200,169,110,.35)';ctx.lineWidth=.8;
+    ctx.fillRect(cx-coreW/2, tY, coreW, bY-tY);
+    ctx.strokeRect(cx-coreW/2, tY, coreW, bY-tY);
+
+    // 水平リング（特徴的な円盤状の張り出し）
+    // 実際の塔は下から大→小のリングが複数段
+    const rings = [
+      {y:0.15, w:1.0, h:0.045}, // 最上部の大きなリング
+      {y:0.30, w:0.85, h:0.04},
+      {y:0.48, w:0.95, h:0.05}, // 中央付近の大きなリング
+      {y:0.65, w:0.80, h:0.04},
+      {y:0.80, w:0.90, h:0.045},
+    ];
+    rings.forEach(ring=>{
+      const ry = tY + th * ring.y;
+      const rw = tw * ring.w;
+      const rh = Math.max(th * ring.h, 2);
+      ctx.fillStyle='#0e172a';
+      ctx.strokeStyle='rgba(200,169,110,.4)';ctx.lineWidth=.8;
+      // 楕円形の円盤（横長の楕円でリングを表現）
+      ctx.beginPath();
+      ctx.ellipse(cx, ry, rw/2, rh/2, 0, 0, Math.PI*2);
+      ctx.fill();ctx.stroke();
+    });
+
+    // 先端アンテナ
+    ctx.strokeStyle='rgba(200,169,110,.55)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(cx, tY);ctx.lineTo(cx, tY - th*0.07);ctx.stroke();
+
+  } else {
+    // ─────────────────────────────────────────────
+    // 岐阜城：16方位シルエット
+    // 天守の向き：正面＝南西（約225°）を向いている
+    // viewDir = 撮影者から見た天守の「どの面が手前か」
+    //   = (tAz + 180) % 360  （対象→撮影者方向）
+    // ─────────────────────────────────────────────
+    const viewDir = (tAz + 180 + 360) % 360;
+    // 天守正面方向（南西=225°）からの相対角度
+    const FRONT_AZ = 225;
+    // 相対角度 0=正面, 90=右側面(北西), 180=背面, 270=左側面(南東)
+    const rel = ((viewDir - FRONT_AZ) + 360) % 360;
+    // 16方位インデックス（0〜15、1方位=22.5°）
+    const idx = Math.round(rel / 22.5) % 16;
+
+    const mountainH = th * 0.58;
+    const castleH   = th * 0.42;
+    const mBaseY    = targetBaseY;
+    const mTopY     = mBaseY - mountainH;
+    const cBaseY    = mTopY;
+
+    // ── 金華山シルエット（方向で稜線変化）──
+    // 正面方向(南西)：なだらかな稜線、背面(北東)：険しい
+    const mLeft  = tw * (2.5 + 0.8 * Math.cos(rel * Math.PI/180));
+    const mRight = tw * (2.5 + 0.8 * Math.sin((rel+90) * Math.PI/180));
+    const mPeak  = cBaseY; // 山頂=天守基部
+
+    ctx.fillStyle='#0a1320';ctx.strokeStyle='rgba(200,169,110,.15)';ctx.lineWidth=.8;
     ctx.beginPath();
-    ctx.moveTo(cx-cw/2,cBaseY-ch);
-    ctx.lineTo(cx,cBaseY-ch-castleH*0.35);
-    ctx.lineTo(cx+cw/2,cBaseY-ch);
+    ctx.moveTo(cx - Math.abs(mLeft),  mBaseY);
+    ctx.quadraticCurveTo(cx - Math.abs(mLeft)*0.3, mPeak + mountainH*0.25, cx, mPeak);
+    ctx.quadraticCurveTo(cx + Math.abs(mRight)*0.3, mPeak + mountainH*0.25, cx + Math.abs(mRight), mBaseY);
     ctx.closePath();ctx.fill();ctx.stroke();
+
+    // ── 天守閣シルエット（16方位）──
+    // 天守寸法：長辺約14m、短辺約11m（正面=長辺）
+    // 各方位での見かけ幅を cos/sin で計算
+    const LONG  = tw * 1.0;  // 長辺（正面・背面）の見かけ幅
+    const SHORT = tw * 0.78; // 短辺（側面）の見かけ幅
+    const relR  = rel * Math.PI / 180;
+    // 投影幅 = |LONG*cos| + |SHORT*sin|
+    const projW = Math.abs(LONG * Math.cos(relR)) + Math.abs(SHORT * Math.sin(relR));
+
+    // 正面(idx0〜2, 14〜15)か側面(3〜5,11〜13)か背面(6〜10)か判定
+    const isFront  = idx <= 2 || idx >= 14;
+    const isBack   = idx >= 6 && idx <= 10;
+    const isSideR  = idx >= 3 && idx <= 5;   // 右側面（北西側）
+    const isSideL  = idx >= 11 && idx <= 13; // 左側面（南東側）
+    const isDiagFR = idx === 2 || idx === 3;  // 正面右斜め
+    const isDiagFL = idx === 13|| idx === 14; // 正面左斜め
+    const isDiagBR = idx === 5 || idx === 6;  // 背面右斜め
+    const isDiagBL = idx === 10|| idx === 11; // 背面左斜め
+
+    // 層ごとの高さ比率（3層4階：最下層が最大）
+    // 1層: 0〜0.38, 2層: 0.38〜0.68, 3層(望楼): 0.68〜1.0
+    const layers = [
+      {yRatio:0,    hRatio:0.38, wScale:1.00},
+      {yRatio:0.38, hRatio:0.30, wScale:0.82},
+      {yRatio:0.68, hRatio:0.32, wScale:0.65},
+    ];
+
+    ctx.fillStyle='#0e172a';
+    ctx.strokeStyle='rgba(200,169,110,.4)';
+    ctx.lineWidth=0.8;
+
+    layers.forEach((layer, li) => {
+      const lyBase = cBaseY - castleH * layer.yRatio;
+      const lyTop  = cBaseY - castleH * (layer.yRatio + layer.hRatio);
+      const lw     = projW * layer.wScale;
+      const lh     = lyBase - lyTop;
+
+      // 壁面
+      ctx.fillStyle='#0e172a';
+      ctx.fillRect(cx - lw/2, lyTop, lw, lh);
+      ctx.strokeRect(cx - lw/2, lyTop, lw, lh);
+
+      // 屋根（各層の上端に入母屋風屋根）
+      const roofH = lh * (li===2 ? 0.55 : 0.45);
+      ctx.fillStyle='#0c1525';
+      // 入母屋屋根：中央が高く両端は低い
+      const roofW = lw * 1.15;
+
+      if(isFront || isBack){
+        // 正面・背面：切妻側（三角形）
+        ctx.beginPath();
+        ctx.moveTo(cx - roofW/2, lyTop);
+        ctx.lineTo(cx,           lyTop - roofH);
+        ctx.lineTo(cx + roofW/2, lyTop);
+        ctx.closePath();ctx.fill();
+        ctx.strokeStyle='rgba(200,169,110,.45)';ctx.stroke();
+
+        // しゃちほこ（最上層の正面・背面）
+        if(li === 2){
+          const sx = roofW/2 * 0.85;
+          const sy = lyTop - roofH * 0.15;
+          ctx.fillStyle='rgba(200,169,110,.7)';
+          // 左しゃちほこ
+          ctx.beginPath();ctx.arc(cx - sx, sy, Math.max(lh*0.07,1.5), 0, Math.PI*2);ctx.fill();
+          ctx.beginPath();ctx.moveTo(cx-sx, sy);ctx.lineTo(cx-sx-lh*0.05, sy-lh*0.13);ctx.strokeStyle='rgba(200,169,110,.6)';ctx.lineWidth=1;ctx.stroke();
+          // 右しゃちほこ
+          ctx.beginPath();ctx.arc(cx + sx, sy, Math.max(lh*0.07,1.5), 0, Math.PI*2);ctx.fill();
+          ctx.beginPath();ctx.moveTo(cx+sx, sy);ctx.lineTo(cx+sx+lh*0.05, sy-lh*0.13);ctx.stroke();
+        }
+      } else if(isSideR || isSideL){
+        // 側面：寄棟（台形の屋根）
+        ctx.beginPath();
+        ctx.moveTo(cx - roofW/2,    lyTop);
+        ctx.lineTo(cx - roofW*0.12, lyTop - roofH);
+        ctx.lineTo(cx + roofW*0.12, lyTop - roofH);
+        ctx.lineTo(cx + roofW/2,    lyTop);
+        ctx.closePath();ctx.fill();
+        ctx.strokeStyle='rgba(200,169,110,.35)';ctx.stroke();
+        // 棟（横線）
+        ctx.beginPath();ctx.moveTo(cx - roofW*0.12, lyTop-roofH);ctx.lineTo(cx + roofW*0.12, lyTop-roofH);
+        ctx.strokeStyle='rgba(200,169,110,.5)';ctx.lineWidth=0.8;ctx.stroke();
+      } else {
+        // 斜め：入母屋＋寄棟の中間
+        const diagShift = (isSideR||isDiagFR||isDiagBR) ? projW*0.08 : -projW*0.08;
+        ctx.beginPath();
+        ctx.moveTo(cx - roofW/2,         lyTop);
+        ctx.lineTo(cx + diagShift,        lyTop - roofH);
+        ctx.lineTo(cx + roofW/2,          lyTop);
+        ctx.closePath();ctx.fill();
+        ctx.strokeStyle='rgba(200,169,110,.4)';ctx.stroke();
+
+        // 斜め正面ではしゃちほこが片方見える
+        if(li===2 && (isDiagFR||isDiagFL)){
+          const sx = (isDiagFR ? 1 : -1) * roofW/2 * 0.8;
+          const sy = lyTop - roofH * 0.12;
+          ctx.fillStyle='rgba(200,169,110,.65)';
+          ctx.beginPath();ctx.arc(cx + sx, sy, Math.max(lh*0.07,1.5), 0, Math.PI*2);ctx.fill();
+        }
+      }
+    });
+
+    // 石垣（天守台）
+    const swH = castleH * 0.12;
+    ctx.fillStyle='#131d30';ctx.strokeStyle='rgba(200,169,110,.25)';ctx.lineWidth=0.8;
+    ctx.beginPath();
+    ctx.moveTo(cx - projW*0.6, cBaseY);
+    ctx.lineTo(cx - projW*0.55, cBaseY - swH);
+    ctx.lineTo(cx + projW*0.55, cBaseY - swH);
+    ctx.lineTo(cx + projW*0.6, cBaseY);
+    ctx.closePath();ctx.fill();ctx.stroke();
+
+    // 方位ラベル（デバッグ用）
+    const dirNames=['正面(SW)','正面右斜','正面右斜','右斜め','右側面','右斜め後','後斜め','背面(NE)','後斜め','左斜め後','左側面','左斜め','左斜め前','左斜め前','正面左斜','正面左斜'];
+    ctx.fillStyle='rgba(200,169,110,.35)';ctx.font=`7px 'Space Mono',monospace`;ctx.textAlign='center';
+    ctx.fillText(`[${dirNames[idx]}]`,cx, cBaseY - castleH - 6);
   }
 
   // 水平線
@@ -533,7 +815,7 @@ function drawView(dist,tAz,va){
   // 情報ラベル
   ctx.fillStyle='rgba(200,169,110,.5)';ctx.font=`8px 'Space Mono',monospace`;ctx.textAlign='left';
   const tAngStr=angS(t.h,dist).toFixed(3);
-  ctx.fillText(`FOV ${fv.toFixed(1)}°  月 ${MOON}°  ${t.name}てっぺん ${tAngStr}°  仰角 ${vaTop.toFixed(2)}°`,5,H-5);
+  ctx.fillText(`FOV ${fv.toFixed(1)}° (35mm換算)  月 ${MOON}°  ${t.name}てっぺん ${tAngStr}°  仰角 ${vaTop.toFixed(2)}°`,5,H-5);
 }
 
 // ───────────────────────────
