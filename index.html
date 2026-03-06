@@ -907,8 +907,15 @@ function drawView(dist,tAz,va){
   }
 
   const vaTop=Math.max(va,0.01);
-  const targetTopY=H*0.50;
-  const horizon=Math.min(targetTopY+vaTop*pyV,H*1.5);
+  const horizon = Math.min(H * 0.85, H - 10);
+  const targetTopY = Math.max(horizon - vaTop * pyV, 2);
+
+  // 地面
+  ctx.fillStyle='#060e0a';
+  ctx.fillRect(0, horizon, W, H - horizon);
+  // 地平線
+  ctx.strokeStyle='rgba(200,169,110,.2)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(0,horizon);ctx.lineTo(W,horizon);ctx.stroke();
 
   // 天体の位置計算（月 or 太陽）
   const ds=document.getElementById('idate').value;
