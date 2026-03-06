@@ -174,6 +174,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 .btn-time{cursor:pointer;border-bottom:1px dashed var(--ac);transition:color .15s;}
 .btn-time:hover{color:#fff;}
 .btn-time.is-dash{cursor:default;border-bottom:none;}
+.now-btn{cursor:pointer;font-size:9px;color:var(--ac);border:1px solid var(--ac);border-radius:3px;padding:1px 4px;margin-left:4px;opacity:.8;transition:opacity .15s;white-space:nowrap;}
+.now-btn:hover{opacity:1;}
 .leaflet-popup-content-wrapper{background:#181c2e!important;color:#e8eaf0!important;
   border:1px solid #252a40!important;border-radius:7px!important;box-shadow:none!important;}
 .leaflet-popup-tip{background:#181c2e!important;}
@@ -210,7 +212,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
     <div>
       <div class="sec">02 日時</div>
       <div class="ig"><label>DATE</label><input type="date" id="idate"></div>
-      <div class="ig"><label>TIME</label><input type="time" id="itime"></div>
+      <div class="ig"><label>TIME</label><input type="time" id="itime"><span class="now-btn" onclick="setNow()" title="現在時刻をセット">NOW</span></div>
     </div>
     <div>
       <div class="sec">03 焦点距離</div>
@@ -636,65 +638,122 @@ function cdir(d){return['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW'
 function toJD(d){return d.valueOf()/86400000-0.5+2440588;}
 function jd2d(J){return new Date((J-2440588+0.5)*86400000);}
 
-function sunT(date,lat,lng){
-  const J=toJD(date),n=J-2451545;
-  const L=(280.46+0.9856474*n)%360,g=(357.528+0.9856003*n)%360;
-  const lam=L+1.915*Math.sin(g*Math.PI/180)+0.02*Math.sin(2*g*Math.PI/180);
-  const sinD=Math.sin(23.439*Math.PI/180)*Math.sin(lam*Math.PI/180);
-  const dec=Math.asin(sinD);
-  const cosH=(Math.sin(-0.833*Math.PI/180)-Math.sin(lat*Math.PI/180)*sinD)/(Math.cos(lat*Math.PI/180)*Math.cos(dec));
-  if(Math.abs(cosH)>1)return null;
-  const H=Math.acos(cosH)*180/Math.PI;
-  const Jt=2451545+((J-2451545-0.0009-lng/360)%1)+0.0053*Math.sin(g*Math.PI/180);
-  return{rise:jd2d(Jt-H/360),set:jd2d(Jt+H/360)};
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 大気差補正（標準大気：気温10℃、気圧1013hPa）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function refraction(altDeg){
+  if(altDeg>85)return 0;
+  const r=1.02/Math.tan((altDeg+10.3/(altDeg+5.11))*Math.PI/180)/60;
+  return Math.max(0,r);
 }
 
-function moonPos(date,lat,lng){
-  const dn=toJD(date)-2451545;
-  const L=(218.316+13.176396*dn)%360;
-  const M=(134.963+13.064993*dn)%360;
-  const F=(93.272+13.229350*dn)%360;
-  const lam=L+6.289*Math.sin(M*Math.PI/180);
-  const bet=5.128*Math.sin(F*Math.PI/180);
-  const sinD=Math.sin(bet*Math.PI/180)*Math.cos(23.439*Math.PI/180)
-            +Math.cos(bet*Math.PI/180)*Math.sin(23.439*Math.PI/180)*Math.sin(lam*Math.PI/180);
-  const dec=Math.asin(sinD);
-  const ra=Math.atan2(
-    Math.sin(lam*Math.PI/180)*Math.cos(23.439*Math.PI/180)-Math.tan(bet*Math.PI/180)*Math.sin(23.439*Math.PI/180),
-    Math.cos(lam*Math.PI/180)
-  );
-  const gmst=(6.697375+0.0657098242*dn+(date.getUTCHours()+date.getUTCMinutes()/60))%24;
-  const H=((gmst+lng/15)*15-ra*180/Math.PI+360)%360;
-  const sinA=Math.sin(lat*Math.PI/180)*Math.sin(dec)
-            +Math.cos(lat*Math.PI/180)*Math.cos(dec)*Math.cos(H*Math.PI/180);
-  const az=((Math.atan2(
-    Math.sin(H*Math.PI/180),
-    Math.cos(H*Math.PI/180)*Math.sin(lat*Math.PI/180)-Math.tan(dec)*Math.cos(lat*Math.PI/180)
-  )*180/Math.PI)+180)%360;
-  return{alt:Math.asin(sinA)*180/Math.PI,az};
-}
-
-// 太陽の方位角・仰角計算
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 精密太陽位置計算（Meeus Ch.25）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function sunPos(date,lat,lng){
-  const J=toJD(date),n=J-2451545;
-  const L=(280.46+0.9856474*n)%360;
-  const g=(357.528+0.9856003*n)%360;
-  const lam=L+1.915*Math.sin(g*Math.PI/180)+0.02*Math.sin(2*g*Math.PI/180);
-  const sinD=Math.sin(23.439*Math.PI/180)*Math.sin(lam*Math.PI/180);
-  const dec=Math.asin(sinD);
-  const ra=Math.atan2(
-    Math.cos(23.439*Math.PI/180)*Math.sin(lam*Math.PI/180),
-    Math.cos(lam*Math.PI/180)
-  );
-  const gmst=(6.697375+0.0657098242*n+(date.getUTCHours()+date.getUTCMinutes()/60))%24;
-  const H=((gmst+lng/15)*15-ra*180/Math.PI+360)%360;
-  const sinA=Math.sin(lat*Math.PI/180)*sinD
-            +Math.cos(lat*Math.PI/180)*Math.cos(dec)*Math.cos(H*Math.PI/180);
-  const az=((Math.atan2(
-    Math.sin(H*Math.PI/180),
-    Math.cos(H*Math.PI/180)*Math.sin(lat*Math.PI/180)-Math.tan(dec)*Math.cos(lat*Math.PI/180)
-  )*180/Math.PI)+180)%360;
-  return{alt:Math.asin(sinA)*180/Math.PI,az};
+  const JD=toJD(date);
+  const T=(JD-2451545)/36525;
+  const L0=(280.46646+36000.76983*T)%360;
+  const M=(357.52911+35999.05029*T-0.0001537*T*T)*Math.PI/180;
+  const C=(1.914602-0.004817*T-0.000014*T*T)*Math.sin(M)
+         +(0.019993-0.000101*T)*Math.sin(2*M)+0.000289*Math.sin(3*M);
+  const sunLon=(L0+C)*Math.PI/180;
+  const e=23.439291111-(0.013004167+0.0000001639*T)*T;
+  const eR=e*Math.PI/180;
+  const sinL=Math.sin(sunLon),cosL=Math.cos(sunLon);
+  const ra=Math.atan2(Math.cos(eR)*sinL,cosL);
+  const dec=Math.asin(Math.sin(eR)*sinL);
+  // Greenwich恒星時（度）
+  const GMST=(280.46061837+360.98564736629*(JD-2451545)+(0.000387933-T/38710000)*T*T)%360;
+  const H=((GMST+lng-ra*180/Math.PI)%360+360)%360;
+  const Hr=H*Math.PI/180,latr=lat*Math.PI/180;
+  const sinAlt=Math.sin(latr)*Math.sin(dec)+Math.cos(latr)*Math.cos(dec)*Math.cos(Hr);
+  const altRaw=Math.asin(sinAlt)*180/Math.PI;
+  const alt=altRaw+refraction(altRaw);
+  const az=((Math.atan2(Math.sin(Hr),Math.cos(Hr)*Math.sin(latr)-Math.tan(dec)*Math.cos(latr))*180/Math.PI)+180)%360;
+  return{alt,az};
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 精密月位置計算（Meeus Ch.47）
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function moonPos(date,lat,lng){
+  const JD=toJD(date);
+  const T=(JD-2451545)/36525;
+  const D=(297.8501921+445267.1114034*T-0.0018819*T*T+T*T*T/545868)*Math.PI/180;
+  const M=(357.5291092+35999.0502909*T-0.0001536*T*T)*Math.PI/180;
+  const Mp=(134.9633964+477198.8675055*T+0.0087414*T*T+T*T*T/69699)*Math.PI/180;
+  const F=(93.2720950+483202.0175233*T-0.0036539*T*T)*Math.PI/180;
+  const E=1-0.002516*T-0.0000074*T*T;
+  // 月経度主要摂動項
+  const lTerms=[
+    [6288774,0,0,1,0],[1274027,2,0,-1,0],[658314,2,0,0,0],[213618,0,0,2,0],
+    [-185116,0,1,0,0],[-114332,0,0,0,2],[58793,2,0,-2,0],[57066,2,-1,-1,0],
+    [53322,2,0,1,0],[45758,2,-1,0,0],[-40923,0,1,-1,0],[-34720,1,0,0,0],
+    [-30383,0,1,1,0],[15327,2,0,0,-2],[-12528,0,0,1,2],[10980,0,0,1,-2],
+    [10675,4,0,-1,0],[10034,0,0,3,0],[8548,4,0,-2,0],[-7888,2,1,-1,0],
+    [-6766,2,1,0,0],[-5163,1,0,-1,0],[4987,1,1,0,0],[4036,2,-1,1,0],
+    [3994,2,0,2,0],[3861,4,0,0,0],[3665,2,0,-3,0],[-2689,0,1,-2,0],
+    [-2602,2,0,-1,2],[-2348,1,0,1,0],[2236,2,-2,0,0],[-2120,0,1,2,0],
+  ];
+  // 経度・緯度の合計計算
+  let sumL=0,sumB=0;
+  for(const [c,d,m,mp,f] of lTerms){
+    const em=Math.abs(m)===1?E:(Math.abs(m)===2?E*E:1);
+    sumL+=c*em*Math.sin(d*D+m*M+mp*Mp+f*F);
+  }
+  // 緯度主要項
+  const bT=[
+    [5128122,0,0,0,1],[280602,0,0,1,1],[277693,0,0,1,-1],[173237,2,0,0,-1],
+    [55413,2,0,-1,1],[46271,2,0,-1,-1],[32573,2,0,0,1],[17198,0,0,2,1],
+    [9266,2,0,1,-1],[8822,0,0,2,-1],[8216,2,-1,0,-1],[4324,2,0,-2,-1],
+    [4200,2,0,1,1],[-3359,2,1,0,-1],[2463,2,-1,-1,1],[2211,2,-1,0,1],
+  ];
+  for(const [c,d,m,mp,f] of bT){
+    const em=Math.abs(m)===1?E:(Math.abs(m)===2?E*E:1);
+    sumB+=c*em*Math.sin(d*D+m*M+mp*Mp+f*F);
+  }
+  const lam=((218.3164477+481267.88123421*T-0.0015786*T*T)+sumL/1000000)%360;
+  const bet=sumB/1000000;
+  const eObl=23.439291111-(0.013004167+0.0000001639*T)*T;
+  const lamR=lam*Math.PI/180,betR=bet*Math.PI/180,eR=eObl*Math.PI/180;
+  const sinDec=Math.sin(betR)*Math.cos(eR)+Math.cos(betR)*Math.sin(eR)*Math.sin(lamR);
+  const dec=Math.asin(sinDec);
+  const ra=Math.atan2(Math.sin(lamR)*Math.cos(eR)-Math.tan(betR)*Math.sin(eR),Math.cos(lamR));
+  const GMST=(280.46061837+360.98564736629*(toJD(date)-2451545)+(0.000387933-T/38710000)*T*T)%360;
+  const H=((GMST+lng-ra*180/Math.PI)%360+360)%360;
+  const Hr=H*Math.PI/180,latr=lat*Math.PI/180;
+  const sinAlt=Math.sin(latr)*Math.sin(dec)+Math.cos(latr)*Math.cos(dec)*Math.cos(Hr);
+  const altRaw=Math.asin(sinAlt)*180/Math.PI;
+  const alt=altRaw+refraction(altRaw);
+  const az=((Math.atan2(Math.sin(Hr),Math.cos(Hr)*Math.sin(latr)-Math.tan(dec)*Math.cos(latr))*180/Math.PI)+180)%360;
+  return{alt,az};
+}
+
+// 日の出・日の入り計算（精密sunPosを使って反復で求める）
+function sunT(date,lat,lng){
+  const base=new Date(date.toISOString().slice(0,10)+'T00:00:00+09:00');
+  let rise=null,set=null,prev=null,prevT=null;
+  for(let h=0;h<=25.1;h+=5/60){
+    const t=new Date(base.getTime()+h*3600000);
+    const p=sunPos(t,lat,lng);
+    const alt=p.alt-refraction(p.alt); // 大気差を除いた真の仰角で判定（-0.833°基準）
+    const thresh=-0.833;
+    if(prev!==null){
+      if(prev<=thresh&&alt>thresh&&!rise){
+        let lo=prevT,hi=t;
+        for(let i=0;i<8;i++){const mid=new Date((lo.getTime()+hi.getTime())/2);const a=sunPos(mid,lat,lng).alt-refraction(sunPos(mid,lat,lng).alt);if(a>thresh)hi=mid;else lo=mid;}
+        rise=new Date((lo.getTime()+hi.getTime())/2);
+      }
+      if(prev>thresh&&alt<=thresh&&!set){
+        let lo=prevT,hi=t;
+        for(let i=0;i<8;i++){const mid=new Date((lo.getTime()+hi.getTime())/2);const a=sunPos(mid,lat,lng).alt-refraction(sunPos(mid,lat,lng).alt);if(a<thresh)hi=mid;else lo=mid;}
+        set=new Date((lo.getTime()+hi.getTime())/2);
+      }
+    }
+    prev=alt;prevT=t;
+  }
+  return rise||set?{rise,set}:null;
 }
 
 function moonT(ds,lat,lng){
@@ -1404,6 +1463,17 @@ function selTarget(k){
   if(map){map.setView([T[k].lat,T[k].lng],T[k].zoom);addTargetPin();}
   clearFans();
   if(sLat!==null)onPick();else calcSunMoon();
+}
+
+function setNow(){
+  const now=new Date();
+  const jstTime=now.toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false});
+  const timeVal=jstTime.slice(0,5);
+  const itime=document.getElementById('itime');
+  if(itime){
+    itime.value=timeVal;
+    itime.dispatchEvent(new Event('change'));
+  }
 }
 
 function setTimeFromEl(id){
