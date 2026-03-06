@@ -982,7 +982,7 @@ function drawFans(ds, moon){
   if(sunsetMode){
     const sun=sunT(new Date(ds+'T03:00:00Z'),t.lat,t.lng);
     if(!sun||!sun.set)return;
-    const colors=['#ff6622','#ff8844','#ffaa66','#ffcc88'];
+    const colors=['#ffcc88','#ffaa66','#ff8844','#ff6622']; // 日の入りに近いほど濃い
     for(let i=0;i<SLOTS;i++){
       const t0=new Date(sun.set.getTime()-(SLOTS-i)*STEP);
       const t1=new Date(sun.set.getTime()-(SLOTS-i-1)*STEP);
@@ -994,7 +994,7 @@ function drawFans(ds, moon){
     }
   }else{
     if(moon.rise){
-      const colors=['#ff9944','#ffbb44','#ffdd88','#ffeeaa'];
+      const colors=['#ff9944','#ffbb44','#ffdd88','#ffeeaa']; // 月の出直後が濃い（正しい）
       for(let i=0;i<SLOTS;i++){
         const t0=new Date(moon.rise.getTime()+i*STEP);
         const t1=new Date(moon.rise.getTime()+(i+1)*STEP);
@@ -1006,7 +1006,7 @@ function drawFans(ds, moon){
       }
     }
     if(moon.set){
-      const colors=['#44aaff','#44ccff','#88ddff','#aaeeff'];
+      const colors=['#aaeeff','#88ddff','#44ccff','#44aaff']; // 月の入りに近いほど濃い
       for(let i=0;i<SLOTS;i++){
         const t0=new Date(moon.set.getTime()-(SLOTS-i)*STEP);
         const t1=new Date(moon.set.getTime()-(SLOTS-i-1)*STEP);
