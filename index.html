@@ -171,6 +171,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   font-family:'Space Mono',monospace;font-size:9px;
   color:#111;font-weight:700;white-space:nowrap;
 }
+.btn-time{cursor:pointer;border-bottom:1px dashed var(--ac);transition:color .15s;}
+.btn-time:hover{color:#fff;}
+.btn-time.is-dash{cursor:default;border-bottom:none;}
 .leaflet-popup-content-wrapper{background:#181c2e!important;color:#e8eaf0!important;
   border:1px solid #252a40!important;border-radius:7px!important;box-shadow:none!important;}
 .leaflet-popup-tip{background:#181c2e!important;}
@@ -244,10 +247,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
     <div>
       <div class="sec">05 太陽・月</div>
       <div class="t4">
-        <div class="tmc"><div class="ic2">🌅</div><div><div class="lb">日の出</div><div class="tv" id="t-sr">—</div></div></div>
-        <div class="tmc"><div class="ic2">🌇</div><div><div class="lb">日の入</div><div class="tv" id="t-ss">—</div></div></div>
-        <div class="tmc"><div class="ic2">🌕</div><div><div class="lb">月の出</div><div class="tv" id="t-mr">—</div></div></div>
-        <div class="tmc"><div class="ic2">🌑</div><div><div class="lb">月の入</div><div class="tv" id="t-ms">—</div></div></div>
+        <div class="tmc"><div class="ic2">🌅</div><div><div class="lb">日の出</div><div class="tv btn-time" id="t-sr" title="クリックで時刻をセット" onclick="setTimeFromEl('t-sr')">—</div></div></div>
+        <div class="tmc"><div class="ic2">🌇</div><div><div class="lb">日の入</div><div class="tv btn-time" id="t-ss" title="クリックで時刻をセット" onclick="setTimeFromEl('t-ss')">—</div></div></div>
+        <div class="tmc"><div class="ic2">🌕</div><div><div class="lb">月の出</div><div class="tv btn-time" id="t-mr" title="クリックで時刻をセット" onclick="setTimeFromEl('t-mr')">—</div></div></div>
+        <div class="tmc"><div class="ic2">🌑</div><div><div class="lb">月の入</div><div class="tv btn-time" id="t-ms" title="クリックで時刻をセット" onclick="setTimeFromEl('t-ms')">—</div></div></div>
       </div>
       <div class="phase-box">
         <canvas id="cv-phase" width="32" height="32"></canvas>
@@ -281,6 +284,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
       <div id="pv-left">
         <div id="tbtn-col">
           <div id="tbtn-plus">
+            <div class="tbtn" onclick="shiftTime(60)">+60</div>
+            <div class="tbtn" onclick="shiftTime(30)">+30</div>
+            <div class="tbtn" onclick="shiftTime(15)">+15</div>
             <div class="tbtn" onclick="shiftTime(10)">+10</div>
             <div class="tbtn" onclick="shiftTime(5)">+5</div>
             <div class="tbtn" onclick="shiftTime(1)">+1</div>
@@ -290,6 +296,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
             <div class="tbtn" onclick="shiftTime(-1)">−1</div>
             <div class="tbtn" onclick="shiftTime(-5)">−5</div>
             <div class="tbtn" onclick="shiftTime(-10)">−10</div>
+            <div class="tbtn" onclick="shiftTime(-15)">−15</div>
+            <div class="tbtn" onclick="shiftTime(-30)">−30</div>
+            <div class="tbtn" onclick="shiftTime(-60)">−60</div>
           </div>
         </div>
         <div id="pv-cv-wrap">
@@ -1393,6 +1402,20 @@ function selTarget(k){
   if(map){map.setView([T[k].lat,T[k].lng],T[k].zoom);addTargetPin();}
   clearFans();
   if(sLat!==null)onPick();else calcSunMoon();
+}
+
+function setTimeFromEl(id){
+  const el=document.getElementById(id);
+  if(!el)return;
+  const t=el.textContent.trim();
+  if(!t||t==='—')return;
+  const itime=document.getElementById('itime');
+  if(itime){
+    itime.value=t;
+    const td=document.getElementById('tbtn-time-disp');
+    if(td)td.textContent=t;
+    itime.dispatchEvent(new Event('change'));
+  }
 }
 
 function setF(v){
