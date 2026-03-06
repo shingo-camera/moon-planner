@@ -440,9 +440,20 @@ function initMap(){
       L.DomEvent.on(btn,'click',L.DomEvent.stopPropagation);
       L.DomEvent.on(btn,'click',async()=>{
         try{
-          const text=await navigator.clipboard.readText();
-          // Google Maps/StreetView URLから緯度経度を抽出
-          // 形式: @緯度,経度, または ?q=緯度,経度
+          let text=await navigator.clipboard.readText();
+          // 短縮URLの場合はcorsproxy.io経由で展開
+          if(text.includes('maps.app.goo.gl')||text.includes('goo.gl')){
+            btn.innerHTML='⏳';
+            try{
+              const proxy='https://corsproxy.io/?'+encodeURIComponent(text.trim());
+              const res=await fetch(proxy,{redirect:'follow'});
+              text=res.url; // リダイレクト後のURL
+            }catch(e){
+              btn.innerHTML='❌';
+              setTimeout(()=>btn.innerHTML='📋',1500);
+              return;
+            }
+          }
           const reAt=/@(-?\d+\.?\d*),(-?\d+\.?\d*)/;
           const reQ=/[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/;
           const m=reAt.exec(text)||reQ.exec(text);
@@ -1071,6 +1082,20 @@ function drawView(dist,tAz,va){
     ctx.beginPath();
     ctx.moveTo(cx,tY);ctx.lineTo(cx+tw*0.5,bY);ctx.lineTo(cx-tw*0.5,bY);
     ctx.closePath();ctx.fill();ctx.stroke();
+
+    // 縦三分割の横線（塔のどの位置を見ているかの目安）
+    ctx.strokeStyle='rgba(200,169,110,.35)';ctx.lineWidth=0.6;ctx.setLineDash([3,3]);
+    for(let i=1;i<=2;i++){
+      const lineY=tY+(bY-tY)*(i/3);
+      // その高さでの三角形の幅を計算
+      const ratio=(lineY-tY)/(bY-tY);
+      const lineHalfW=tw*0.5*ratio;
+      ctx.beginPath();
+      ctx.moveTo(cx-lineHalfW,lineY);
+      ctx.lineTo(cx+lineHalfW,lineY);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
   }else{
     const viewDir=(tAz+180+360)%360;
     const FRONT_AZ=225;
