@@ -447,7 +447,15 @@ function initMap(){
             try{
               const proxy='https://corsproxy.io/?'+encodeURIComponent(text.trim());
               const res=await fetch(proxy,{redirect:'follow'});
-              text=res.url; // リダイレクト後のURL
+              const body=await res.text();
+              // bodyからGoogle Maps URLを抽出
+              const urlMatch=body.match(/https:\/\/www\.google\.com\/maps[^\s"'<>]+/);
+              if(urlMatch){
+                text=urlMatch[0];
+              }else{
+                // res.urlから試みる
+                text=res.url;
+              }
             }catch(e){
               btn.innerHTML='❌';
               setTimeout(()=>btn.innerHTML='📋',1500);
