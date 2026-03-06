@@ -337,6 +337,7 @@ function shiftTime(minutes){
   el.dispatchEvent(new Event('change'));
 }
 
+function fovD(f){return 2*Math.atan(36/(2*f))*180/Math.PI;}   // 水平FOV（35mm判 36mm幅）
 function fovV(f){return 2*Math.atan(24/(2*f))*180/Math.PI;}   // 垂直FOV（35mm判 24mm高）
 // 方位角差（-180〜+180）
 function azDiff(a,b){let d=((b-a)+360)%360;return d>180?d-360:d;}
