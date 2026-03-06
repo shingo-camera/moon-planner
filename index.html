@@ -964,8 +964,10 @@ function drawView(dist,tAz,va){
   // 対象シルエット
   const th=Math.max(vaTop*pyV,4);
   const physW=cur==='pl'?60:180;
-  // 塔の幅はpyVと同じスケール（焦点距離に依存しない物理角度→ピクセル変換）
-  const tw=Math.max(angS(physW,dist)*pyV,2);
+  // 塔の幅は高さとの物理比率で計算（焦点距離に依存しない）
+  const tAngH=angS(T[cur].h, dist);  // 塔の高さ角度
+  const tAngW=angS(physW, dist);      // 塔の幅角度
+  const tw=Math.max(th*(tAngW/Math.max(tAngH,0.001)),2);
 
   ctx.fillStyle='#0e172a';ctx.strokeStyle='rgba(200,169,110,.35)';ctx.lineWidth=.8;
 
@@ -1259,16 +1261,10 @@ function setF(v){
   if(sl)sl.value=v;
   const fn=document.getElementById('fn');
   if(fn)fn.innerHTML=`${v}<span>mm</span>`;
-  // プリセットボタンのon状態更新（焦点距離ボタンのみ対象）
   document.querySelectorAll('.ps .pb').forEach(b=>{
     b.classList.toggle('on',parseInt(b.textContent)===v);
   });
-  try{
-    if(sLat!==null){
-      const t=T[cur],d=hav(sLat,sLng,t.lat,t.lng),az=brng(sLat,sLng,t.lat,t.lng);
-      drawView(d,az,elAng(d,sElev,t.elev,t.h));
-    }else drawView(5,180,5);
-  }catch(e){console.error('setF draw:',e);}
+  scheduleLayout();
 }
 
 function setOrientation(o){
