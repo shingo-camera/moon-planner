@@ -964,7 +964,8 @@ function drawView(dist,tAz,va){
   // 対象シルエット
   const th=Math.max(vaTop*pyV,4);
   const physW=cur==='pl'?60:180;
-  const tw=Math.max(angS(physW,dist)*px,2);
+  // 塔の幅はpyVと同じスケール（焦点距離に依存しない物理角度→ピクセル変換）
+  const tw=Math.max(angS(physW,dist)*pyV,2);
 
   ctx.fillStyle='#0e172a';ctx.strokeStyle='rgba(200,169,110,.35)';ctx.lineWidth=.8;
 
