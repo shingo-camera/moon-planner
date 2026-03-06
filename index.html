@@ -354,19 +354,15 @@ function layout(){
   pvWrap.style.width  = cvW+'px';
   pvWrap.style.height = pvPanelH+'px';
 
-  // cv1
+  // cv1：常にstyleを強制セット
   const cv1=document.getElementById('cv1');
-  if(cv1.width!==cvW||cv1.height!==cvH){
-    cv1.width=cvW; cv1.height=cvH;
-  }
-  cv1.style.width=cvW+'px'; cv1.style.height=cvH+'px';
+  cv1.width=cvW; cv1.height=cvH;
+  cv1.style.cssText=`width:${cvW}px!important;height:${cvH}px!important;display:block;background:#060810;flex-shrink:0;flex-grow:0;`;
 
-  // cv2
+  // cv2：常にstyleを強制セット
   const cv2=document.getElementById('cv2');
-  if(cv2.width!==diagW||cv2.height!==diagH){
-    cv2.width=diagW; cv2.height=diagH;
-  }
-  cv2.style.width=diagW+'px'; cv2.style.height=diagH+'px';
+  cv2.width=diagW; cv2.height=diagH;
+  cv2.style.cssText=`width:${diagW}px!important;height:${diagH}px!important;display:block;background:#060810;flex-shrink:0;flex-grow:0;`;
 
   // 再描画
   if(map) map.invalidateSize();
@@ -990,11 +986,11 @@ function drawView(dist,tAz,va){
   }
 
   // 対象シルエット
-  const th=Math.max(vaTop*pyV,4);
+  const th=Math.min(Math.max(vaTop*pyV,4), H*2);
   const physW=cur==='pl'?60:180;
-  // 塔の幅は高さとの物理比率で計算（焦点距離に依存しない）
-  const tAngH=angS(T[cur].h, dist);  // 塔の高さ角度
-  const tAngW=angS(physW, dist);      // 塔の幅角度
+  // 塔の幅は高さとの物理比率で計算（焦点距離・距離に依存しない）
+  const tAngH=angS(T[cur].h, dist);
+  const tAngW=angS(physW, dist);
   const tw=Math.max(th*(tAngW/Math.max(tAngH,0.001)),2);
 
   ctx.fillStyle='#0e172a';ctx.strokeStyle='rgba(200,169,110,.35)';ctx.lineWidth=.8;
