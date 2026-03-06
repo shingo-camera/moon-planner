@@ -522,7 +522,9 @@ function redraw(dist,tAz,va){
 // 対象のてっぺん仰角 va、月の仰角 mAlt を同一スケールで描画
 function drawView(dist,tAz,va){
   const cv=document.getElementById('cv1');
-  const W=cv.offsetWidth,H=cv.offsetHeight;
+  const rect=cv.getBoundingClientRect();
+  const W=Math.round(rect.width)||cv.parentElement.clientWidth||300;
+  const H=Math.round(rect.height)||cv.parentElement.clientHeight||200;
   if(!W||!H)return;
   cv.width=W;cv.height=H;
   const ctx=cv.getContext('2d');
@@ -827,7 +829,9 @@ function drawView(dist,tAz,va){
 // ───────────────────────────
 function drawCompass(tAz,va){
   const cv=document.getElementById('cv2');
-  const W=cv.offsetWidth,H=cv.offsetHeight;
+  const rect=cv.getBoundingClientRect();
+  const W=Math.round(rect.width)||cv.parentElement.clientWidth||300;
+  const H=Math.round(rect.height)||cv.parentElement.clientHeight||200;
   if(!W||!H)return;
   cv.width=W;cv.height=H;
   const ctx=cv.getContext('2d');
@@ -970,7 +974,7 @@ window.addEventListener('load',()=>{
     if(map)map.invalidateSize();
     drawView(5,180,5);
     drawCompass(0,0);
-  },400);
+  },800);
 
   document.getElementById('idate').addEventListener('change',()=>{
     calcSunMoon();
