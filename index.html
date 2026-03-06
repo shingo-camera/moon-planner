@@ -481,7 +481,8 @@ function drawMoonPhase(age){
   //   p=0.25: cos=0 → 楕円幅0（ちょうど半月）
   //   p=0.5: cos=-1 → 楕円幅r（満月、影なし）
   //   p=0.75: cos=0 → 楕円幅0（下弦半月）
-  const k = Math.cos(2 * Math.PI * p); // 1→0→-1→0→1
+  const p = phase; // 0=新月, 0.25=上弦, 0.5=満月, 0.75=下弦
+  const k = Math.cos(2 * Math.PI * p);
 
   if(p < 0.5){
     // 上半期：左側を影にする（右が光る）
