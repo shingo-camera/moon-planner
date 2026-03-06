@@ -251,7 +251,7 @@ function initMap(){
 }
 
 function addTargetPin(){
-  if(tMarker)map.removeLayer(tMarker);
+  if(map&&tMarker)map.removeLayer(tMarker);
   const t=T[cur];
   const plSVG = `<svg width="32" height="36" viewBox="0 0 28 32" fill="none" xmlns="http://www.w3.org/2000/svg">
     <polygon points="14,1 27,31 1,31" fill="white" opacity=".9"/>
@@ -271,8 +271,8 @@ function addTargetPin(){
 // ───────────────────────────
 async function onPick(){
   if(!sLat)return;
-  if(sMarker)map.removeLayer(sMarker);
-  if(polyLine)map.removeLayer(polyLine);
+  if(map&&sMarker)map.removeLayer(sMarker);
+  if(map&&polyLine)map.removeLayer(polyLine);
 
   sMarker=L.marker([sLat,sLng],{
     icon:L.divIcon({
@@ -971,8 +971,8 @@ function suggest(dist,tAz,va){
 function selTarget(k){
   cur=k;
   ['pl','gifu'].forEach(id=>document.getElementById('c-'+id).classList.toggle('on',id===k));
-  map.setView([T[k].lat,T[k].lng],T[k].zoom);
-  addTargetPin();
+  if(map)map.setView([T[k].lat,T[k].lng],T[k].zoom);
+  if(map)addTargetPin();
   if(sLat!==null)onPick(); else calcSunMoon();
 }
 
