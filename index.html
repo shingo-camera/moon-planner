@@ -206,7 +206,13 @@ canvas{flex:1;border-radius:4px;background:#060810;display:block;width:100%;heig
       <div id="hint">📍 地図をクリックして撮影地点を選択</div>
     </div>
     <div id="viz">
-      <div class="vs"><div class="vt">◎ 視野角プレビュー（対象 + 月の実際の位置関係）</div><canvas id="cv1"></canvas></div>
+      <div class="vs"><div class="vt" style="display:flex;align-items:center;justify-content:space-between;">
+        <span>◎ 視野角プレビュー（対象 + 月の実際の位置関係）</span>
+        <span style="display:flex;gap:4px;">
+          <span class="pb" id="btn-land" onclick="setOrientation('land')" style="padding:2px 7px;font-size:9px;" class="on">横</span>
+          <span class="pb" id="btn-port" onclick="setOrientation('port')" style="padding:2px 7px;font-size:9px;">縦</span>
+        </span>
+      </div><canvas id="cv1"></canvas></div>
       <div class="vs"><div class="vt">◎ 方角・仰角ダイアグラム</div><canvas id="cv2"></canvas></div>
     </div>
   </div>
@@ -326,6 +332,17 @@ function brng(a,b,c,d){
 }
 function elAng(dKm,se,te,th){return Math.atan2((te+th)-se,dKm*1000)*180/Math.PI;}
 function angS(hM,dKm){return Math.atan2(hM,dKm*1000)*180/Math.PI;}
+let orientation='land'; // 'land'=横構図, 'port'=縦構図
+function setOrientation(o){
+  orientation=o;
+  document.getElementById('btn-land').classList.toggle('on', o==='land');
+  document.getElementById('btn-port').classList.toggle('on', o==='port');
+  if(sLat!==null){
+    const t=T[cur],d=hav(sLat,sLng,t.lat,t.lng),az=brng(sLat,sLng,t.lat,t.lng);
+    drawView(d,az,elAng(d,sElev,t.elev,t.h));
+  } else drawView(5,180,5);
+}
+
 function shiftTime(minutes){
   const el=document.getElementById('itime');
   if(!el.value)return;
@@ -539,23 +556,20 @@ function drawView(dist,tAz,va){
   }
 
   const t=T[cur];
-  const fv=fovD(focal);  // 水平FOV（度）
-  const px=W/fv;         // 水平：1度あたりピクセル
-  const pyV=H/fovV(focal); // 垂直：1度あたりピクセル（3:2センサー基準）
+  // 構図によってFOVのH/Vを入れ替え
+  const fvH = orientation==='land' ? fovD(focal) : fovV(focal);
+  const fvV = orientation==='land' ? fovV(focal) : fovD(focal);
+  const px  = W / fvH;   // 水平1度あたりpx
+  const pyV = H / fvV;   // 垂直1度あたりpx
   const cx=W/2;
 
-  // 水平線のY座標：対象てっぺんがちょうど画面に収まるよう動的に設定
-  // 対象根元の仰角（地面レベル）
-  const vaBase = elAng(dist, sElev, sElev>0?sElev:0, 0); // 地面への仰角≒0付近
-  const vaTop  = va; // 対象てっぺんの仰角
+  const vaTop = va;
 
-  // 水平線を画面下寄りに固定（画面高の75%位置）
-  const horizon = H * 0.75;
-
-  // 対象の根元・てっぺんのピクセルY
-  // 仰角0°=水平線、正=上
+  // 先端が水平方向中央（cx）に来るよう水平線を動的設定
+  // 先端Y = horizon - vaTop*pyV → 先端をH*0.15に固定
+  const targetTopY  = H * 0.15;
+  const horizon     = targetTopY + vaTop * pyV;
   const targetBaseY = horizon;
-  const targetTopY  = horizon - vaTop * pyV;
 
   // ── 月の位置 ──
   const ds=document.getElementById('idate').value;
@@ -821,7 +835,7 @@ function drawView(dist,tAz,va){
   // 情報ラベル
   ctx.fillStyle='rgba(200,169,110,.5)';ctx.font=`8px 'Space Mono',monospace`;ctx.textAlign='left';
   const tAngStr=angS(t.h,dist).toFixed(3);
-  ctx.fillText(`FOV ${fv.toFixed(1)}° (35mm換算)  月 ${MOON}°  ${t.name}てっぺん ${tAngStr}°  仰角 ${vaTop.toFixed(2)}°`,5,H-5);
+  ctx.fillText(`FOV ${fvH.toFixed(1)}° (35mm換算)  月 ${MOON}°  ${t.name}てっぺん ${tAngStr}°  仰角 ${vaTop.toFixed(2)}°`,5,H-5);
 }
 
 // ───────────────────────────
