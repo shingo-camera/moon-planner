@@ -1159,15 +1159,14 @@ function drawView(dist,tAz,va){
   const physW=cur==='pl'?60:180;
   const tAngW=angS(physW, dist);
 
-  // 塔の根元は常に地上線（horizon）に固定
-  // 頂点がH*0.40より上に来る場合は頂点をH*0.40に固定
-  const bY=Math.min(horizon, H);
-  const tYraw=bY-thTrue;
-  const tY=Math.max(tYraw, H*0.40);
-  const thDrawn=bY-tY;
+  // 頂点位置：H*0.40以上に来る場合はH*0.40に固定
+  // 地上線：頂点からthTrue分下（画面外に出てもcanvasがclipする）
+  const tY=Math.min(horizon-thTrue, H*0.40);
+  const bY=tY+thTrue;
 
-  // twはクランプ後のthDrawnに対して計算（角度を常に一定に保つ）
-  const tw=Math.max(thDrawn*(tAngW/Math.max(tAngH,0.001)),2);
+  // twはthTrueに対する比率で計算（焦点距離・距離によらず角度一定）
+  const tw=Math.max(thTrue*(tAngW/Math.max(tAngH,0.001)),2);
+  const thDrawn=bY-tY; // =thTrue（描画はcanvasのclipに任せる）
 
   ctx.fillStyle='#0e172a';ctx.strokeStyle='rgba(200,169,110,.35)';ctx.lineWidth=.8;
 
