@@ -351,6 +351,7 @@ function shiftTime(minutes){
   const nh=Math.floor(((total%1440)+1440)%1440/60);
   const nm=((total%1440)+1440)%1440%60;
   el.value=`${String(nh).padStart(2,'0')}:${String(nm).padStart(2,'0')}`;
+  el.dispatchEvent(new Event('input'));
   el.dispatchEvent(new Event('change'));
 }
 
@@ -994,13 +995,15 @@ window.addEventListener('load',()=>{
     calcSunMoon();
     if(sLat!==null)onPick();
   });
-  document.getElementById('itime').addEventListener('change',()=>{
+  const onTimeChange=()=>{
     if(sLat!==null){
       const t=T[cur],d=hav(sLat,sLng,t.lat,t.lng),az=brng(sLat,sLng,t.lat,t.lng);
       drawView(d,az,elAng(d,sElev,t.elev,t.h));
       drawCompass(az,elAng(d,sElev,t.elev,t.h));
     }
-  });
+  };
+  document.getElementById('itime').addEventListener('change', onTimeChange);
+  document.getElementById('itime').addEventListener('input', onTimeChange);
 
   window.addEventListener('resize',()=>{
     if(map)map.invalidateSize();
