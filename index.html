@@ -446,17 +446,21 @@ function initMap(){
             btn.innerHTML='⏳';
             try{
               const proxy='https://corsproxy.io/?'+encodeURIComponent(text.trim());
+              console.log('[📋] proxy URL:', proxy);
               const res=await fetch(proxy,{redirect:'follow'});
+              console.log('[📋] res.status:', res.status, 'res.url:', res.url);
               const body=await res.text();
-              // bodyからGoogle Maps URLを抽出
+              console.log('[📋] body (first 500):', body.slice(0,500));
               const urlMatch=body.match(/https:\/\/www\.google\.com\/maps[^\s"'<>]+/);
               if(urlMatch){
+                console.log('[📋] matched URL:', urlMatch[0]);
                 text=urlMatch[0];
               }else{
-                // res.urlから試みる
+                console.log('[📋] no match in body, trying res.url');
                 text=res.url;
               }
             }catch(e){
+              console.error('[📋] fetch error:', e);
               btn.innerHTML='❌';
               setTimeout(()=>btn.innerHTML='📋',1500);
               return;
