@@ -1315,6 +1315,7 @@ window.addEventListener('load',()=>{
   setTimeout(()=>{
     if(map)map.invalidateSize();
     layout();
+    calcSunMoon(); // 地図準備完了後に扇形を描画
   },400);
 
   // 日付変更
