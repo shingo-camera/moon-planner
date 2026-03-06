@@ -180,6 +180,14 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
       <div id="c-gifu" class="tc" onclick="selTarget('gifu')">
         <div class="nm">岐阜城</div><div class="co">35.4340°N 136.7818°E</div>
       </div>
+      <div style="margin-top:6px;display:flex;align-items:center;gap:6px;">
+        <input type="checkbox" id="cb-sunset" onchange="setSunsetMode(this.checked)"
+          style="width:14px;height:14px;accent-color:#c8a96e;cursor:pointer;">
+        <label for="cb-sunset" id="lb-sunset"
+          style="font-family:'Space Mono',monospace;font-size:8.5px;color:var(--sub);cursor:pointer;">
+          🌅 夕日モード
+        </label>
+      </div>
     </div>
     <div>
       <div class="sec">02 日時</div>
@@ -288,13 +296,15 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 // STATE
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const T={
-  pl:  {name:'PLの塔',  lat:34.5020969, lng:135.5856078, h:180, e:'pl', zoom:13, elev:102},
-  gifu:{name:'岐阜城',  lat:35.433991,  lng:136.7818189, h:29,  e:'🏯', zoom:14, elev:329}
+  pl:  {name:'PLの塔',  lat:34.502231,  lng:135.585904,  h:180, e:'pl', zoom:13, elev:110},
+  gifu:{name:'岐阜城',  lat:35.433931,  lng:136.782041,  h:29,  e:'🏯', zoom:14, elev:335}
 };
 let cur='pl', focal=400, orientation='land';
 let sLat=null, sLng=null, sElev=0;
 let map, sMarker, tMarker, polyLine;
 let _layoutRAF=null;
+let fanLayers=[];
+let sunsetMode=false; // 夕日モード（PLのみ）
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // LAYOUT
@@ -371,6 +381,38 @@ function initMap(){
   }).addTo(map);
   addTargetPin();
   map.on('click',e=>{sLat=e.latlng.lat;sLng=e.latlng.lng;onPick();});
+
+  // 現在地ボタン（カスタムコントロール）
+  const LocCtrl=L.Control.extend({
+    options:{position:'topright'},
+    onAdd(){
+      const btn=L.DomUtil.create('button','leaflet-bar');
+      btn.title='現在地を撮影地点にセット';
+      btn.style.cssText='width:30px;height:30px;background:#111320;border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:#e8eaf0;';
+      btn.innerHTML='📍';
+      L.DomEvent.on(btn,'click',L.DomEvent.stopPropagation);
+      L.DomEvent.on(btn,'click',()=>{
+        if(!navigator.geolocation){alert('このブラウザはGeolocationに対応していません');return;}
+        btn.innerHTML='⏳';
+        navigator.geolocation.getCurrentPosition(
+          pos=>{
+            sLat=pos.coords.latitude;
+            sLng=pos.coords.longitude;
+            btn.innerHTML='📍';
+            if(map)map.setView([sLat,sLng],map.getZoom());
+            onPick();
+          },
+          err=>{
+            btn.innerHTML='📍';
+            alert('現在地の取得に失敗しました：'+err.message);
+          },
+          {enableHighAccuracy:true,timeout:10000}
+        );
+      });
+      return btn;
+    }
+  });
+  new LocCtrl().addTo(map);
 }
 
 function addTargetPin(){
@@ -385,6 +427,27 @@ function addTargetPin(){
       className:'',iconAnchor:[13,26]
     })
   }).addTo(map).bindPopup(`<b>${t.name}</b><br>高さ ${t.h}m`);
+}
+
+// ポップアップHTMLを生成（方位角渡し）
+function shootingPopupHTML(az){
+  const lat=sLat.toFixed(6), lng=sLng.toFixed(6);
+  const mapsUrl=`https://www.google.com/maps?q=${lat},${lng}`;
+  // ストリートビュー：座標・方位角・仰角0・FOV90
+  const svUrl=`https://www.google.com/maps/@${lat},${lng},3a,90y,${az.toFixed(1)}h,90t/data=!3m1!1e1`;
+  return `
+    <div style="font-family:sans-serif;font-size:11px;min-width:140px;">
+      <b>📷 撮影地点</b><br>
+      <span style="color:#888;font-size:10px;">${lat}, ${lng}</span><br>
+      <div style="margin-top:6px;display:flex;gap:4px;">
+        <a href="${mapsUrl}" target="_blank"
+          style="flex:1;text-align:center;padding:3px 0;background:#4285f4;color:white;
+          border-radius:3px;text-decoration:none;font-size:10px;">🗺 マップ</a>
+        <a href="${svUrl}" target="_blank"
+          style="flex:1;text-align:center;padding:3px 0;background:#34a853;color:white;
+          border-radius:3px;text-decoration:none;font-size:10px;">👁 Street</a>
+      </div>
+    </div>`;
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -415,6 +478,9 @@ async function onPick(){
   const tAz=brng(sLat,sLng,t.lat,t.lng);
   const va=elAng(dist,sElev,t.elev,t.h);
 
+  // ポップアップを方位角込みで更新
+  if(sMarker) sMarker.bindPopup(shootingPopupHTML(tAz));
+
   document.getElementById('i-d').innerHTML=`${dist.toFixed(2)}<span class="u">km</span>`;
   document.getElementById('i-e').innerHTML=`${se.toFixed(0)}<span class="u">m</span>`;
   document.getElementById('i-a').innerHTML=`${tAz.toFixed(1)}<span class="u">°</span>`;
@@ -426,13 +492,13 @@ async function onPick(){
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// ELEVATION
+// ELEVATION（国土地理院）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function getElev(lat,lng){
   try{
-    const r=await fetch(`https://api.open-elevation.com/api/v1/lookup?locations=${lat.toFixed(5)},${lng.toFixed(5)}`);
+    const r=await fetch(`https://cyberjapandata2.gsi.go.jp/general/dem/scripts/getelevation.php?lon=${lng.toFixed(6)}&lat=${lat.toFixed(6)}&outtype=JSON`);
     const j=await r.json();
-    return+(j.results&&j.results[0]?j.results[0].elevation:0)||0;
+    return(j.elevation!==null&&isFinite(j.elevation))?j.elevation:0;
   }catch{return 0;}
 }
 
@@ -451,7 +517,12 @@ function brng(a,b,c,d){
   const x=Math.cos(a*r)*Math.sin(c*r)-Math.sin(a*r)*Math.cos(c*r)*Math.cos(dl);
   return((Math.atan2(y,x)*180/Math.PI)+360)%360;
 }
-function elAng(dKm,se,te,th){return Math.atan2((te+th)-se,dKm*1000)*180/Math.PI;}
+function elAng(dKm,se,te,th){
+  // 地球曲率補正：距離dKmでの地表沈み込み量（m）
+  const R=6371000; // 地球半径(m)
+  const curv=(dKm*1000)**2/(2*R); // 約d²/2R
+  return Math.atan2((te+th)-(se+curv), dKm*1000)*180/Math.PI;
+}
 function angS(hM,dKm){return Math.atan2(hM,dKm*1000)*180/Math.PI;}
 function azDiff(a,b){let d=((b-a)+360)%360;return d>180?d-360:d;}
 function fovD(f){return 2*Math.atan(36/(2*f))*180/Math.PI;}
@@ -495,6 +566,29 @@ function moonPos(date,lat,lng){
   const gmst=(6.697375+0.0657098242*dn+(date.getUTCHours()+date.getUTCMinutes()/60))%24;
   const H=((gmst+lng/15)*15-ra*180/Math.PI+360)%360;
   const sinA=Math.sin(lat*Math.PI/180)*Math.sin(dec)
+            +Math.cos(lat*Math.PI/180)*Math.cos(dec)*Math.cos(H*Math.PI/180);
+  const az=((Math.atan2(
+    Math.sin(H*Math.PI/180),
+    Math.cos(H*Math.PI/180)*Math.sin(lat*Math.PI/180)-Math.tan(dec)*Math.cos(lat*Math.PI/180)
+  )*180/Math.PI)+180)%360;
+  return{alt:Math.asin(sinA)*180/Math.PI,az};
+}
+
+// 太陽の方位角・仰角計算
+function sunPos(date,lat,lng){
+  const J=toJD(date),n=J-2451545;
+  const L=(280.46+0.9856474*n)%360;
+  const g=(357.528+0.9856003*n)%360;
+  const lam=L+1.915*Math.sin(g*Math.PI/180)+0.02*Math.sin(2*g*Math.PI/180);
+  const sinD=Math.sin(23.439*Math.PI/180)*Math.sin(lam*Math.PI/180);
+  const dec=Math.asin(sinD);
+  const ra=Math.atan2(
+    Math.cos(23.439*Math.PI/180)*Math.sin(lam*Math.PI/180),
+    Math.cos(lam*Math.PI/180)
+  );
+  const gmst=(6.697375+0.0657098242*n+(date.getUTCHours()+date.getUTCMinutes()/60))%24;
+  const H=((gmst+lng/15)*15-ra*180/Math.PI+360)%360;
+  const sinA=Math.sin(lat*Math.PI/180)*sinD
             +Math.cos(lat*Math.PI/180)*Math.cos(dec)*Math.cos(H*Math.PI/180);
   const az=((Math.atan2(
     Math.sin(H*Math.PI/180),
@@ -613,6 +707,148 @@ function calcSunMoon(){
   document.getElementById('p-age').innerHTML=`${age.toFixed(1)}<span>日</span>`;
   document.getElementById('p-name').textContent=moonPhaseName(age);
   drawMoonPhase(age);
+  // 扇形を更新
+  if(map) drawFans(ds, moon);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 扇形描画
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function clearFans(){
+  fanLayers.forEach(l=>{try{map.removeLayer(l);}catch(e){}});
+  fanLayers=[];
+}
+
+// 対象から方位azDeg方向にdistKm先の座標を返す
+function destPoint(lat,lng,azDeg,distKm){
+  const R=6371, r=Math.PI/180;
+  const d=distKm/R;
+  const a=azDeg*r;
+  const lat2=Math.asin(Math.sin(lat*r)*Math.cos(d)+Math.cos(lat*r)*Math.sin(d)*Math.cos(a));
+  const lng2=lng*r+Math.atan2(Math.sin(a)*Math.sin(d)*Math.cos(lat*r),Math.cos(d)-Math.sin(lat*r)*Math.sin(lat2));
+  return[lat2/r, lng2/r];
+}
+
+// 扇形を1つ描画（対象から撮影候補方向、月の逆方向）
+function drawOneFan(tLat,tLng,azStart,azEnd,color,opacity,label,distMax){
+  const steps=20;
+  const distMin=2; // 最低2km
+  // azStartからazEndへの扇形
+  // 撮影候補方向 = 月の方位角 + 180°（対象の反対側）
+  const shootAzStart=(azStart+180)%360;
+  const shootAzEnd=(azEnd+180)%360;
+
+  // 扇形の外弧の点列
+  const outerPts=[];
+  for(let i=0;i<=steps;i++){
+    const az=shootAzStart+(shootAzEnd-shootAzStart)*i/steps;
+    outerPts.push(destPoint(tLat,tLng,az,distMax));
+  }
+  // 内弧
+  const innerPts=[];
+  for(let i=steps;i>=0;i--){
+    const az=shootAzStart+(shootAzEnd-shootAzStart)*i/steps;
+    innerPts.push(destPoint(tLat,tLng,az,distMin));
+  }
+  const poly=L.polygon([...outerPts,...innerPts],{
+    color,weight:1,opacity:opacity*1.5,
+    fillColor:color,fillOpacity:opacity*0.35
+  }).addTo(map);
+  fanLayers.push(poly);
+
+  // 境界線（扇の開始線・終了線）
+  const lineStart=[
+    [tLat,tLng],
+    destPoint(tLat,tLng,shootAzStart,distMax)
+  ];
+  const lineEnd=[
+    [tLat,tLng],
+    destPoint(tLat,tLng,shootAzEnd,distMax)
+  ];
+  const ls=L.polyline(lineStart,{color,weight:1.5,opacity:opacity*1.8,dashArray:'4,3'}).addTo(map);
+  const le=L.polyline(lineEnd,{color,weight:1.5,opacity:opacity*1.8,dashArray:'4,3'}).addTo(map);
+  fanLayers.push(ls,le);
+
+  // 時刻ラベル（外弧の中間点）
+  const midAz=shootAzStart+(shootAzEnd-shootAzStart)*0.5;
+  const labelPt=destPoint(tLat,tLng,midAz,distMax*0.88);
+  const lbl=L.marker(labelPt,{
+    icon:L.divIcon({
+      html:`<div style="font-family:'Space Mono',monospace;font-size:10px;color:${color};
+        background:rgba(10,12,20,.75);padding:1px 4px;border-radius:3px;white-space:nowrap;
+        border:1px solid ${color}40;">${label}</div>`,
+      className:'',iconAnchor:[20,8]
+    }),interactive:false
+  }).addTo(map);
+  fanLayers.push(lbl);
+}
+
+function drawFans(ds, moon){
+  if(!map)return;
+  clearFans();
+  const t=T[cur];
+
+  // 同心円（距離目安）
+  [3,5,10,15].forEach(km=>{
+    const pts=[];
+    for(let a=0;a<360;a+=5) pts.push(destPoint(t.lat,t.lng,a,km));
+    const c=L.polyline([...pts,pts[0]],{
+      color:'#7a82a0',weight:0.8,opacity:0.3,dashArray:'2,6'
+    }).addTo(map);
+    const lp=destPoint(t.lat,t.lng,90,km);
+    const cl=L.marker(lp,{
+      icon:L.divIcon({
+        html:`<div style="font-size:8px;color:#7a82a0;font-family:'Space Mono',monospace;">${km}km</div>`,
+        className:'',iconAnchor:[-2,6]
+      }),interactive:false
+    }).addTo(map);
+    fanLayers.push(c,cl);
+  });
+
+  const DIST_MAX=15;
+  const STEP=30*60*1000;
+  const SLOTS=4;
+
+  if(sunsetMode){
+    // ━━ 夕日モード ━━
+    const sun=sunT(new Date(ds+'T03:00:00Z'),t.lat,t.lng);
+    if(!sun||!sun.set)return;
+    // 日の入り前2時間を30分刻み4枚（濃い→薄い→濃い方向）
+    const colors=['#ff6622','#ff8844','#ffaa66','#ffcc88'];
+    for(let i=0;i<SLOTS;i++){
+      const t0=new Date(sun.set.getTime()-(SLOTS-i)*STEP);
+      const t1=new Date(sun.set.getTime()-(SLOTS-i-1)*STEP);
+      // 太陽位置：sunPos相当（簡易）
+      const sp0=sunPos(t0,t.lat,t.lng);
+      const sp1=sunPos(t1,t.lat,t.lng);
+      const label=`日の入り-${(SLOTS-i)*30}〜-${(SLOTS-i-1)*30}分 (${jst(t0)}〜${jst(t1)})`;
+      drawOneFan(t.lat,t.lng,sp0.az,sp1.az,colors[i],0.6+i*0.1,label,DIST_MAX);
+    }
+  }else{
+    // ━━ 月モード ━━
+    if(moon.rise){
+      const colors=['#ff9944','#ffbb44','#ffdd88','#ffeeaa'];
+      for(let i=0;i<SLOTS;i++){
+        const t0=new Date(moon.rise.getTime()+i*STEP);
+        const t1=new Date(moon.rise.getTime()+(i+1)*STEP);
+        const mp0=moonPos(t0,t.lat,t.lng);
+        const mp1=moonPos(t1,t.lat,t.lng);
+        const label=`月の出+${i*30}〜+${(i+1)*30}分 (${jst(t0)}〜${jst(t1)})`;
+        drawOneFan(t.lat,t.lng,mp0.az,mp1.az,colors[i],0.9-i*0.15,label,DIST_MAX);
+      }
+    }
+    if(moon.set){
+      const colors=['#44aaff','#44ccff','#88ddff','#aaeeff'];
+      for(let i=0;i<SLOTS;i++){
+        const t0=new Date(moon.set.getTime()-(SLOTS-i)*STEP);
+        const t1=new Date(moon.set.getTime()-(SLOTS-i-1)*STEP);
+        const mp0=moonPos(t0,t.lat,t.lng);
+        const mp1=moonPos(t1,t.lat,t.lng);
+        const label=`月の入り-${(SLOTS-i)*30}〜-${(SLOTS-i-1)*30}分 (${jst(t0)}〜${jst(t1)})`;
+        drawOneFan(t.lat,t.lng,mp0.az,mp1.az,colors[i],0.6+i*0.1,label,DIST_MAX);
+      }
+    }
+  }
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -648,15 +884,16 @@ function drawView(dist,tAz,va){
   const targetTopY=H*0.50;
   const horizon=Math.min(targetTopY+vaTop*pyV,H*1.5);
 
-  // 月の位置
+  // 天体の位置計算（月 or 太陽）
   const ds=document.getElementById('idate').value;
   const ts=document.getElementById('itime').value;
-  let mAz=null,mAlt=null,moonVisible=false;
+  let mAz=null,mAlt=null,bodyVisible=false;
   if(ds&&ts&&sLat!==null){
     try{
-      const mp=moonPos(new Date(`${ds}T${ts}:00+09:00`),sLat,sLng);
-      mAz=mp.az;mAlt=mp.alt;
-      moonVisible=(mAlt>-5);
+      const dt=new Date(`${ds}T${ts}:00+09:00`);
+      const bp=sunsetMode?sunPos(dt,sLat,sLng):moonPos(dt,sLat,sLng);
+      mAz=bp.az;mAlt=bp.alt;
+      bodyVisible=sunsetMode?(mAlt>-1):(mAlt>-5);
     }catch(e){}
   }
 
@@ -667,40 +904,59 @@ function drawView(dist,tAz,va){
     moonY=horizon-mAlt*pyV;
   }
 
-  // 月描画
+  // 天体描画（月 or 太陽）
   const mr=Math.max((MOON/2)*pyV,2);
-  if(moonVisible){
-    const ds2=document.getElementById('idate').value;
-    const age=ds2?moonAge(new Date(ds2+'T03:00:00Z')):0;
-    const phase=age/29.53058867;
+  if(bodyVisible){
     ctx.save();ctx.translate(moonX,moonY);
-    const mg=ctx.createRadialGradient(-mr*.3,-mr*.3,1,0,0,mr);
-    mg.addColorStop(0,'#fffde8');mg.addColorStop(.5,'#e8d5a0');mg.addColorStop(1,'#b89840');
-    ctx.beginPath();ctx.arc(0,0,mr,0,Math.PI*2);
-    ctx.fillStyle=mg;ctx.shadowColor='rgba(200,150,50,.5)';ctx.shadowBlur=mr*0.6;
-    ctx.fill();ctx.shadowBlur=0;
-    ctx.save();
-    ctx.beginPath();ctx.arc(0,0,mr,0,Math.PI*2);ctx.clip();
-    const illum2=(1-Math.cos(2*Math.PI*phase))/2;
-    const ex2=mr*(2*illum2-1);
-    ctx.fillStyle='rgba(6,8,16,.92)';
-    ctx.beginPath();ctx.arc(0,0,mr,0,Math.PI*2);ctx.fill();
-    const mg2=ctx.createRadialGradient(-mr*.3,-mr*.3,1,0,0,mr);
-    mg2.addColorStop(0,'#fffde8');mg2.addColorStop(.5,'#e8d5a0');mg2.addColorStop(1,'#b89840');
-    ctx.fillStyle=mg2;
-    if(phase<0.5){
-      ctx.beginPath();ctx.arc(0,0,mr,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();
-      ctx.beginPath();ctx.ellipse(0,0,Math.abs(ex2),mr,0,0,Math.PI*2);
-      if(ex2>0){ctx.fill();}else{ctx.fillStyle='rgba(6,8,16,.92)';ctx.fill();}
+    if(sunsetMode){
+      // 太陽：仰角で色変化（低いほど赤）
+      const altRatio=Math.max(0,Math.min(1,(mAlt+2)/15));
+      const r1=255,g1=Math.round(100+altRatio*100),b1=Math.round(altRatio*40);
+      const mg=ctx.createRadialGradient(-mr*.2,-mr*.2,1,0,0,mr);
+      mg.addColorStop(0,`rgb(255,${g1+80},${b1+60})`);
+      mg.addColorStop(0.5,`rgb(${r1},${g1},${b1})`);
+      mg.addColorStop(1,`rgb(${Math.round(r1*0.8)},${Math.round(g1*0.6)},0)`);
+      ctx.beginPath();ctx.arc(0,0,mr,0,Math.PI*2);
+      ctx.fillStyle=mg;
+      ctx.shadowColor=`rgba(255,${g1},0,.6)`;ctx.shadowBlur=mr*1.2;
+      ctx.fill();ctx.shadowBlur=0;
+      ctx.restore();
+      ctx.fillStyle='rgba(255,180,50,.75)';ctx.font=`8px 'Space Mono',monospace`;
+      ctx.textAlign='center';
+      ctx.fillText(`太陽 ${mAlt.toFixed(1)}° / AZ${mAz.toFixed(0)}°`,moonX,moonY-mr-5);
     }else{
-      ctx.beginPath();ctx.arc(0,0,mr,Math.PI/2,-Math.PI/2,false);ctx.closePath();ctx.fill();
-      ctx.beginPath();ctx.ellipse(0,0,Math.abs(ex2),mr,0,0,Math.PI*2);
-      if(ex2>0){ctx.fill();}else{ctx.fillStyle='rgba(6,8,16,.92)';ctx.fill();}
+      // 月（既存の描画）
+      const ds2=document.getElementById('idate').value;
+      const age=ds2?moonAge(new Date(ds2+'T03:00:00Z')):0;
+      const phase=age/29.53058867;
+      const mg=ctx.createRadialGradient(-mr*.3,-mr*.3,1,0,0,mr);
+      mg.addColorStop(0,'#fffde8');mg.addColorStop(.5,'#e8d5a0');mg.addColorStop(1,'#b89840');
+      ctx.beginPath();ctx.arc(0,0,mr,0,Math.PI*2);
+      ctx.fillStyle=mg;ctx.shadowColor='rgba(200,150,50,.5)';ctx.shadowBlur=mr*0.6;
+      ctx.fill();ctx.shadowBlur=0;
+      ctx.save();
+      ctx.beginPath();ctx.arc(0,0,mr,0,Math.PI*2);ctx.clip();
+      const illum2=(1-Math.cos(2*Math.PI*phase))/2;
+      const ex2=mr*(2*illum2-1);
+      ctx.fillStyle='rgba(6,8,16,.92)';
+      ctx.beginPath();ctx.arc(0,0,mr,0,Math.PI*2);ctx.fill();
+      const mg2=ctx.createRadialGradient(-mr*.3,-mr*.3,1,0,0,mr);
+      mg2.addColorStop(0,'#fffde8');mg2.addColorStop(.5,'#e8d5a0');mg2.addColorStop(1,'#b89840');
+      ctx.fillStyle=mg2;
+      if(phase<0.5){
+        ctx.beginPath();ctx.arc(0,0,mr,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();
+        ctx.beginPath();ctx.ellipse(0,0,Math.abs(ex2),mr,0,0,Math.PI*2);
+        if(ex2>0){ctx.fill();}else{ctx.fillStyle='rgba(6,8,16,.92)';ctx.fill();}
+      }else{
+        ctx.beginPath();ctx.arc(0,0,mr,Math.PI/2,-Math.PI/2,false);ctx.closePath();ctx.fill();
+        ctx.beginPath();ctx.ellipse(0,0,Math.abs(ex2),mr,0,0,Math.PI*2);
+        if(ex2>0){ctx.fill();}else{ctx.fillStyle='rgba(6,8,16,.92)';ctx.fill();}
+      }
+      ctx.restore();ctx.restore();
+      ctx.fillStyle='rgba(126,184,232,.75)';ctx.font=`8px 'Space Mono',monospace`;
+      ctx.textAlign='center';
+      ctx.fillText(`月 ${mAlt.toFixed(1)}° / AZ${mAz.toFixed(0)}°`,moonX,moonY-mr-5);
     }
-    ctx.restore();ctx.restore();
-    ctx.fillStyle='rgba(126,184,232,.75)';ctx.font=`8px 'Space Mono',monospace`;
-    ctx.textAlign='center';
-    ctx.fillText(`月 ${mAlt.toFixed(1)}° / AZ${mAz.toFixed(0)}°`,moonX,moonY-mr-5);
   }
 
   // 対象シルエット
@@ -807,17 +1063,21 @@ function drawView(dist,tAz,va){
     ctx.strokeStyle='rgba(200,169,110,.08)';ctx.lineWidth=1;ctx.setLineDash([2,6]);
     ctx.beginPath();ctx.moveTo(0,targetTopY);ctx.lineTo(W,targetTopY);ctx.stroke();ctx.setLineDash([]);
   }
-  // 月がFOV外
-  if(moonVisible&&mAz!==null){
+  // 月/太陽がFOV外
+  if(bodyVisible&&mAz!==null){
     const dAz=azDiff(tAz,mAz);
-    if(Math.abs(dAz)>fvH/2){  // ← fv→fvH に修正
-      ctx.fillStyle='#7eb8e8';ctx.font=`10px 'Space Mono',monospace`;ctx.textAlign='center';
-      ctx.fillText(`${dAz>0?'月 →':'← 月'} (${Math.abs(dAz).toFixed(1)}° FOV外)`,cx,H*0.4);
+    if(Math.abs(dAz)>fvH/2){
+      const label=sunsetMode?'太陽':'月';
+      ctx.fillStyle=sunsetMode?'#ffaa44':'#7eb8e8';
+      ctx.font=`10px 'Space Mono',monospace`;ctx.textAlign='center';
+      ctx.fillText(`${dAz>0?label+' →':'← '+label} (${Math.abs(dAz).toFixed(1)}° FOV外)`,cx,H*0.4);
     }
   }
-  if(!moonVisible&&mAz!==null){
-    ctx.fillStyle='rgba(126,184,232,.5)';ctx.font=`9px 'Space Mono',monospace`;ctx.textAlign='center';
-    ctx.fillText('月は地平線以下',cx,horizon-20);
+  if(!bodyVisible&&mAz!==null){
+    const label=sunsetMode?'太陽は地平線以下':'月は地平線以下';
+    ctx.fillStyle=sunsetMode?'rgba(255,150,50,.5)':'rgba(126,184,232,.5)';
+    ctx.font=`9px 'Space Mono',monospace`;ctx.textAlign='center';
+    ctx.fillText(label,cx,horizon-20);
   }
   // 情報ラベル
   ctx.fillStyle='rgba(200,169,110,.5)';ctx.font=`8px 'Space Mono',monospace`;ctx.textAlign='left';
@@ -871,20 +1131,24 @@ function drawCompass(tAz,va){
   ctx.moveTo(ax,ay);ctx.lineTo(ax-6*Math.cos(tr-.4),ay-6*Math.sin(tr-.4));
   ctx.lineTo(ax-6*Math.cos(tr+.4),ay-6*Math.sin(tr+.4));ctx.closePath();ctx.fill();
 
-  // 月方向
+  // 月or太陽方向
   const ds=document.getElementById('idate').value;
   const ts=document.getElementById('itime').value;
   if(ds&&ts&&sLat!==null){
     try{
-      const mp=moonPos(new Date(`${ds}T${ts}:00+09:00`),sLat,sLng);
-      const mr2=(mp.az-90)*Math.PI/180;
-      ctx.strokeStyle='#7eb8e8';ctx.lineWidth=1.5;ctx.setLineDash([3,3]);
+      const dt=new Date(`${ds}T${ts}:00+09:00`);
+      const bp=sunsetMode?sunPos(dt,sLat,sLng):moonPos(dt,sLat,sLng);
+      const mr2=(bp.az-90)*Math.PI/180;
+      const bodyColor=sunsetMode?'#ffaa44':'#7eb8e8';
+      const bodyIcon=sunsetMode?'☀️':'🌕';
+      ctx.strokeStyle=bodyColor;ctx.lineWidth=1.5;ctx.setLineDash([3,3]);
       ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+(R-12)*Math.cos(mr2),cy+(R-12)*Math.sin(mr2));ctx.stroke();
       ctx.setLineDash([]);
       ctx.font='12px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillText('🌕',cx+(R-4)*Math.cos(mr2),cy+(R-4)*Math.sin(mr2));
-      ctx.fillStyle='rgba(126,184,232,.6)';ctx.font=`7px 'Space Mono',monospace`;
-      ctx.fillText(`${mp.az.toFixed(0)}°`,cx+(R+13)*Math.cos(mr2),cy+(R+13)*Math.sin(mr2));
+      ctx.fillText(bodyIcon,cx+(R-4)*Math.cos(mr2),cy+(R-4)*Math.sin(mr2));
+      ctx.fillStyle=`rgba(${sunsetMode?'255,170,68':'126,184,232'},.6)`;
+      ctx.font=`7px 'Space Mono',monospace`;
+      ctx.fillText(`${bp.az.toFixed(0)}°`,cx+(R+13)*Math.cos(mr2),cy+(R+13)*Math.sin(mr2));
     }catch(e){}
   }
 
@@ -947,6 +1211,21 @@ function suggest(dist,tAz,va){
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // CONTROLS
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function setSunsetMode(v){
+  if(cur!=='pl'){v=false;}
+  sunsetMode=v;
+  const cb=document.getElementById('cb-sunset');
+  const lb=document.getElementById('lb-sunset');
+  if(cb)cb.checked=v;
+  if(lb)lb.style.color=v?'var(--ac)':'var(--sub)';
+  calcSunMoon();
+  if(sLat!==null){
+    const t=T[cur],d=hav(sLat,sLng,t.lat,t.lng),az=brng(sLat,sLng,t.lat,t.lng);
+    try{drawView(d,az,elAng(d,sElev,t.elev,t.h));}catch(e){}
+    try{drawCompass(az,elAng(d,sElev,t.elev,t.h));}catch(e){}
+  }
+}
+
 function selTarget(k){
   if(!T[k])return;
   cur=k;
@@ -954,7 +1233,18 @@ function selTarget(k){
     const el=document.getElementById('c-'+id);
     if(el)el.classList.toggle('on',id===k);
   });
+  // 岐阜城選択時は夕日モード強制オフ＆disabled
+  const cb=document.getElementById('cb-sunset');
+  const lb=document.getElementById('lb-sunset');
+  if(k==='gifu'){
+    sunsetMode=false;
+    if(cb){cb.checked=false;cb.disabled=true;cb.style.opacity='0.3';cb.style.cursor='not-allowed';}
+    if(lb)lb.style.color='var(--sub)';
+  }else{
+    if(cb){cb.disabled=false;cb.style.opacity='1';cb.style.cursor='pointer';}
+  }
   if(map){map.setView([T[k].lat,T[k].lng],T[k].zoom);addTargetPin();}
+  clearFans();
   if(sLat!==null)onPick();else calcSunMoon();
 }
 
