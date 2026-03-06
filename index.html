@@ -144,6 +144,14 @@ canvas{flex:1;border-radius:4px;background:#060810;display:block;width:100%;heig
         <div class="ig"><label>日付 (DATE)</label><input type="date" id="idate"></div>
         <div class="ig"><label>時刻 (TIME)</label><input type="time" id="itime" value="19:00"></div>
       </div>
+      <div class="ps" style="margin-top:6px;">
+        <div class="pb" onclick="shiftTime(-10)">−10m</div>
+        <div class="pb" onclick="shiftTime(-5)">−5m</div>
+        <div class="pb" onclick="shiftTime(-1)">−1m</div>
+        <div class="pb" onclick="shiftTime(1)">+1m</div>
+        <div class="pb" onclick="shiftTime(5)">+5m</div>
+        <div class="pb" onclick="shiftTime(10)">+10m</div>
+      </div>
     </div>
     <div>
       <div class="sec">03 — 焦点距離</div>
@@ -318,7 +326,17 @@ function brng(a,b,c,d){
 }
 function elAng(dKm,se,te,th){return Math.atan2((te+th)-se,dKm*1000)*180/Math.PI;}
 function angS(hM,dKm){return Math.atan2(hM,dKm*1000)*180/Math.PI;}
-function fovD(f){return 2*Math.atan(36/(2*f))*180/Math.PI;}   // 水平FOV（35mm判 36mm幅）
+function shiftTime(minutes){
+  const el=document.getElementById('itime');
+  if(!el.value)return;
+  const [h,m]=el.value.split(':').map(Number);
+  const total=h*60+m+minutes;
+  const nh=Math.floor(((total%1440)+1440)%1440/60);
+  const nm=((total%1440)+1440)%1440%60;
+  el.value=`${String(nh).padStart(2,'0')}:${String(nm).padStart(2,'0')}`;
+  el.dispatchEvent(new Event('change'));
+}
+
 function fovV(f){return 2*Math.atan(24/(2*f))*180/Math.PI;}   // 垂直FOV（35mm判 24mm高）
 // 方位角差（-180〜+180）
 function azDiff(a,b){let d=((b-a)+360)%360;return d>180?d-360:d;}
