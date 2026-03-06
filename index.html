@@ -1158,14 +1158,16 @@ function drawView(dist,tAz,va){
   const thTrue=tAngH*pyV; // 距離ベースの塔の高さピクセル
   const physW=cur==='pl'?60:180;
   const tAngW=angS(physW, dist);
-  const tw=Math.max(thTrue*(tAngW/Math.max(tAngH,0.001)),2);
 
   // 塔の根元は常に地上線（horizon）に固定
   // 頂点がH*0.40より上に来る場合は頂点をH*0.40に固定
-  const bY=Math.min(horizon, H); // 根元＝地上線
-  const tYraw=bY-thTrue;         // 本来の頂点位置
-  const tY=Math.max(tYraw, H*0.40); // 頂点クランプ
+  const bY=Math.min(horizon, H);
+  const tYraw=bY-thTrue;
+  const tY=Math.max(tYraw, H*0.40);
   const thDrawn=bY-tY;
+
+  // twはクランプ後のthDrawnに対して計算（角度を常に一定に保つ）
+  const tw=Math.max(thDrawn*(tAngW/Math.max(tAngH,0.001)),2);
 
   ctx.fillStyle='#0e172a';ctx.strokeStyle='rgba(200,169,110,.35)';ctx.lineWidth=.8;
 
