@@ -214,7 +214,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
           style="width:14px;height:14px;accent-color:#c8a96e;cursor:pointer;">
         <label for="cb-sunset" id="lb-sunset"
           style="font-family:'Space Mono',monospace;font-size:8.5px;color:var(--sub);cursor:pointer;">
-          🌅 夕日モード
+          夕日モード
         </label>
       </div>
     </div>
@@ -822,15 +822,15 @@ function moonAge(date){
 }
 
 function moonPhaseName(age){
-  if(age<1.0) return'新月 🌑';
-  if(age<6.5) return'三日月 🌒';
-  if(age<8.5) return'上弦の月 🌓';
-  if(age<13.5)return'十三夜月 🌔';
-  if(age<15.5)return'満月 🌕';
-  if(age<20.5)return'十六夜月 🌖';
-  if(age<22.5)return'下弦の月 🌗';
-  if(age<28.0)return'有明月 🌘';
-  return'新月 🌑';
+  if(age<1.0) return'新月';
+  if(age<6.5) return'三日月';
+  if(age<8.5) return'上弦の月';
+  if(age<13.5)return'十三夜月';
+  if(age<15.5)return'満月';
+  if(age<20.5)return'十六夜月';
+  if(age<22.5)return'下弦の月';
+  if(age<28.0)return'有明月';
+  return'新月';
 }
 
 function drawMoonPhase(age){
