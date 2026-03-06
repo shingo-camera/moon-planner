@@ -126,7 +126,10 @@ canvas{flex:1;border-radius:4px;background:#060810;display:block;width:100%;heig
       <div class="sec">01 — 撮影対象</div>
       <div class="tg">
         <div class="tc on" id="c-pl" onclick="selTarget('pl')">
-          <div class="ei">🗼</div><div class="nm">PLの塔</div>
+          <div class="ei"><svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <polygon points="14,1 26,27 2,27" fill="white" opacity=".85"/>
+          </svg></div>
+          <div class="nm">PLの塔</div>
           <div class="co">34.5021°N 135.5856°E</div>
         </div>
         <div class="tc" id="c-gifu" onclick="selTarget('gifu')">
@@ -208,8 +211,8 @@ canvas{flex:1;border-radius:4px;background:#060810;display:block;width:100%;heig
 // STATE
 // ───────────────────────────
 const T={
-  pl:  {name:'PLの塔', lat:34.5020969, lng:135.5856078,h:180,e:'🗼',zoom:13},
-  gifu:{name:'岐阜城',lat:35.433991,  lng:136.7818189,h:29, e:'🏯',zoom:14}
+  pl:  {name:'PLの塔', lat:34.5020969, lng:135.5856078,h:180,e:'pl', zoom:13,elev:102},
+  gifu:{name:'岐阜城',lat:35.433991,  lng:136.7818189,h:29, e:'🏯',zoom:14,elev:329}
 };
 let cur='pl',focal=400;
 let sLat=null,sLng=null,sElev=0;
@@ -236,9 +239,14 @@ function initMap(){
 function addTargetPin(){
   if(tMarker)map.removeLayer(tMarker);
   const t=T[cur];
+  const plSVG = `<svg width="32" height="36" viewBox="0 0 28 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <polygon points="14,1 27,31 1,31" fill="white" opacity=".9"/>
+  </svg>`;
   tMarker=L.marker([t.lat,t.lng],{
     icon:L.divIcon({
-      html:`<div style="font-size:26px;line-height:1;filter:drop-shadow(0 0 4px gold)">${t.e}</div>`,
+      html: t.e==='pl'
+        ? `<div style="filter:drop-shadow(0 0 4px gold)">${plSVG}</div>`
+        : `<div style="font-size:26px;line-height:1;filter:drop-shadow(0 0 4px gold)">${t.e}</div>`,
       className:'',iconAnchor:[13,26]
     })
   }).addTo(map).bindPopup(`<b>${t.name}</b><br>高さ ${t.h}m`);
@@ -265,15 +273,15 @@ async function onPick(){
 
   // 計算（標高はフォールバック付き）
   document.getElementById('i-e').textContent='取得中…';
-  const [se,te]=await Promise.all([getElev(sLat,sLng),getElev(t.lat,t.lng)]);
-  sElev=se;
+  const [se,te]=await Promise.all([getElev(sLat,sLng),Promise.resolve(t.elev)]);
+  sElev=se + 1.5; // 三脚込みカメラ高1.5m加算
 
   const dist=hav(sLat,sLng,t.lat,t.lng);
   const tAz=brng(sLat,sLng,t.lat,t.lng);   // 撮影地→対象の方位角
   const va=elAng(dist,se,te,t.h);           // 対象への仰角
 
   document.getElementById('i-d').innerHTML=`${dist.toFixed(2)}<span class="u">km</span>`;
-  document.getElementById('i-e').innerHTML=`${se.toFixed(0)}<span class="u">m</span>`;
+  document.getElementById('i-e').innerHTML=`${se.toFixed(0)}<span class="u">m</span> <span style="font-size:9px;color:var(--sub)">(+1.5m三脚)</span>`;
   document.getElementById('i-a').innerHTML=`${tAz.toFixed(1)}<span class="u">° ${cdir(tAz)}</span>`;
   document.getElementById('i-v').innerHTML=`${va.toFixed(2)}<span class="u">°</span>`;
 
@@ -310,7 +318,8 @@ function brng(a,b,c,d){
 }
 function elAng(dKm,se,te,th){return Math.atan2((te+th)-se,dKm*1000)*180/Math.PI;}
 function angS(hM,dKm){return Math.atan2(hM,dKm*1000)*180/Math.PI;}
-function fovD(f){return 2*Math.atan(36/(2*f))*180/Math.PI;} // 35mm換算（フルサイズ水平36mm）
+function fovD(f){return 2*Math.atan(36/(2*f))*180/Math.PI;}   // 水平FOV（35mm判 36mm幅）
+function fovV(f){return 2*Math.atan(24/(2*f))*180/Math.PI;}   // 垂直FOV（35mm判 24mm高）
 // 方位角差（-180〜+180）
 function azDiff(a,b){let d=((b-a)+360)%360;return d>180?d-360:d;}
 const MOON=0.53;
@@ -510,8 +519,8 @@ function drawView(dist,tAz,va){
 
   const t=T[cur];
   const fv=fovD(focal);  // 水平FOV（度）
-  const px=W/fv;         // 1度あたりピクセル（水平）
-  // 垂直方向も同じスケール（正方形ピクセル）
+  const px=W/fv;         // 水平：1度あたりピクセル
+  const pyV=H/fovV(focal); // 垂直：1度あたりピクセル（3:2センサー基準）
   const cx=W/2;
 
   // 水平線のY座標：対象てっぺんがちょうど画面に収まるよう動的に設定
@@ -524,8 +533,8 @@ function drawView(dist,tAz,va){
 
   // 対象の根元・てっぺんのピクセルY
   // 仰角0°=水平線、正=上
-  const targetBaseY = horizon;                    // 根元は水平線上（地面）
-  const targetTopY  = horizon - vaTop * px;       // てっぺん
+  const targetBaseY = horizon;
+  const targetTopY  = horizon - vaTop * pyV;
 
   // ── 月の位置 ──
   const ds=document.getElementById('idate').value;
@@ -543,11 +552,11 @@ function drawView(dist,tAz,va){
   if(mAz!==null){
     const dAz=azDiff(tAz,mAz);
     moonX=cx + dAz*px;
-    moonY=horizon - mAlt*px;
+    moonY=horizon - mAlt*pyV;
   }
 
   // 月を描画（月相反映）
-  const mr=Math.max((MOON/2)*px, 2);
+  const mr=Math.max((MOON/2)*pyV, 2);
   if(moonVisible){
     // 月相計算
     const ds2=document.getElementById('idate').value;
@@ -592,47 +601,23 @@ function drawView(dist,tAz,va){
   const th=Math.max(vaTop*px, 4);  // てっぺんまでのpx高さ
 
   // 横幅：実際の物理幅を角度→ピクセルに変換
-  // PLの塔：底面直径約15m、岐阜城：山裾幅約180m
-  const physW = cur==='pl' ? 15 : 180;
+  // PLの塔：底面幅約60m、岐阜城：山裾幅約180m
+  const physW = cur==='pl' ? 60 : 180;
   const tw = Math.max(angS(physW, dist) * px, 2);
 
   ctx.fillStyle='#0e172a';ctx.strokeStyle='rgba(200,169,110,.35)';ctx.lineWidth=.8;
 
   if(cur==='pl'){
-    // PLの塔：円筒形の塔に水平リングが重なる特徴的な形状
+    // PLの塔：二等辺三角形に近いシルエット
     const bY=targetBaseY, tY=targetTopY;
-    const coreW = tw * 0.28;  // 中央円筒の幅
 
-    // 塔の中心軸（細い円筒）
     ctx.fillStyle='#0e172a';
-    ctx.strokeStyle='rgba(200,169,110,.35)';ctx.lineWidth=.8;
-    ctx.fillRect(cx-coreW/2, tY, coreW, bY-tY);
-    ctx.strokeRect(cx-coreW/2, tY, coreW, bY-tY);
-
-    // 水平リング（特徴的な円盤状の張り出し）
-    // 実際の塔は下から大→小のリングが複数段
-    const rings = [
-      {y:0.15, w:1.0, h:0.045}, // 最上部の大きなリング
-      {y:0.30, w:0.85, h:0.04},
-      {y:0.48, w:0.95, h:0.05}, // 中央付近の大きなリング
-      {y:0.65, w:0.80, h:0.04},
-      {y:0.80, w:0.90, h:0.045},
-    ];
-    rings.forEach(ring=>{
-      const ry = tY + th * ring.y;
-      const rw = tw * ring.w;
-      const rh = Math.max(th * ring.h, 2);
-      ctx.fillStyle='#0e172a';
-      ctx.strokeStyle='rgba(200,169,110,.4)';ctx.lineWidth=.8;
-      // 楕円形の円盤（横長の楕円でリングを表現）
-      ctx.beginPath();
-      ctx.ellipse(cx, ry, rw/2, rh/2, 0, 0, Math.PI*2);
-      ctx.fill();ctx.stroke();
-    });
-
-    // 先端アンテナ
-    ctx.strokeStyle='rgba(200,169,110,.55)';ctx.lineWidth=1;
-    ctx.beginPath();ctx.moveTo(cx, tY);ctx.lineTo(cx, tY - th*0.07);ctx.stroke();
+    ctx.strokeStyle='rgba(200,169,110,.5)';ctx.lineWidth=.8;
+    ctx.beginPath();
+    ctx.moveTo(cx, tY);
+    ctx.lineTo(cx + tw*0.50, bY);
+    ctx.lineTo(cx - tw*0.50, bY);
+    ctx.closePath();ctx.fill();ctx.stroke();
 
   } else {
     // ─────────────────────────────────────────────
