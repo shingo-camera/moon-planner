@@ -58,6 +58,16 @@ html,body{height:100%;background:var(--bg);color:var(--tx);
   padding:4px 6px;color:var(--tx);font-family:'Space Mono',monospace;
   font-size:11px;outline:none;width:100%;}
 .ig input:focus{border-color:var(--ac);}
+.ig input[type=date]::-webkit-calendar-picker-indicator,
+.ig input[type=time]::-webkit-calendar-picker-indicator{
+  filter:invert(1);cursor:pointer;opacity:0.7;
+}
+.ig input[type=date]::-webkit-calendar-picker-indicator:hover,
+.ig input[type=time]::-webkit-calendar-picker-indicator:hover{opacity:1;}
+.ig-row{display:flex;align-items:center;gap:4px;}
+.ig-row input{flex:1;min-width:0;}
+.ig-row input[type=date]{width:100%;}
+.ig-row input[type=time]{width:100%;}
 
 /* 焦点距離 */
 .fn{font-family:'Space Mono',monospace;font-size:18px;color:var(--ac);
@@ -82,18 +92,17 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 /* 撮影地点情報 */
 .ig4{display:grid;grid-template-columns:1fr 1fr;gap:3px;}
 .ic{background:var(--sur2);border:1px solid var(--bd);border-radius:4px;padding:4px 5px;}
-.ic .lb{font-size:7.5px;color:var(--sub);font-family:'Space Mono',monospace;margin-bottom:1px;}
-.ic .vl{font-family:'Space Mono',monospace;font-size:11px;font-weight:700;}
-.ic .u{font-size:7px;color:var(--sub);}
+.ic .lb{font-size:9px;color:var(--sub);font-family:'Space Mono',monospace;margin-bottom:1px;}
+.ic .vl{font-family:'Space Mono',monospace;font-size:13px;font-weight:700;}
+.ic .u{font-size:8px;color:var(--sub);}
 .gold{color:var(--ac);}.blue{color:var(--ac2);}
 
 /* 太陽・月 */
 .t4{display:grid;grid-template-columns:1fr 1fr;gap:3px;}
 .tmc{background:var(--sur2);border:1px solid var(--bd);border-radius:4px;
-  padding:4px 5px;display:flex;align-items:center;gap:3px;}
-.tmc .ic2{font-size:12px;line-height:1;}
-.tmc .lb{font-size:7.5px;color:var(--sub);font-family:'Space Mono',monospace;}
-.tmc .tv{font-family:'Space Mono',monospace;font-size:11px;font-weight:700;color:var(--ac);}
+  padding:5px 7px;display:flex;flex-direction:column;gap:2px;}
+.tmc .lb{font-size:9px;color:var(--sub);font-family:'Space Mono',monospace;}
+.tmc .tv{font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:var(--ac);}
 
 /* 月相 */
 .phase-box{background:var(--sur2);border:1px solid var(--bd);border-radius:4px;
@@ -174,7 +183,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 .btn-time{cursor:pointer;border-bottom:1px dashed var(--ac);transition:color .15s;}
 .btn-time:hover{color:#fff;}
 .btn-time.is-dash{cursor:default;border-bottom:none;}
-.now-btn{cursor:pointer;font-size:9px;color:var(--ac);border:1px solid var(--ac);border-radius:3px;padding:1px 4px;margin-left:4px;opacity:.8;transition:opacity .15s;white-space:nowrap;}
+.now-btn{cursor:pointer;font-size:9px;color:var(--ac);border:1px solid var(--ac);border-radius:3px;padding:1px 4px;opacity:.8;transition:opacity .15s;white-space:nowrap;width:28px;text-align:center;display:inline-block;box-sizing:border-box;}
 .now-btn:hover{opacity:1;}
 .leaflet-popup-content-wrapper{background:#181c2e!important;color:#e8eaf0!important;
   border:1px solid #252a40!important;border-radius:7px!important;box-shadow:none!important;}
@@ -211,8 +220,20 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
     </div>
     <div>
       <div class="sec">02 日時</div>
-      <div class="ig"><label>DATE</label><input type="date" id="idate"></div>
-      <div class="ig"><label>TIME</label><input type="time" id="itime"><span class="now-btn" onclick="setNow()" title="現在時刻をセット">NOW</span></div>
+      <div class="ig">
+        <label>DATE</label>
+        <div class="ig-row">
+          <input type="date" id="idate">
+          <span id="i-dow" style="font-size:10px;font-family:'Space Mono',monospace;white-space:nowrap;width:28px;text-align:center;display:inline-block;"></span>
+        </div>
+      </div>
+      <div class="ig">
+        <label>TIME</label>
+        <div class="ig-row">
+          <input type="time" id="itime">
+          <span class="now-btn" onclick="setNow()" title="現在時刻をセット">NOW</span>
+        </div>
+      </div>
     </div>
     <div>
       <div class="sec">03 焦点距離</div>
@@ -249,10 +270,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
     <div>
       <div class="sec">05 太陽・月</div>
       <div class="t4">
-        <div class="tmc"><div class="ic2">🌅</div><div><div class="lb">日の出</div><div class="tv btn-time" id="t-sr" title="クリックで時刻をセット" onclick="setTimeFromEl('t-sr')">—</div></div></div>
-        <div class="tmc"><div class="ic2">🌇</div><div><div class="lb">日の入</div><div class="tv btn-time" id="t-ss" title="クリックで時刻をセット" onclick="setTimeFromEl('t-ss')">—</div></div></div>
-        <div class="tmc"><div class="ic2">🌕</div><div><div class="lb">月の出</div><div class="tv btn-time" id="t-mr" title="クリックで時刻をセット" onclick="setTimeFromEl('t-mr')">—</div></div></div>
-        <div class="tmc"><div class="ic2">🌑</div><div><div class="lb">月の入</div><div class="tv btn-time" id="t-ms" title="クリックで時刻をセット" onclick="setTimeFromEl('t-ms')">—</div></div></div>
+        <div class="tmc"><div class="lb">日の出</div><div class="tv btn-time" id="t-sr" title="クリックで時刻をセット" onclick="setTimeFromEl('t-sr')">—</div></div>
+        <div class="tmc"><div class="lb">日の入</div><div class="tv btn-time" id="t-ss" title="クリックで時刻をセット" onclick="setTimeFromEl('t-ss')">—</div></div>
+        <div class="tmc"><div class="lb">月の出</div><div class="tv btn-time" id="t-mr" title="クリックで時刻をセット" onclick="setTimeFromEl('t-mr')">—</div></div>
+        <div class="tmc"><div class="lb">月の入</div><div class="tv btn-time" id="t-ms" title="クリックで時刻をセット" onclick="setTimeFromEl('t-ms')">—</div></div>
       </div>
       <div class="phase-box">
         <canvas id="cv-phase" width="32" height="32"></canvas>
@@ -854,6 +875,13 @@ function drawMoonPhase(age){
 function calcSunMoon(){
   const ds=document.getElementById('idate').value;
   if(!ds)return;
+  // 曜日表示
+  const dow=new Date(ds+'T12:00:00+09:00').toLocaleDateString('ja-JP',{weekday:'short'});
+  const dowEl=document.getElementById('i-dow');
+  if(dowEl){
+    dowEl.textContent='('+dow+')';
+    dowEl.style.color=['日','（日）'].some(d=>dow.includes('日'))?'#ff6655':['土','（土）'].some(d=>dow.includes('土'))?'#4488ff':'var(--ac)';
+  }
   const lat=sLat!==null?sLat:T[cur].lat;
   const lng=sLng!==null?sLng:T[cur].lng;
   const sun=sunT(new Date(ds+'T03:00:00Z'),lat,lng);
