@@ -368,9 +368,9 @@ function layout(){
   if(map) map.invalidateSize();
   if(sLat!==null){
     const t=T[cur];
-    const d=hav(sLat,sLng,t.lat,t.lng);
+    const d=dist3D(sLat,sLng,sElev,t.lat,t.lng,t.elev);
     const az=brng(sLat,sLng,t.lat,t.lng);
-    const va=elAng(d,sElev,t.elev,t.h);
+    const va=elAng(hav(sLat,sLng,t.lat,t.lng),sElev,t.elev,t.h);
     try{drawView(d,az,va);}catch(e){console.error('layout drawView:',e);}
     try{drawCompass(az,va);}catch(e){console.error('layout drawCompass:',e);}
   } else {
@@ -546,21 +546,22 @@ async function onPick(){
   try{se=await getElev(sLat,sLng);}catch(e){se=0;}
   sElev=se+1.5;
 
-  const dist=hav(sLat,sLng,t.lat,t.lng);
+  const distH=hav(sLat,sLng,t.lat,t.lng);
+  const distD=dist3D(sLat,sLng,sElev,t.lat,t.lng,t.elev);
   const tAz=brng(sLat,sLng,t.lat,t.lng);
-  const va=elAng(dist,sElev,t.elev,t.h);
+  const va=elAng(distH,sElev,t.elev,t.h);
 
   // ポップアップを方位角込みで更新
   if(sMarker) sMarker.bindPopup(shootingPopupHTML(tAz));
 
-  document.getElementById('i-d').innerHTML=`${dist.toFixed(2)}<span class="u">km</span>`;
+  document.getElementById('i-d').innerHTML=`${distH.toFixed(2)}<span class="u">km</span>`;
   document.getElementById('i-e').innerHTML=`${se.toFixed(0)}<span class="u">m</span>`;
   document.getElementById('i-a').innerHTML=`${tAz.toFixed(1)}<span class="u">°</span>`;
   document.getElementById('i-v').innerHTML=`${va.toFixed(2)}<span class="u">°</span>`;
 
   calcSunMoon();
-  redraw(dist,tAz,va);
-  suggest(dist,tAz,va);
+  redraw(distD,tAz,va);
+  suggest(distH,tAz,va);
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -582,6 +583,11 @@ function hav(a,b,c,d){
   const dA=(c-a)*r,dB=(d-b)*r;
   const x=Math.sin(dA/2)**2+Math.cos(a*r)*Math.cos(c*r)*Math.sin(dB/2)**2;
   return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+}
+function dist3D(lat1,lng1,elev1,lat2,lng2,elev2){
+  const dH=hav(lat1,lng1,lat2,lng2);
+  const dE=(elev2-elev1)/1000;
+  return Math.sqrt(dH**2+dE**2);
 }
 function brng(a,b,c,d){
   const r=Math.PI/180,dl=(d-b)*r;
@@ -1066,28 +1072,30 @@ function drawView(dist,tAz,va){
   }
 
   // 対象シルエット
-  // 実際に描画される塔の高さピクセル（クランプ後）
-  const thDrawn = horizon - targetTopY;
-  const physW=cur==='pl'?60:180;
-  // 塔の幅はクランプ後の高さに対して物理比率で計算（角度が常に一定）
+  // 塔の見かけの高さは距離から計算（仰角に依存しない）
   const tAngH=angS(T[cur].h, dist);
+  const thTrue=tAngH*pyV; // 距離ベースの塔の高さピクセル
+  const physW=cur==='pl'?60:180;
   const tAngW=angS(physW, dist);
-  const tw=Math.max(thDrawn*(tAngW/Math.max(tAngH,0.001)),2);
+  const tw=Math.max(thTrue*(tAngW/Math.max(tAngH,0.001)),2);
+
+  // 頂点と地上線の位置（塔の実サイズで計算）
+  const tY=Math.min(targetTopY, horizon-thTrue); // 頂点位置
+  const bY=tY+thTrue;                            // 根元位置（地上線）
+  const thDrawn=bY-tY;
 
   ctx.fillStyle='#0e172a';ctx.strokeStyle='rgba(200,169,110,.35)';ctx.lineWidth=.8;
 
   if(cur==='pl'){
-    const bY=horizon,tY=targetTopY;
     ctx.strokeStyle='rgba(200,169,110,.5)';
     ctx.beginPath();
     ctx.moveTo(cx,tY);ctx.lineTo(cx+tw*0.5,bY);ctx.lineTo(cx-tw*0.5,bY);
     ctx.closePath();ctx.fill();ctx.stroke();
 
-    // 縦三分割の横線（塔のどの位置を見ているかの目安）
+    // 縦三分割の横線
     ctx.strokeStyle='rgba(200,169,110,.35)';ctx.lineWidth=0.6;ctx.setLineDash([3,3]);
     for(let i=1;i<=2;i++){
       const lineY=tY+(bY-tY)*(i/3);
-      // その高さでの三角形の幅を計算
       const ratio=(lineY-tY)/(bY-tY);
       const lineHalfW=tw*0.5*ratio;
       ctx.beginPath();
@@ -1101,10 +1109,10 @@ function drawView(dist,tAz,va){
     const FRONT_AZ=225;
     const rel=((viewDir-FRONT_AZ)+360)%360;
     const idx=Math.round(rel/22.5)%16;
-    const mountainH=horizon-targetTopY;
+    const mountainH=thTrue;         // 距離ベースの高さ
     const castleH=mountainH*0.42;
     const mountainH2=mountainH*0.58;
-    const mBaseY=horizon;
+    const mBaseY=bY;                // 地上線
     const mTopY=mBaseY-mountainH2;
     const cBaseY=mTopY;
     const mLeft=tw*(2.5+0.8*Math.cos(rel*Math.PI/180));
@@ -1344,9 +1352,11 @@ function setSunsetMode(v){
   if(lb)lb.style.color=v?'var(--ac)':'var(--sub)';
   calcSunMoon();
   if(sLat!==null){
-    const t=T[cur],d=hav(sLat,sLng,t.lat,t.lng),az=brng(sLat,sLng,t.lat,t.lng);
-    try{drawView(d,az,elAng(d,sElev,t.elev,t.h));}catch(e){}
-    try{drawCompass(az,elAng(d,sElev,t.elev,t.h));}catch(e){}
+    const t=T[cur];
+    const dH=hav(sLat,sLng,t.lat,t.lng),dD=dist3D(sLat,sLng,sElev,t.lat,t.lng,t.elev);
+    const az=brng(sLat,sLng,t.lat,t.lng);
+    try{drawView(dD,az,elAng(dH,sElev,t.elev,t.h));}catch(e){}
+    try{drawCompass(az,elAng(dH,sElev,t.elev,t.h));}catch(e){}
   }
 }
 
@@ -1451,9 +1461,11 @@ window.addEventListener('load',()=>{
     }
     if(sLat!==null){
       try{
-        const t=T[cur],d=hav(sLat,sLng,t.lat,t.lng),az=brng(sLat,sLng,t.lat,t.lng);
-        drawView(d,az,elAng(d,sElev,t.elev,t.h));
-        drawCompass(az,elAng(d,sElev,t.elev,t.h));
+        const t=T[cur];
+        const dH=hav(sLat,sLng,t.lat,t.lng),dD=dist3D(sLat,sLng,sElev,t.lat,t.lng,t.elev);
+        const az=brng(sLat,sLng,t.lat,t.lng);
+        drawView(dD,az,elAng(dH,sElev,t.elev,t.h));
+        drawCompass(az,elAng(dH,sElev,t.elev,t.h));
       }catch(e){console.error('onTimeChange:',e);}
     }
   };
