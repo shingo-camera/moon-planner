@@ -285,8 +285,8 @@ async function onPick(){
   sElev=se + 1.5; // 三脚込みカメラ高1.5m加算
 
   const dist=hav(sLat,sLng,t.lat,t.lng);
-  const tAz=brng(sLat,sLng,t.lat,t.lng);   // 撮影地→対象の方位角
-  const va=elAng(dist,se,te,t.h);           // 対象への仰角
+  const tAz=brng(sLat,sLng,t.lat,t.lng);
+  const va=elAng(dist,sElev,te,t.h);  // sElev=地面+三脚1.5m、te=対象地盤標高
 
   document.getElementById('i-d').innerHTML=`${dist.toFixed(2)}<span class="u">km</span>`;
   document.getElementById('i-e').innerHTML=`${se.toFixed(0)}<span class="u">m</span> <span style="font-size:9px;color:var(--sub)">(+1.5m三脚)</span>`;
@@ -952,7 +952,7 @@ function setF(v){
   document.querySelectorAll('.pb').forEach(b=>b.classList.toggle('on',parseInt(b.textContent)===v));
   if(sLat!==null){
     const t=T[cur],d=hav(sLat,sLng,t.lat,t.lng),az=brng(sLat,sLng,t.lat,t.lng);
-    drawView(d,az,elAng(d,sElev,0,t.h));
+    drawView(d,az,elAng(d,sElev,t.elev,t.h));
   } else drawView(5,180,5);
 }
 
@@ -975,13 +975,12 @@ window.addEventListener('load',()=>{
   document.getElementById('idate').addEventListener('change',()=>{
     calcSunMoon();
     if(sLat!==null)onPick();
-    else if(sLat!==null)redraw(0,0,0);
   });
   document.getElementById('itime').addEventListener('change',()=>{
     if(sLat!==null){
       const t=T[cur],d=hav(sLat,sLng,t.lat,t.lng),az=brng(sLat,sLng,t.lat,t.lng);
-      drawView(d,az,elAng(d,sElev,0,t.h));
-      drawCompass(az,elAng(d,sElev,0,t.h));
+      drawView(d,az,elAng(d,sElev,t.elev,t.h));
+      drawCompass(az,elAng(d,sElev,t.elev,t.h));
     }
   });
 
@@ -989,7 +988,7 @@ window.addEventListener('load',()=>{
     if(map)map.invalidateSize();
     if(sLat!==null){
       const t=T[cur],d=hav(sLat,sLng,t.lat,t.lng),az=brng(sLat,sLng,t.lat,t.lng);
-      redraw(d,az,elAng(d,sElev,0,t.h));
+      redraw(d,az,elAng(d,sElev,t.elev,t.h));
     } else{drawView(5,180,5);drawCompass(0,0);}
   });
 });
