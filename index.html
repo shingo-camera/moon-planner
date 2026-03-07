@@ -296,7 +296,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
     </div>
     <div>
       <div class="sec">07 チャンス一覧</div>
-      <button id="btn-chance" onclick="calcChances()" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;margin-bottom:4px;">📅 今後30日を検索</button>
+      <button id="btn-chance" onclick="calcChances()" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;margin-bottom:4px;">📅 選択日から30日を検索</button>
       <div id="chance-list" style="font-size:9px;color:var(--tx);"></div>
     </div>
   </div>
@@ -1604,7 +1604,7 @@ function calcChances(){
     const distH=hav(sLat,sLng,t.lat,t.lng);
     const topAlt=elAng(distH,sElev,t.elev,t.h); // 対象頂点の仰角
     const results=[];
-    const today=new Date();
+    const today=new Date(document.getElementById('idate').value+'T00:00:00+09:00');
     const AZ_THR=2.5; // 方位角許容度
     const STEP=10*60*1000; // 10分刻み
 
@@ -1647,7 +1647,7 @@ function calcChances(){
       }
     }
 
-    btn.textContent='📅 今後30日を検索';
+    btn.textContent='📅 選択日から30日を検索';
 
     if(results.length===0){
       list.textContent='今後30日以内に条件を満たす日はありません。（方位角±'+AZ_THR+'°、仰角0°〜'+topAlt.toFixed(1)+'°）';
