@@ -424,9 +424,33 @@ function initMap(){
   const t=T[cur];
   map=L.map('map',{zoomControl:true,attributionControl:true})
        .setView([t.lat,t.lng],t.zoom);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+
+  const osmLayer=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
     attribution:'© OpenStreetMap contributors',maxZoom:19
-  }).addTo(map);
+  });
+  const esriLayer=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{
+    attribution:'© Esri, Maxar, Earthstar Geographics',maxZoom:19
+  });
+  osmLayer.addTo(map);
+
+  // 地図切替ボタン
+  const MapCtrl=L.Control.extend({
+    options:{position:'topright'},
+    onAdd(){
+      const btn=L.DomUtil.create('button');
+      btn.innerHTML='🛰';
+      btn.title='衛星/地図切替';
+      btn.style.cssText='background:#1a2035;border:1px solid #3a4060;color:#e8eaf0;padding:4px 7px;border-radius:4px;cursor:pointer;font-size:14px;';
+      let isSat=false;
+      L.DomEvent.on(btn,'click',()=>{
+        isSat=!isSat;
+        if(isSat){map.removeLayer(osmLayer);esriLayer.addTo(map);btn.style.background='#2a3a5a';}
+        else{map.removeLayer(esriLayer);osmLayer.addTo(map);btn.style.background='#1a2035';}
+      });
+      return btn;
+    }
+  });
+  new MapCtrl().addTo(map);
   addTargetPin();
   map.on('click',e=>{sLat=e.latlng.lat;sLng=e.latlng.lng;onPick();});
 
@@ -609,8 +633,15 @@ async function onPick(){
     icon:L.divIcon({
       html:`<div style="width:12px;height:12px;border-radius:50%;background:#7eb8e8;border:2px solid white;box-shadow:0 0 8px #7eb8e8"></div>`,
       className:'',iconAnchor:[6,6]
-    })
+    }),
+    draggable:true
   }).addTo(map).bindPopup('📷 撮影地点');
+
+  sMarker.on('dragend',e=>{
+    const ll=e.target.getLatLng();
+    sLat=ll.lat;sLng=ll.lng;
+    onPick();
+  });
 
   const t=T[cur];
   polyLine=L.polyline([[sLat,sLng],[t.lat,t.lng]],
