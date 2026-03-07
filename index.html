@@ -1306,7 +1306,7 @@ function drawView(dist,tAz,va){
       const dt0=new Date(`${ds}T${ts}:00+09:00`);
       const moonSpeedDegPerMin=0.5;
       const halfFovH=fvH/2;
-      const maxMinutes=Math.min(60,Math.floor(halfFovH/moonSpeedDegPerMin*0.8));
+      const maxMinutes=Math.max(15, Math.min(60,Math.floor(halfFovH/moonSpeedDegPerMin*0.8)));
       const step=fvH>30?10:fvH>10?5:fvH>4?3:2;
       const trailTimes=[];
       for(let m=-maxMinutes;m<=maxMinutes;m+=step){
@@ -1351,6 +1351,65 @@ function drawView(dist,tAz,va){
       ctx.restore();
 
       ctx.save();
+      ctx.save();
+      // 軌道線を先に描画
+      const linePoints=[];
+      for(const m of trailTimes){
+        const dt=new Date(dt0.getTime()+m*60000);
+        const bp=sunsetMode?sunPos(dt,sLat,sLng):moonPos(dt,sLat,sLng);
+        const dAz=azDiff(tAz,bp.az);
+        const tx2=cx+dAz*px;
+        const ty2=horizon-bp.alt*pyV;
+        if(tx2<-60||tx2>W+60||ty2<-60||ty2>H+60)continue;
+        linePoints.push({x:tx2,y:ty2,m});
+      }
+      const allPoints=[...linePoints.filter(p=>p.m<0),{x:moonX,y:moonY,m:0},...linePoints.filter(p=>p.m>0)];
+      if(allPoints.length>1){
+        // 過去（青）と未来（オレンジ）を分けてグラデーション描画
+        const pastPts=[...linePoints.filter(p=>p.m<0),{x:moonX,y:moonY,m:0}];
+        const futurePts=[{x:moonX,y:moonY,m:0},...linePoints.filter(p=>p.m>0)];
+
+        const drawGradLine=(pts,colorFar,colorNear)=>{
+          if(pts.length<2)return;
+          for(let i=0;i<pts.length-1;i++){
+            const t0=i/(pts.length-1);
+            const t1=(i+1)/(pts.length-1);
+            const grad=ctx.createLinearGradient(pts[i].x,pts[i].y,pts[i+1].x,pts[i+1].y);
+            grad.addColorStop(0,colorFar.replace('A',t0.toFixed(2)));
+            grad.addColorStop(1,colorFar.replace('A',t1.toFixed(2)));
+            ctx.beginPath();
+            ctx.moveTo(pts[i].x,pts[i].y);
+            ctx.lineTo(pts[i+1].x,pts[i+1].y);
+            ctx.strokeStyle=grad;
+            ctx.lineWidth=1.2;
+            ctx.setLineDash([]);
+            ctx.stroke();
+          }
+        };
+
+        // 過去：遠いほど薄い青→現在に近いほど濃い青
+        const pastLen=pastPts.length;
+        for(let i=0;i<pastLen-1;i++){
+          const alpha0=0.1+(i/(pastLen-1))*0.6;
+          const alpha1=0.1+((i+1)/(pastLen-1))*0.6;
+          const grad=ctx.createLinearGradient(pastPts[i].x,pastPts[i].y,pastPts[i+1].x,pastPts[i+1].y);
+          grad.addColorStop(0,`rgba(100,180,255,${alpha0})`);
+          grad.addColorStop(1,`rgba(100,180,255,${alpha1})`);
+          ctx.beginPath();ctx.moveTo(pastPts[i].x,pastPts[i].y);ctx.lineTo(pastPts[i+1].x,pastPts[i+1].y);
+          ctx.strokeStyle=grad;ctx.lineWidth=1.2;ctx.setLineDash([]);ctx.stroke();
+        }
+        // 未来：現在に近いほど濃いオレンジ→遠いほど薄い
+        const futLen=futurePts.length;
+        for(let i=0;i<futLen-1;i++){
+          const alpha0=0.6-(i/(futLen-1))*0.5;
+          const alpha1=0.6-((i+1)/(futLen-1))*0.5;
+          const grad=ctx.createLinearGradient(futurePts[i].x,futurePts[i].y,futurePts[i+1].x,futurePts[i+1].y);
+          grad.addColorStop(0,`rgba(220,160,60,${alpha0})`);
+          grad.addColorStop(1,`rgba(220,160,60,${alpha1})`);
+          ctx.beginPath();ctx.moveTo(futurePts[i].x,futurePts[i].y);ctx.lineTo(futurePts[i+1].x,futurePts[i+1].y);
+          ctx.strokeStyle=grad;ctx.lineWidth=1.2;ctx.setLineDash([]);ctx.stroke();
+        }
+      }
       for(const m of trailTimes){
         const dt=new Date(dt0.getTime()+m*60000);
         const bp=sunsetMode?sunPos(dt,sLat,sLng):moonPos(dt,sLat,sLng);
@@ -1365,15 +1424,23 @@ function drawView(dist,tAz,va){
           ?`rgba(126,184,232,${alpha})`
           :`rgba(200,169,110,${alpha})`;
         ctx.fill();
-        if(Math.abs(m)%step===0){
+        // ラベルは5分刻み以上で表示（望遠時の煩雑さ防止）
+        const labelStep=Math.max(step,5);
+        if(Math.abs(m)%labelStep===0){
           const label=new Date(dt.getTime()+9*3600000).toISOString().substr(11,5);
-          ctx.font=`7px 'Space Mono',monospace`;
-          ctx.fillStyle=isPast
-            ?`rgba(126,184,232,${alpha+0.2})`
-            :`rgba(200,169,110,${alpha+0.2})`;
-          ctx.textAlign=tx2<cx?'right':'left';
+          ctx.font=`bold 8px 'Space Mono',monospace`;
+          // 背景付きラベル
           const lx=tx2+(tx2<cx?-5:5);
-          ctx.fillText(label,lx,ty2-4);
+          const ly=ty2-6;
+          ctx.textAlign=tx2<cx?'right':'left';
+          const tw2=ctx.measureText(label).width;
+          const bx=tx2<cx?lx-tw2-2:lx-2;
+          ctx.fillStyle=`rgba(13,17,26,0.65)`;
+          ctx.fillRect(bx,ly-8,tw2+4,11);
+          ctx.fillStyle=isPast
+            ?`rgba(160,210,255,${Math.min(1,alpha+0.3)})`
+            :`rgba(240,200,120,${Math.min(1,alpha+0.3)})`;
+          ctx.fillText(label,lx,ly);
         }
       }
       ctx.restore();
