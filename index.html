@@ -305,19 +305,20 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   #mob-drawer{
     display:block;
     position:fixed;bottom:0;left:0;right:0;
-    max-height:75vh;
+    height:70vh;
     background:var(--sur);border-top:2px solid var(--bd);border-radius:12px 12px 0 0;
     z-index:9950;
     transform:translateY(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);
-    overflow-y:auto;
+    overflow-y:scroll;-webkit-overflow-scrolling:touch;
   }
   #mob-drawer.open{transform:translateY(0);}
-  #mob-drawer-inner{padding:12px 14px 40px;}
-  #mob-drawer-content .sec{font-size:10px;margin-bottom:6px;}
-  #mob-drawer-content .pb{font-size:11px;padding:4px 8px;}
-  #mob-drawer-content .ig label{font-size:10px;}
-  #mob-drawer-content input[type=date],
-  #mob-drawer-content input[type=time]{font-size:14px;padding:5px;}
+  #mob-drawer-inner{padding:12px 14px 80px;}
+  #mob-drawer-inner .sec{font-size:11px;margin-bottom:6px;}
+  #mob-drawer-inner .pb{font-size:12px;padding:5px 10px;}
+  #mob-drawer-inner label{font-size:11px;}
+  #mob-drawer-inner input[type=date],
+  #mob-drawer-inner input[type=time]{font-size:16px;padding:6px;}
+  #mob-drawer-inner .tbtn{width:36px;height:28px;font-size:9px;}
 }
 </style>
 </head>
@@ -584,9 +585,12 @@ function layout(){
     document.getElementById('preview-panel').style.flex='none';
 
     // プレビューとダイアグラムを横並び
+    // プレビューは画面幅の55%、ダイアグラムは45%
     const pvPanelH=pvH;
     const cvH=pvPanelH-lblH;
-    const cvW=Math.round(cvH*(orientation==='land'?3/2:2/3));
+    const maxCvW=Math.round(W*0.70);
+    const cvWbyAspect=Math.round(cvH*(orientation==='land'?3/2:2/3));
+    const cvW=Math.min(cvWbyAspect, maxCvW);
     const diagW=W-cvW;
     const diagH=cvH;
 
@@ -2072,26 +2076,40 @@ function promptFocal(){
 function handleMobURL(val){
   if(!val||val.length<10)return;
   const input=document.getElementById('mob-url-input');
-  const text=val.trim();
-  const decodedText=decodeURIComponent(text);
+  // ?g_st=...などのアプリパラメータを除去してクリーンなURL取得
+  const text=val.trim().split('?')[0]+(val.includes('?')?'?'+val.split('?')[1].split('&').filter(p=>!p.startsWith('g_st')).join('&'):'');
+  const cleanText=val.trim();
+  const decodedText=decodeURIComponent(cleanText);
   const reAt=/@(-?\d+\.?\d*),(-?\d+\.?\d*)/;
   const reQ=/[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/;
   const rePlace=/\/place\/(-?\d+\.?\d*),(-?\d+\.?\d*)/;
   const re3d=/3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/;
-  const m=reAt.exec(decodedText)||reQ.exec(decodedText)||rePlace.exec(decodedText)||re3d.exec(decodedText);
-  if(m){
-    const lat=parseFloat(m[1]),lng=parseFloat(m[2]);
+
+  function applyCoords(lat,lng){
     if(lat>=-90&&lat<=90&&lng>=-180&&lng<=180){
       sLat=lat;sLng=lng;
-      if(map)map.setView([sLat,sLng],map.getZoom());
-      onPick();input.value='';input.style.borderColor='';return;
+      if(map)map.setView([sLat,sLng],15);
+      onPick();
+      input.value='';
+      input.placeholder='✅ 読み取り成功';
+      setTimeout(()=>{input.placeholder='Google Maps URLを貼り付け…';},2000);
+      return true;
     }
+    return false;
   }
-  if(text.includes('maps.app.goo.gl')||text.includes('goo.gl')){
+
+  // まず直接パース試みる
+  const m=reAt.exec(decodedText)||reQ.exec(decodedText)||rePlace.exec(decodedText)||re3d.exec(decodedText);
+  if(m&&applyCoords(parseFloat(m[1]),parseFloat(m[2])))return;
+
+  // 短縮URLの場合プロキシで展開
+  if(cleanText.includes('maps.app.goo.gl')||cleanText.includes('goo.gl')){
     input.style.borderColor='rgba(200,169,110,0.5)';
+    // g_stパラメータを除いたURLでfetch
+    const fetchURL=cleanText.replace(/[?&]g_st=[^&]*/,'').replace(/\?$/,'');
     const proxies=[
-      'https://corsproxy.io/?'+encodeURIComponent(text),
-      'https://api.allorigins.win/get?url='+encodeURIComponent(text),
+      'https://corsproxy.io/?'+encodeURIComponent(fetchURL),
+      'https://api.allorigins.win/get?url='+encodeURIComponent(fetchURL),
     ];
     (async()=>{
       for(const proxy of proxies){
@@ -2100,25 +2118,23 @@ function handleMobURL(val){
           let body='';
           if(proxy.includes('allorigins')){
             const j=await res.json();
-            body=(j.contents||'')+(j.status&&j.status.url?j.status.url:'');
+            body=(j.contents||'');
+            if(j.status&&j.status.url)body+=j.status.url;
           }else{
             body=await res.text();
             if(res.url&&res.url.includes('google.com/maps'))body+=res.url;
           }
-          const urlMatch=body.match(/https:\/\/www\.google\.com\/maps[^\s"'<>\\]+/);
-          if(urlMatch){
-            const dec=decodeURIComponent(urlMatch[0]);
-            const m2=reAt.exec(dec)||reQ.exec(dec)||rePlace.exec(dec)||re3d.exec(dec);
-            if(m2){
-              sLat=parseFloat(m2[1]);sLng=parseFloat(m2[2]);
-              if(map)map.setView([sLat,sLng],map.getZoom());
-              onPick();input.value='';input.style.borderColor='';return;
-            }
+          // bodyから座標を直接抽出
+          const dec=decodeURIComponent(body);
+          const m2=reAt.exec(dec)||re3d.exec(dec)||reQ.exec(dec)||rePlace.exec(dec);
+          if(m2&&applyCoords(parseFloat(m2[1]),parseFloat(m2[2]))){
+            input.style.borderColor='';return;
           }
-        }catch(e){}
+        }catch(e){console.warn('proxy fail:',proxy,e);}
       }
       input.style.borderColor='rgba(255,80,80,0.6)';
-      setTimeout(()=>{input.style.borderColor='';},2000);
+      input.placeholder='❌ 読み取り失敗 - 通常のMaps URLをお試しください';
+      setTimeout(()=>{input.style.borderColor='';input.placeholder='Google Maps URLを貼り付け…';},3000);
     })();
   }
 }
@@ -2276,54 +2292,6 @@ function setOrientation(o){
   if(bp)bp.classList.toggle('on',o==='port');
   syncMobileUI();
   scheduleLayout();
-}
-
-function promptFocal(){
-  const v=prompt('焦点距離を入力（mm）:',focal);
-  if(v===null)return;
-  const n=parseInt(v,10);
-  if(isFinite(n)&&n>=1&&n<=6000)setF(n);
-}
-
-function handleMobURL(val){
-  if(!val||val.length<10)return;
-  const text=val.trim();
-  // 短縮URLはプロキシ不要の正規URLパターンを直接試みる
-  (async()=>{
-    let target=text;
-    if(text.includes('maps.app.goo.gl')||text.includes('goo.gl')){
-      const proxies=[
-        'https://corsproxy.io/?'+encodeURIComponent(text),
-        'https://api.allorigins.win/get?url='+encodeURIComponent(text),
-      ];
-      for(const proxy of proxies){
-        try{
-          const res=await fetch(proxy,{redirect:'follow'});
-          let body='';
-          if(proxy.includes('allorigins')){const j=await res.json();body=(j.contents||'')+(j.status&&j.status.url?j.status.url:'');}
-          else{body=await res.text();if(res.url&&res.url.includes('google.com/maps'))body+=res.url;}
-          const um=body.match(/https:\/\/www\.google\.com\/maps[^\s"'<>\\]+/);
-          if(um){target=um[0];break;}
-        }catch(e){}
-      }
-    }
-    const decoded=decodeURIComponent(target);
-    const reAt=/@(-?\d+\.?\d*),(-?\d+\.?\d*)/;
-    const reQ=/[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/;
-    const rePlace=/\/place\/(-?\d+\.?\d*),(-?\d+\.?\d*)/;
-    const re3d=/3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/;
-    const m=reAt.exec(decoded)||reQ.exec(decoded)||rePlace.exec(decoded)||re3d.exec(decoded);
-    if(m){
-      const lat=parseFloat(m[1]),lng=parseFloat(m[2]);
-      if(lat>=-90&&lat<=90&&lng>=-180&&lng<=180){
-        sLat=lat;sLng=lng;
-        if(map)map.setView([sLat,sLng],map.getZoom());
-        onPick();
-        const inp=document.getElementById('mob-url-input');
-        if(inp){inp.value='';inp.placeholder='✅ 読み取り成功';setTimeout(()=>{inp.placeholder='Google Maps URLを貼り付け…';},2000);}
-      }
-    }
-  })();
 }
 
 function shiftTime(minutes){
