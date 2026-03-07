@@ -189,6 +189,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 .chance-item{background:var(--sur2);border:1px solid var(--bd);border-radius:4px;padding:5px 6px;margin-bottom:3px;cursor:pointer;display:flex;flex-wrap:wrap;gap:4px;align-items:center;transition:border-color .15s;}
 .chance-item:hover{border-color:var(--ac);}
 .chance-time{font-family:'Space Mono',monospace;font-weight:700;color:var(--tx);}
+.tripod-box{background:var(--sur2);border:1px solid var(--bd);border-radius:4px;padding:5px 7px;margin-top:4px;}
+.tripod-label{font-size:8px;color:var(--sub);font-family:'Space Mono',monospace;margin-bottom:3px;}
+.tripod-val{font-family:'Space Mono',monospace;font-size:16px;color:var(--ac);text-align:center;margin:2px 0;}
+.tripod-val span{font-size:9px;color:var(--sub);}
 .leaflet-popup-content-wrapper{background:#181c2e!important;color:#e8eaf0!important;
   border:1px solid #252a40!important;border-radius:7px!important;box-shadow:none!important;}
 .leaflet-popup-tip{background:#181c2e!important;}
@@ -260,6 +264,19 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
       <div class="orient-row">
         <div class="pb on" id="btn-land" onclick="setOrientation('land')">横</div>
         <div class="pb" id="btn-port" onclick="setOrientation('port')">縦</div>
+      </div>
+      <!-- 三脚高さ -->
+      <div class="tripod-box">
+        <div class="tripod-label">三脚高さ</div>
+        <div class="tripod-val" id="tripod-disp">150<span>cm</span></div>
+        <div class="shift-row">
+          <div class="sb" onclick="shiftTripod(-10)">−10</div>
+          <div class="sb" onclick="shiftTripod(-5)">−5</div>
+          <div class="sb" onclick="shiftTripod(-1)">−1</div>
+          <div class="sb" onclick="shiftTripod(+1)">+1</div>
+          <div class="sb" onclick="shiftTripod(+5)">+5</div>
+          <div class="sb" onclick="shiftTripod(+10)">+10</div>
+        </div>
       </div>
     </div>
     <div>
@@ -358,6 +375,7 @@ const T={
 };
 let cur='pl', focal=400, orientation='land';
 let sLat=null, sLng=null, sElev=0;
+let tripodH=150; // 三脚高さ(cm)デフォルト150cm
 let map, sMarker, tMarker, polyLine;
 let _layoutRAF=null;
 let fanLayers=[];
@@ -660,7 +678,7 @@ async function onPick(){
   document.getElementById('i-e').textContent='取得中…';
   let se=0;
   try{se=await getElev(sLat,sLng);}catch(e){se=0;}
-  sElev=se+1.5;
+  sElev=se+tripodH/100;
 
   const distH=hav(sLat,sLng,t.lat,t.lng);
   const distD=dist3D(sLat,sLng,sElev,t.lat,t.lng,t.elev);
@@ -1251,6 +1269,86 @@ function drawView(dist,tAz,va){
     }
   }
 
+  // 軌道トレイル（前後の位置を時刻付きで表示）
+  if(ds&&ts&&sLat!==null){
+    try{
+      const dt0=new Date(`${ds}T${ts}:00+09:00`);
+      const moonSpeedDegPerMin=0.5;
+      const halfFovH=fvH/2;
+      const maxMinutes=Math.min(60,Math.floor(halfFovH/moonSpeedDegPerMin*0.8));
+      const step=fvH>30?10:fvH>10?5:fvH>4?3:2;
+      const trailTimes=[];
+      for(let m=-maxMinutes;m<=maxMinutes;m+=step){
+        if(m===0)continue;
+        trailTimes.push(m);
+      }
+
+      // 軌道方向の矢印：現在位置から+stepと-stepの座標差で向きを計算
+      const dtFwd=new Date(dt0.getTime()+step*60000);
+      const dtBwd=new Date(dt0.getTime()-step*60000);
+      const bpFwd=sunsetMode?sunPos(dtFwd,sLat,sLng):moonPos(dtFwd,sLat,sLng);
+      const bpBwd=sunsetMode?sunPos(dtBwd,sLat,sLng):moonPos(dtBwd,sLat,sLng);
+      const fwdX=cx+azDiff(tAz,bpFwd.az)*px;
+      const fwdY=horizon-bpFwd.alt*pyV;
+      const bwdX=cx+azDiff(tAz,bpBwd.az)*px;
+      const bwdY=horizon-bpBwd.alt*pyV;
+      const arrowAngle=Math.atan2(fwdY-bwdY, fwdX-bwdX);
+      const arrowLen=18;
+      const arrowAx=moonX+Math.cos(arrowAngle)*arrowLen;
+      const arrowAy=moonY+Math.sin(arrowAngle)*arrowLen;
+
+      // 矢印描画（月/太陽の横に）
+      ctx.save();
+      ctx.strokeStyle='rgba(255,255,255,0.55)';
+      ctx.lineWidth=1.2;
+      ctx.lineCap='round';
+      ctx.lineJoin='round';
+      ctx.setLineDash([]);
+      // 矢幹
+      ctx.beginPath();
+      ctx.moveTo(moonX+Math.cos(arrowAngle)*(mr+4), moonY+Math.sin(arrowAngle)*(mr+4));
+      ctx.lineTo(arrowAx, arrowAy);
+      ctx.stroke();
+      // 矢頭
+      const hLen=5, hAngle=0.45;
+      ctx.beginPath();
+      ctx.moveTo(arrowAx, arrowAy);
+      ctx.lineTo(arrowAx-hLen*Math.cos(arrowAngle-hAngle), arrowAy-hLen*Math.sin(arrowAngle-hAngle));
+      ctx.moveTo(arrowAx, arrowAy);
+      ctx.lineTo(arrowAx-hLen*Math.cos(arrowAngle+hAngle), arrowAy-hLen*Math.sin(arrowAngle+hAngle));
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.save();
+      for(const m of trailTimes){
+        const dt=new Date(dt0.getTime()+m*60000);
+        const bp=sunsetMode?sunPos(dt,sLat,sLng):moonPos(dt,sLat,sLng);
+        const dAz=azDiff(tAz,bp.az);
+        const tx2=cx+dAz*px;
+        const ty2=horizon-bp.alt*pyV;
+        if(tx2<-20||tx2>W+20||ty2<-20||ty2>H+20)continue;
+        const isPast=m<0;
+        const alpha=0.3+0.4*(1-Math.abs(m)/maxMinutes);
+        ctx.beginPath();ctx.arc(tx2,ty2,2.5,0,Math.PI*2);
+        ctx.fillStyle=isPast
+          ?`rgba(126,184,232,${alpha})`
+          :`rgba(200,169,110,${alpha})`;
+        ctx.fill();
+        if(Math.abs(m)%step===0){
+          const label=new Date(dt.getTime()+9*3600000).toISOString().substr(11,5);
+          ctx.font=`7px 'Space Mono',monospace`;
+          ctx.fillStyle=isPast
+            ?`rgba(126,184,232,${alpha+0.2})`
+            :`rgba(200,169,110,${alpha+0.2})`;
+          ctx.textAlign=tx2<cx?'right':'left';
+          const lx=tx2+(tx2<cx?-5:5);
+          ctx.fillText(label,lx,ty2-4);
+        }
+      }
+      ctx.restore();
+    }catch(e){}
+  }
+
   // 対象シルエット
   // 塔の見かけの高さは距離から計算（仰角に依存しない）
   const tAngH=angS(T[cur].h, dist);
@@ -1563,6 +1661,14 @@ function selTarget(k){
   if(map){map.setView([T[k].lat,T[k].lng],T[k].zoom);addTargetPin();}
   clearFans();
   if(sLat!==null)onPick();else calcSunMoon();
+}
+
+function shiftTripod(v){
+  tripodH=Math.max(10,Math.min(300,tripodH+v));
+  const el=document.getElementById('tripod-disp');
+  if(el)el.innerHTML=`${tripodH}<span>cm</span>`;
+  // sElevを再計算して再描画
+  if(sLat!==null) onPick();
 }
 
 function setNow(){
