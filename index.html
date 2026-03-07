@@ -266,16 +266,19 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
         <div class="pb" id="btn-port" onclick="setOrientation('port')">縦</div>
       </div>
       <!-- 三脚高さ -->
-      <div class="tripod-box">
-        <div class="tripod-label">三脚高さ</div>
-        <div class="tripod-val" id="tripod-disp">150<span>cm</span></div>
-        <div class="shift-row">
-          <div class="sb" onclick="shiftTripod(-10)">−10</div>
-          <div class="sb" onclick="shiftTripod(-5)">−5</div>
-          <div class="sb" onclick="shiftTripod(-1)">−1</div>
-          <div class="sb" onclick="shiftTripod(+1)">+1</div>
-          <div class="sb" onclick="shiftTripod(+5)">+5</div>
-          <div class="sb" onclick="shiftTripod(+10)">+10</div>
+      <div style="margin-top:4px;">
+        <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px;">
+          <label style="font-size:8.5px;color:var(--sub);font-family:'Space Mono',monospace;">三脚高さ</label>
+          <span id="tripod-disp" style="font-family:'Space Mono',monospace;font-size:11px;font-weight:700;color:var(--ac);">150<span style="font-size:8px;color:var(--sub);">cm</span></span>
+          <span class="now-btn" onclick="shiftTripod(0,true)" title="150cmにリセット">Rst</span>
+        </div>
+        <div style="display:flex;gap:2px;">
+          <div class="tbtn" onclick="shiftTripod(-10)">−10</div>
+          <div class="tbtn" onclick="shiftTripod(-5)">−5</div>
+          <div class="tbtn" onclick="shiftTripod(-1)">−1</div>
+          <div class="tbtn" onclick="shiftTripod(+1)">+1</div>
+          <div class="tbtn" onclick="shiftTripod(+5)">+5</div>
+          <div class="tbtn" onclick="shiftTripod(+10)">+10</div>
         </div>
       </div>
     </div>
@@ -310,12 +313,14 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
       <button id="btn-chance" onclick="calcChances()" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;margin-bottom:4px;">📅 選択日から30日を検索</button>
       <div id="chance-list" style="font-size:9px;color:var(--tx);"></div>
     </div>
+    <!--
     <div>
       <div class="sec">07 撮影提案</div>
       <div class="sg"><div class="st">💡 提案</div>
         <p id="sug">地図をクリックして撮影地点を選択してください。</p>
       </div>
     </div>
+    -->
   </div>
 
   <!-- 右エリア -->
@@ -1074,22 +1079,48 @@ function drawFans(ds, moon){
   clearFans();
   const t=T[cur];
 
-  // 同心円（距離目安）
-  [3,5,10,15].forEach(km=>{
+  // 同心円（距離目安）- ビューポートに応じて動的に刻みを決定
+  const bounds=map.getBounds();
+  const mapCenter=map.getCenter();
+  // 地図表示範囲の端までの距離（km）を計算
+  const ne=bounds.getNorthEast();
+  const sw=bounds.getSouthWest();
+  const viewDistKm=hav(mapCenter.lat,mapCenter.lng,ne.lat,ne.lng);
+
+  // 刻み候補：表示範囲に対して3〜5本の同心円が入るように選択
+  const ringSteps=[0.01,0.02,0.05,0.1,0.2,0.5,1,2,3,5,10,15,20,30,50,100];
+  const idealCount=4;
+  const rawStep=viewDistKm/idealCount;
+  let ringStep=ringSteps.reduce((a,b)=>Math.abs(b-rawStep)<Math.abs(a-rawStep)?b:a);
+  const maxRing=Math.ceil(viewDistKm/ringStep)*ringStep;
+  const rings=[];
+  for(let r=ringStep;r<=Math.min(maxRing,viewDistKm*1.2);r+=ringStep) rings.push(r);
+
+  rings.forEach(km=>{
     const pts=[];
-    for(let a=0;a<360;a+=5) pts.push(destPoint(t.lat,t.lng,a,km));
+    for(let a=0;a<360;a+=3) pts.push(destPoint(t.lat,t.lng,a,km));
     const c=L.polyline([...pts,pts[0]],{
       color:'#7a82a0',weight:0.8,opacity:0.3,dashArray:'2,6'
     }).addTo(map);
-    const lp=destPoint(t.lat,t.lng,90,km);
+    // ラベル：地図の右方向に配置、背景付きで視認性UP
+    const lp=destPoint(t.lat,t.lng,95,km);
+    const labelText=km>=1?`${km}km`:km>=0.1?`${Math.round(km*1000)}m`:`${Math.round(km*1000*10)/10}m`;
     const cl=L.marker(lp,{
       icon:L.divIcon({
-        html:`<div style="font-size:8px;color:#7a82a0;font-family:'Space Mono',monospace;">${km}km</div>`,
-        className:'',iconAnchor:[-2,6]
+        html:`<div style="font-size:9px;color:#c8c8d8;font-family:'Space Mono',monospace;
+          background:rgba(13,17,26,0.72);padding:1px 4px;border-radius:2px;
+          white-space:nowrap;line-height:1.4;">${labelText}</div>`,
+        className:'',iconAnchor:[-2,8]
       }),interactive:false
     }).addTo(map);
     fanLayers.push(c,cl);
   });
+
+  // ズーム変更時に扇を再描画
+  if(!map._ringRedrawBound){
+    map._ringRedrawBound=true;
+    map.on('zoomend',()=>{ if(typeof drawFans==='function') drawFans(document.getElementById('idate').value, moonTCached(document.getElementById('idate').value,t.lat,t.lng)); });
+  }
 
   const DIST_MAX=15;
   const STEP=30*60*1000;
@@ -1663,11 +1694,10 @@ function selTarget(k){
   if(sLat!==null)onPick();else calcSunMoon();
 }
 
-function shiftTripod(v){
-  tripodH=Math.max(10,Math.min(300,tripodH+v));
+function shiftTripod(v, reset=false){
+  tripodH=reset?150:Math.max(10,Math.min(300,tripodH+v));
   const el=document.getElementById('tripod-disp');
-  if(el)el.innerHTML=`${tripodH}<span>cm</span>`;
-  // sElevを再計算して再描画
+  if(el)el.innerHTML=`${tripodH}<span style="font-size:8px;color:var(--sub);">cm</span>`;
   if(sLat!==null) onPick();
 }
 
