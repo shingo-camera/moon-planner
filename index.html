@@ -186,6 +186,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 .btn-time.is-dash{cursor:default;border-bottom:none;}
 .now-btn{cursor:pointer;font-size:9px;color:var(--ac);border:1px solid var(--ac);border-radius:3px;padding:1px 4px;opacity:.8;transition:opacity .15s;white-space:nowrap;width:28px;text-align:center;display:inline-block;box-sizing:border-box;}
 .now-btn:hover{opacity:1;}
+.chance-item{background:var(--sur2);border:1px solid var(--bd);border-radius:4px;padding:5px 6px;margin-bottom:3px;cursor:pointer;display:flex;flex-wrap:wrap;gap:4px;align-items:center;transition:border-color .15s;}
+.chance-item:hover{border-color:var(--ac);}
+.chance-time{font-family:'Space Mono',monospace;font-weight:700;color:var(--tx);}
 .leaflet-popup-content-wrapper{background:#181c2e!important;color:#e8eaf0!important;
   border:1px solid #252a40!important;border-radius:7px!important;box-shadow:none!important;}
 .leaflet-popup-tip{background:#181c2e!important;}
@@ -290,6 +293,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
       <div class="sg"><div class="st">💡 提案</div>
         <p id="sug">地図をクリックして撮影地点を選択してください。</p>
       </div>
+    </div>
+    <div>
+      <div class="sec">07 チャンス一覧</div>
+      <button id="btn-chance" onclick="calcChances()" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;margin-bottom:4px;">📅 今後30日を検索</button>
+      <div id="chance-list" style="font-size:9px;color:var(--tx);"></div>
     </div>
   </div>
 
@@ -1578,6 +1586,95 @@ function setTimeFromEl(id){
     if(td)td.textContent=t;
     itime.dispatchEvent(new Event('change'));
   }
+}
+
+function calcChances(){
+  if(sLat===null){
+    document.getElementById('chance-list').textContent='先に撮影地点を選択してください。';
+    return;
+  }
+  const btn=document.getElementById('btn-chance');
+  const list=document.getElementById('chance-list');
+  btn.textContent='⏳ 計算中…';
+  list.textContent='';
+
+  setTimeout(()=>{
+    const t=T[cur];
+    const tAz=brng(sLat,sLng,t.lat,t.lng);
+    const distH=hav(sLat,sLng,t.lat,t.lng);
+    const topAlt=elAng(distH,sElev,t.elev,t.h); // 対象頂点の仰角
+    const results=[];
+    const today=new Date();
+    const AZ_THR=2.5; // 方位角許容度
+    const STEP=10*60*1000; // 10分刻み
+
+    for(let d=0;d<30;d++){
+      const base=new Date(today.getTime()+d*86400000);
+      const ds=base.toLocaleDateString('sv-SE',{timeZone:'Asia/Tokyo'});
+      const dayStart=new Date(ds+'T00:00:00+09:00');
+      let found=null;
+
+      for(let i=0;i<144;i++){ // 24時間×6
+        const dt=new Date(dayStart.getTime()+i*STEP);
+        const mp=moonPos(dt,sLat,sLng);
+        const azDiff=Math.abs(((mp.az-tAz+180)%360)-180);
+        // 方位角一致 かつ 仰角が対象の根元〜頂点の範囲内
+        if(azDiff<=AZ_THR && mp.alt>=0 && mp.alt<=topAlt){
+          if(!found){
+            found={dt,az:mp.az,alt:mp.alt,azDiff};
+          }
+        } else {
+          if(found){
+            // 重なり開始時刻として記録
+            const age=moonAge(new Date(ds+'T03:00:00Z'));
+            results.push({
+              date:ds,
+              time:jst(found.dt),
+              azDiff:found.azDiff,
+              alt:found.alt,
+              topAlt,
+              age,
+              ts:found.dt
+            });
+            found=null;
+          }
+        }
+      }
+      // 日をまたいで継続中の場合
+      if(found){
+        const age=moonAge(new Date(ds+'T03:00:00Z'));
+        results.push({date:ds,time:jst(found.dt),azDiff:found.azDiff,alt:found.alt,topAlt,age,ts:found.dt});
+      }
+    }
+
+    btn.textContent='📅 今後30日を検索';
+
+    if(results.length===0){
+      list.textContent='今後30日以内に条件を満たす日はありません。（方位角±'+AZ_THR+'°、仰角0°〜'+topAlt.toFixed(1)+'°）';
+      return;
+    }
+
+    list.innerHTML=results.map(r=>{
+      const dow=new Date(r.date+'T12:00:00+09:00').toLocaleDateString('ja-JP',{weekday:'short'});
+      const dowColor=dow.includes('日')?'#ff6655':dow.includes('土')?'#4488ff':'var(--sub)';
+      const star=r.azDiff<=1?'★★★':r.azDiff<=2?'★★☆':'★☆☆';
+      const altPct=Math.round(r.alt/r.topAlt*100);
+      return `<div class="chance-item" onclick="setChance('${r.date}','${r.time}')" title="クリックで日時をセット">
+        <span style="color:${dowColor}">${r.date}(${dow})</span>
+        <span class="chance-time">${r.time}</span>
+        <span style="color:var(--ac)">${star}</span>
+        <span style="color:var(--sub)">月齢${r.age.toFixed(1)}日 ±${r.azDiff.toFixed(1)}° 高${altPct}%</span>
+      </div>`;
+    }).join('');
+  },20);
+}
+
+function setChance(ds,ts){
+  document.getElementById('idate').value=ds;
+  document.getElementById('idate').dispatchEvent(new Event('change'));
+  const itime=document.getElementById('itime');
+  itime.value=ts;
+  itime.dispatchEvent(new Event('change'));
 }
 
 function setF(v){
