@@ -1397,15 +1397,32 @@ function drawView(dist,tAz,va){
         ctx.beginPath();ctx.moveTo(futurePts[i].x,futurePts[i].y);ctx.lineTo(futurePts[i+1].x,futurePts[i+1].y);
         ctx.strokeStyle=g;ctx.lineWidth=1.8;ctx.stroke();
       }
-      if(futurePts.length>=2){
-        const tip=futurePts[futurePts.length-1];
-        const prev=futurePts[futurePts.length-2];
-        const ang=Math.atan2(tip.y-prev.y,tip.x-prev.x);
+      // 矢頭：未来方向を示す（futurePtsが短くても方向計算で描画）
+      {
+        const dtFwdA=new Date(dt0.getTime()+step*60000);
+        const dtFwdB=new Date(dt0.getTime()+step*2*60000);
+        const bpA=sunsetMode?sunPos(dtFwdA,sLat,sLng):moonPos(dtFwdA,sLat,sLng);
+        const bpB=sunsetMode?sunPos(dtFwdB,sLat,sLng):moonPos(dtFwdB,sLat,sLng);
+        const axA=cx+azDiff(tAz,bpA.az)*px, ayA=horizon-bpA.alt*pyV;
+        const axB=cx+azDiff(tAz,bpB.az)*px, ayB=horizon-bpB.alt*pyV;
+        const ang=Math.atan2(ayB-ayA, axB-axA);
+        // 月の外縁から少し離れた位置に矢頭
+        const arrowDist=mr+22;
+        const arrowX=moonX+Math.cos(ang)*arrowDist;
+        const arrowY=moonY+Math.sin(ang)*arrowDist;
+        const hLen=10, hAngle=0.42;
+        ctx.save();
+        ctx.strokeStyle='rgba(255,200,80,0.9)';
+        ctx.lineWidth=2;ctx.lineCap='round';
         ctx.beginPath();
-        ctx.moveTo(tip.x,tip.y);ctx.lineTo(tip.x-9*Math.cos(ang-0.4),tip.y-9*Math.sin(ang-0.4));
-        ctx.moveTo(tip.x,tip.y);ctx.lineTo(tip.x-9*Math.cos(ang+0.4),tip.y-9*Math.sin(ang+0.4));
-        ctx.strokeStyle='rgba(240,180,80,0.85)';ctx.lineWidth=1.8;ctx.lineCap='round';ctx.stroke();
+        ctx.moveTo(arrowX,arrowY);
+        ctx.lineTo(arrowX-hLen*Math.cos(ang-hAngle),arrowY-hLen*Math.sin(ang-hAngle));
+        ctx.moveTo(arrowX,arrowY);
+        ctx.lineTo(arrowX-hLen*Math.cos(ang+hAngle),arrowY-hLen*Math.sin(ang+hAngle));
+        ctx.stroke();
+        ctx.restore();
       }
+
       for(const m of trailTimes){
         const dt=new Date(dt0.getTime()+m*60000);
         const bp=sunsetMode?sunPos(dt,sLat,sLng):moonPos(dt,sLat,sLng);
@@ -1417,20 +1434,17 @@ function drawView(dist,tAz,va){
         ctx.beginPath();ctx.arc(tx2,ty2,2.5,0,Math.PI*2);
         ctx.fillStyle=isPast?`rgba(126,184,232,${alpha})`:`rgba(200,169,110,${alpha})`;
         ctx.fill();
-        const labelStep=maxMinutes<=15?5:maxMinutes<=30?10:15;
-        const nearestLabel=Math.round(m/labelStep)*labelStep;
-        if(Math.abs(m-nearestLabel)<step/2+0.1){
-          const label=new Date(dt.getTime()+9*3600000).toISOString().substr(11,5);
-          ctx.font=`bold 10px 'Space Mono',monospace`;
-          const lx=tx2+(tx2<cx?-5:5);
-          const ly=ty2-6;
-          ctx.textAlign=tx2<cx?'right':'left';
-          const tw2=ctx.measureText(label).width;
-          const bx=tx2<cx?lx-tw2-2:lx-2;
-          ctx.fillStyle='rgba(13,17,26,0.72)';ctx.fillRect(bx,ly-8,tw2+4,11);
-          ctx.fillStyle=isPast?'rgba(160,210,255,0.95)':'rgba(240,200,120,0.95)';
-          ctx.fillText(label,lx,ly);
-        }
+        // 全点にラベル表示
+        const label=new Date(dt.getTime()+9*3600000).toISOString().substr(11,5);
+        ctx.font=`bold 10px 'Space Mono',monospace`;
+        const lx=tx2+(tx2<cx?-5:5);
+        const ly=ty2-6;
+        ctx.textAlign=tx2<cx?'right':'left';
+        const tw2=ctx.measureText(label).width;
+        const bx=tx2<cx?lx-tw2-2:lx-2;
+        ctx.fillStyle='rgba(13,17,26,0.72)';ctx.fillRect(bx,ly-8,tw2+4,11);
+        ctx.fillStyle=isPast?'rgba(160,210,255,0.95)':'rgba(240,200,120,0.95)';
+        ctx.fillText(label,lx,ly);
       }
       ctx.restore();
 
