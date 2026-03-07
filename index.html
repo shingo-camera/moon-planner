@@ -205,22 +205,21 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 
 /* ━━━ スマホレイアウト ━━━ */
 @media (max-width:600px){
-  :root{--hdr:36px;--mob-bar:108px;}
+  :root{--hdr:0px;--mob-bar:136px;}
 
-  /* ヘッダーコンパクト化 */
-  #hdr h1{font-size:10px;}
-  #hdr p{display:none;}
+  /* ヘッダー非表示 */
+  #hdr{display:none;}
 
   /* PCパネルを非表示 */
   #pnl{display:none;}
 
-  /* wrap全画面 */
-  #wrap{bottom:var(--mob-bar);}
+  /* wrap全画面（top:0） */
+  #wrap{top:0;bottom:var(--mob-bar);}
 
   /* 右エリアを縦積み */
   #right{flex-direction:column;}
 
-  /* 地図：上60% */
+  /* 地図：上55% */
   #mapbox{flex:0 0 55%;}
 
   /* プレビューパネル：残り */
@@ -229,18 +228,23 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   /* PC用±ボタン列を非表示 */
   #tbtn-col{display:none;}
 
+  /* 凡例を小さく */
+  .fan-legend-item{padding:1px 4px 1px 3px;}
+  .fan-legend-item span{font-size:7px;}
+
   /* ボトムバー表示 */
   #mob-bar{
-    display:flex;flex-direction:column;gap:4px;
+    display:flex;flex-direction:column;gap:3px;
     position:fixed;bottom:0;left:0;right:0;
     height:var(--mob-bar);
     background:var(--sur);border-top:1px solid var(--bd);
-    padding:5px 6px;z-index:9000;
+    padding:4px 6px;z-index:9000;
   }
-  #mob-time-row{display:flex;align-items:center;gap:3px;}
-  #mob-focal-row{display:flex;align-items:center;gap:3px;overflow-x:auto;scrollbar-width:none;}
+  #mob-time-row{display:flex;align-items:center;gap:2px;}
+  #mob-focal-row{display:flex;align-items:center;gap:2px;overflow-x:auto;scrollbar-width:none;}
   #mob-focal-row::-webkit-scrollbar{display:none;}
-  #mob-ctrl-row{display:flex;align-items:center;gap:4px;}
+  #mob-ctrl-row{display:flex;align-items:center;gap:3px;}
+  #mob-url-row{display:flex;align-items:center;}
 
   #mob-time-disp{
     flex:1;text-align:center;
@@ -249,7 +253,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   }
   .mob-tbtn{
     flex-shrink:0;
-    min-width:36px;height:28px;
+    min-width:32px;height:26px;
     display:flex;align-items:center;justify-content:center;
     background:var(--sur2);border:1px solid var(--bd);border-radius:4px;
     font-family:'Space Mono',monospace;font-size:9px;color:var(--sub);
@@ -258,7 +262,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   .mob-tbtn:active{border-color:var(--ac);color:var(--ac);}
   .mob-fbtn{
     flex-shrink:0;
-    padding:3px 6px;height:24px;
+    padding:3px 5px;height:24px;
     display:flex;align-items:center;justify-content:center;
     background:var(--sur2);border:1px solid var(--bd);border-radius:3px;
     font-family:'Space Mono',monospace;font-size:9px;color:var(--sub);
@@ -268,16 +272,27 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   #mob-focal-disp{
     font-family:'Space Mono',monospace;font-size:13px;font-weight:700;
     color:var(--ac);flex-shrink:0;min-width:52px;text-align:center;
+    cursor:pointer;border-bottom:1px dashed var(--ac);
   }
   .mob-icon-btn{
     flex-shrink:0;
-    min-width:36px;height:28px;
+    min-width:40px;height:26px;
     display:flex;align-items:center;justify-content:center;
     background:var(--sur2);border:1px solid var(--ac);border-radius:4px;
     font-family:'Space Mono',monospace;font-size:9px;color:var(--ac);
     cursor:pointer;-webkit-tap-highlight-color:transparent;
   }
   .mob-icon-btn:active{background:var(--ac);color:var(--bg);}
+
+  #mob-url-input{
+    width:100%;height:24px;
+    background:var(--sur2);border:1px solid var(--bd);border-radius:4px;
+    color:var(--tx);font-size:11px;padding:0 8px;
+    font-family:'Noto Sans JP',sans-serif;
+    outline:none;
+  }
+  #mob-url-input:focus{border-color:var(--ac);}
+  #mob-url-input::placeholder{color:var(--sub);font-size:10px;}
 
   /* ドロワー */
   #mob-overlay{
@@ -298,8 +313,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   }
   #mob-drawer.open{transform:translateY(0);}
   #mob-drawer-inner{padding:12px 14px 40px;}
-  #mob-drawer-content{font-size:13px;}
-  /* ドロワー内のパネルをそのまま表示できるよう調整 */
   #mob-drawer-content .sec{font-size:10px;margin-bottom:6px;}
   #mob-drawer-content .pb{font-size:11px;padding:4px 8px;}
   #mob-drawer-content .ig label{font-size:10px;}
@@ -481,6 +494,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 <!-- スマホ用ボトムバー -->
 <div id="mob-bar">
   <div id="mob-time-row">
+    <div class="mob-tbtn" onclick="shiftTime(-60)">−60</div>
     <div class="mob-tbtn" onclick="shiftTime(-10)">−10</div>
     <div class="mob-tbtn" onclick="shiftTime(-5)">−5</div>
     <div class="mob-tbtn" onclick="shiftTime(-1)">−1</div>
@@ -488,29 +502,36 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
     <div class="mob-tbtn" onclick="shiftTime(1)">+1</div>
     <div class="mob-tbtn" onclick="shiftTime(5)">+5</div>
     <div class="mob-tbtn" onclick="shiftTime(10)">+10</div>
+    <div class="mob-tbtn" onclick="shiftTime(60)">+60</div>
   </div>
   <div id="mob-focal-row">
-    <span style="font-size:9px;color:var(--sub);font-family:'Space Mono',monospace;flex-shrink:0;">FL</span>
-    <div id="mob-focal-disp">400<span style="font-size:9px;color:var(--sub);">mm</span></div>
-    <div class="mob-fbtn on" onclick="setF(100)">100</div>
+    <div id="mob-focal-disp" onclick="promptFocal()" title="タップで入力">400<span style="font-size:9px;color:var(--sub);">mm</span></div>
+    <div class="mob-fbtn" onclick="setF(100)">100</div>
     <div class="mob-fbtn" onclick="setF(200)">200</div>
     <div class="mob-fbtn" onclick="setF(400)">400</div>
     <div class="mob-fbtn" onclick="setF(600)">600</div>
+    <div class="mob-fbtn" onclick="setF(800)">800</div>
     <div class="mob-fbtn" onclick="setF(1000)">1000</div>
     <div class="mob-fbtn" onclick="setF(1200)">1200</div>
     <div class="mob-fbtn" onclick="setF(1600)">1600</div>
   </div>
   <div id="mob-ctrl-row">
-    <div class="mob-tbtn" onclick="shiftTripod(-5)">H−5</div>
-    <div class="mob-tbtn" onclick="shiftTripod(-1)">H−1</div>
-    <span id="mob-tripod-disp" style="font-size:10px;font-family:'Space Mono',monospace;color:var(--ac);min-width:42px;text-align:center;">150cm</span>
-    <div class="mob-tbtn" onclick="shiftTripod(1)">H+1</div>
-    <div class="mob-tbtn" onclick="shiftTripod(5)">H+5</div>
+    <div class="mob-tbtn" onclick="shiftTripod(-5)">−5</div>
+    <div class="mob-tbtn" onclick="shiftTripod(-1)">−1</div>
+    <span id="mob-tripod-disp" style="font-size:11px;font-family:'Space Mono',monospace;color:var(--ac);min-width:46px;text-align:center;font-weight:700;">H150</span>
+    <div class="mob-tbtn" onclick="shiftTripod(1)">+1</div>
+    <div class="mob-tbtn" onclick="shiftTripod(5)">+5</div>
     <div style="flex:1;"></div>
-    <div class="mob-icon-btn" onclick="setNow()" title="現在時刻">NOW</div>
-    <div class="mob-icon-btn" onclick="getLocation()" title="現在地">📍</div>
-    <div class="mob-icon-btn" onclick="pasteURL()" title="URL貼付">📋</div>
-    <div class="mob-icon-btn" onclick="toggleDrawer()" title="設定">⚙️</div>
+    <div class="mob-icon-btn" onclick="setOrientation('land')" id="mob-btn-land">横</div>
+    <div class="mob-icon-btn" onclick="setOrientation('port')" id="mob-btn-port">縦</div>
+    <div class="mob-icon-btn" onclick="setNow()">NOW</div>
+    <div class="mob-icon-btn" onclick="toggleDrawer()">⚙️</div>
+  </div>
+  <!-- URL入力欄 -->
+  <div id="mob-url-row">
+    <input id="mob-url-input" type="url" placeholder="Google Maps URLを貼り付け…"
+      inputmode="url" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+      oninput="handleMobURL(this.value)">
   </div>
 </div>
 
@@ -552,7 +573,7 @@ function layout(){
   const isMobile=W<=600;
 
   if(isMobile){
-    const hdrH=36, mobBarH=108, lblH=22, btnW=0;
+    const hdrH=0, mobBarH=136, lblH=22, btnW=0;
     const avH=H-hdrH-mobBarH;
     const mapH=Math.round(avH*0.55);
     const pvH=avH-mapH;
@@ -2017,29 +2038,100 @@ function toggleDrawer(){
   const drawer=document.getElementById('mob-drawer');
   const overlay=document.getElementById('mob-overlay');
   const isOpen=drawer.classList.contains('open');
+  const pnl=document.getElementById('pnl');
+  const dst=document.getElementById('mob-drawer-content');
+  const wrap=document.getElementById('wrap');
+
   if(!isOpen){
-    // ドロワーにパネル内容をコピー
-    const src=document.getElementById('pnl');
-    const dst=document.getElementById('mob-drawer-content');
-    dst.innerHTML=src.innerHTML;
+    // #pnlをドロワーに物理移動（値・イベントリスナー保持）
+    dst.appendChild(pnl);
+    // ドロワー内では幅・スクロール調整
+    pnl.style.width='100%';
+    pnl.style.height='auto';
+    pnl.style.overflow='visible';
+    pnl.style.borderRight='none';
+  } else {
+    // #pnlをwrapの先頭に戻す
+    wrap.insertBefore(pnl, wrap.firstChild);
+    pnl.style.width='';
+    pnl.style.height='';
+    pnl.style.overflow='';
+    pnl.style.borderRight='';
   }
   drawer.classList.toggle('open');
   overlay.classList.toggle('open');
 }
 
+function promptFocal(){
+  const v=prompt('焦点距離を入力（mm）', focal);
+  if(v===null)return;
+  const n=parseInt(v,10);
+  if(isFinite(n)&&n>=1)setF(n);
+}
+
+function handleMobURL(val){
+  if(!val||val.length<10)return;
+  const input=document.getElementById('mob-url-input');
+  const text=val.trim();
+  const decodedText=decodeURIComponent(text);
+  const reAt=/@(-?\d+\.?\d*),(-?\d+\.?\d*)/;
+  const reQ=/[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/;
+  const rePlace=/\/place\/(-?\d+\.?\d*),(-?\d+\.?\d*)/;
+  const re3d=/3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/;
+  const m=reAt.exec(decodedText)||reQ.exec(decodedText)||rePlace.exec(decodedText)||re3d.exec(decodedText);
+  if(m){
+    const lat=parseFloat(m[1]),lng=parseFloat(m[2]);
+    if(lat>=-90&&lat<=90&&lng>=-180&&lng<=180){
+      sLat=lat;sLng=lng;
+      if(map)map.setView([sLat,sLng],map.getZoom());
+      onPick();input.value='';input.style.borderColor='';return;
+    }
+  }
+  if(text.includes('maps.app.goo.gl')||text.includes('goo.gl')){
+    input.style.borderColor='rgba(200,169,110,0.5)';
+    const proxies=[
+      'https://corsproxy.io/?'+encodeURIComponent(text),
+      'https://api.allorigins.win/get?url='+encodeURIComponent(text),
+    ];
+    (async()=>{
+      for(const proxy of proxies){
+        try{
+          const res=await fetch(proxy,{redirect:'follow'});
+          let body='';
+          if(proxy.includes('allorigins')){
+            const j=await res.json();
+            body=(j.contents||'')+(j.status&&j.status.url?j.status.url:'');
+          }else{
+            body=await res.text();
+            if(res.url&&res.url.includes('google.com/maps'))body+=res.url;
+          }
+          const urlMatch=body.match(/https:\/\/www\.google\.com\/maps[^\s"'<>\\]+/);
+          if(urlMatch){
+            const dec=decodeURIComponent(urlMatch[0]);
+            const m2=reAt.exec(dec)||reQ.exec(dec)||rePlace.exec(dec)||re3d.exec(dec);
+            if(m2){
+              sLat=parseFloat(m2[1]);sLng=parseFloat(m2[2]);
+              if(map)map.setView([sLat,sLng],map.getZoom());
+              onPick();input.value='';input.style.borderColor='';return;
+            }
+          }
+        }catch(e){}
+      }
+      input.style.borderColor='rgba(255,80,80,0.6)';
+      setTimeout(()=>{input.style.borderColor='';},2000);
+    })();
+  }
+}
+
 function syncMobileUI(){
   if(window.innerWidth>600)return;
-  // 時刻表示
   const ts=document.getElementById('itime').value;
   const el=document.getElementById('mob-time-disp');
   if(el)el.textContent=ts||'—';
-  // 焦点距離
   const fd=document.getElementById('mob-focal-disp');
   if(fd)fd.innerHTML=`${focal}<span style="font-size:9px;color:var(--sub);">mm</span>`;
-  // 三脚高さ
   const td=document.getElementById('mob-tripod-disp');
-  if(td)td.textContent=`${tripodH}cm`;
-  // 焦点距離ボタンのon状態
+  if(td)td.textContent=`H${tripodH}`;
   document.querySelectorAll('.mob-fbtn').forEach(b=>{
     const v=parseInt(b.textContent);
     b.classList.toggle('on',v===focal);
@@ -2182,7 +2274,56 @@ function setOrientation(o){
   const bp=document.getElementById('btn-port');
   if(bl)bl.classList.toggle('on',o==='land');
   if(bp)bp.classList.toggle('on',o==='port');
+  syncMobileUI();
   scheduleLayout();
+}
+
+function promptFocal(){
+  const v=prompt('焦点距離を入力（mm）:',focal);
+  if(v===null)return;
+  const n=parseInt(v,10);
+  if(isFinite(n)&&n>=1&&n<=6000)setF(n);
+}
+
+function handleMobURL(val){
+  if(!val||val.length<10)return;
+  const text=val.trim();
+  // 短縮URLはプロキシ不要の正規URLパターンを直接試みる
+  (async()=>{
+    let target=text;
+    if(text.includes('maps.app.goo.gl')||text.includes('goo.gl')){
+      const proxies=[
+        'https://corsproxy.io/?'+encodeURIComponent(text),
+        'https://api.allorigins.win/get?url='+encodeURIComponent(text),
+      ];
+      for(const proxy of proxies){
+        try{
+          const res=await fetch(proxy,{redirect:'follow'});
+          let body='';
+          if(proxy.includes('allorigins')){const j=await res.json();body=(j.contents||'')+(j.status&&j.status.url?j.status.url:'');}
+          else{body=await res.text();if(res.url&&res.url.includes('google.com/maps'))body+=res.url;}
+          const um=body.match(/https:\/\/www\.google\.com\/maps[^\s"'<>\\]+/);
+          if(um){target=um[0];break;}
+        }catch(e){}
+      }
+    }
+    const decoded=decodeURIComponent(target);
+    const reAt=/@(-?\d+\.?\d*),(-?\d+\.?\d*)/;
+    const reQ=/[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/;
+    const rePlace=/\/place\/(-?\d+\.?\d*),(-?\d+\.?\d*)/;
+    const re3d=/3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/;
+    const m=reAt.exec(decoded)||reQ.exec(decoded)||rePlace.exec(decoded)||re3d.exec(decoded);
+    if(m){
+      const lat=parseFloat(m[1]),lng=parseFloat(m[2]);
+      if(lat>=-90&&lat<=90&&lng>=-180&&lng<=180){
+        sLat=lat;sLng=lng;
+        if(map)map.setView([sLat,sLng],map.getZoom());
+        onPick();
+        const inp=document.getElementById('mob-url-input');
+        if(inp){inp.value='';inp.placeholder='✅ 読み取り成功';setTimeout(()=>{inp.placeholder='Google Maps URLを貼り付け…';},2000);}
+      }
+    }
+  })();
 }
 
 function shiftTime(minutes){
