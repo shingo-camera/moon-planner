@@ -1304,142 +1304,133 @@ function drawView(dist,tAz,va){
     }
   }
 
-  // 軌道トレイル（前後の位置を時刻付きで表示）
+  // 軌道描画
   if(ds&&ts&&sLat!==null){
     try{
       const dt0=new Date(`${ds}T${ts}:00+09:00`);
+      const dayStart=new Date(`${ds}T00:00:00+09:00`);
+
+      // ── 1. その日の全軌道（焦点距離連動の刻み）──
+      // 視野角から全軌道の刻みとラベル間隔を決定
+      const dayStep=fvH>60?10:fvH>20?5:fvH>6?3:fvH>2?2:1; // 分
+      const dayLabelInterval=fvH>60?60:fvH>20?30:fvH>6?15:fvH>2?10:5; // 分
+      const dayPts=[];
+      for(let m=0;m<=1440;m+=dayStep){
+        const dt=new Date(dayStart.getTime()+m*60000);
+        const bp=sunsetMode?sunPos(dt,sLat,sLng):moonPos(dt,sLat,sLng);
+        const dAz=azDiff(tAz,bp.az);
+        dayPts.push({x:cx+dAz*px, y:horizon-bp.alt*pyV, m, dt, alt:bp.alt});
+      }
+      ctx.save();
+      ctx.strokeStyle='rgba(255,255,255,0.12)';
+      ctx.lineWidth=1;ctx.setLineDash([]);
+      let drawing=false;
+      for(let i=0;i<dayPts.length;i++){
+        const p=dayPts[i];
+        const inView=p.x>-100&&p.x<W+100&&p.y>-100&&p.y<H+100&&p.alt>-3;
+        if(inView){
+          if(!drawing){ctx.beginPath();ctx.moveTo(p.x,p.y);drawing=true;}
+          else ctx.lineTo(p.x,p.y);
+        }else{ if(drawing){ctx.stroke();drawing=false;} }
+      }
+      if(drawing)ctx.stroke();
+
+      // ラベル：dayLabelInterval刻みで表示
+      for(let m=0;m<=1440;m+=dayLabelInterval){
+        const idx=Math.round(m/dayStep);
+        const p=dayPts[idx];
+        if(!p||p.x<0||p.x>W||p.y<0||p.y>H||p.alt<0)continue;
+        const label=new Date(dayStart.getTime()+m*60000+9*3600000).toISOString().substr(11,5);
+        ctx.font=`9px 'Space Mono',monospace`;
+        ctx.textAlign=p.x<cx?'right':'left';
+        const lx=p.x+(p.x<cx?-5:5);
+        const lw=ctx.measureText(label).width;
+        const bx=p.x<cx?lx-lw-2:lx-2;
+        ctx.fillStyle='rgba(13,17,26,0.6)';ctx.fillRect(bx,p.y-14,lw+4,12);
+        ctx.fillStyle='rgba(200,200,220,0.7)';ctx.fillText(label,lx,p.y-4);
+        ctx.beginPath();ctx.arc(p.x,p.y,2,0,Math.PI*2);
+        ctx.fillStyle='rgba(200,200,220,0.5)';ctx.fill();
+      }
+      ctx.restore();
+
+      // ── 2. 前後トレイル ──
       const moonSpeedDegPerMin=0.5;
       const halfFovH=fvH/2;
-      const maxMinutes=Math.max(15, Math.min(60,Math.floor(halfFovH/moonSpeedDegPerMin*0.8)));
+      const maxMinutes=Math.max(15,Math.min(60,Math.floor(halfFovH/moonSpeedDegPerMin*0.8)));
       const step=fvH>30?10:fvH>10?5:fvH>4?3:2;
       const trailTimes=[];
-      for(let m=-maxMinutes;m<=maxMinutes;m+=step){
-        if(m===0)continue;
-        trailTimes.push(m);
-      }
+      for(let m=-maxMinutes;m<=maxMinutes;m+=step){ if(m===0)continue; trailTimes.push(m); }
 
-      // 軌道方向の矢印：未来側の軌道線の先端に描画
-      const dtFwd=new Date(dt0.getTime()+step*60000);
-      const dtFwd2=new Date(dt0.getTime()+(step*2)*60000);
-      const bpFwd=sunsetMode?sunPos(dtFwd,sLat,sLng):moonPos(dtFwd,sLat,sLng);
-      const bpFwd2=sunsetMode?sunPos(dtFwd2,sLat,sLng):moonPos(dtFwd2,sLat,sLng);
-      const fwdX=cx+azDiff(tAz,bpFwd.az)*px;
-      const fwdY=horizon-bpFwd.alt*pyV;
-      const fwdX2=cx+azDiff(tAz,bpFwd2.az)*px;
-      const fwdY2=horizon-bpFwd2.alt*pyV;
-      const arrowAngle=Math.atan2(fwdY2-fwdY, fwdX2-fwdX);
-
-      ctx.save();
-      ctx.save();
-      // 軌道線を先に描画
       const linePoints=[];
       for(const m of trailTimes){
         const dt=new Date(dt0.getTime()+m*60000);
         const bp=sunsetMode?sunPos(dt,sLat,sLng):moonPos(dt,sLat,sLng);
-        const dAz=azDiff(tAz,bp.az);
-        const tx2=cx+dAz*px;
-        const ty2=horizon-bp.alt*pyV;
-        if(tx2<-60||tx2>W+60||ty2<-60||ty2>H+60)continue;
-        linePoints.push({x:tx2,y:ty2,m});
+        linePoints.push({x:cx+azDiff(tAz,bp.az)*px, y:horizon-bp.alt*pyV, m});
       }
-      const allPoints=[...linePoints.filter(p=>p.m<0),{x:moonX,y:moonY,m:0},...linePoints.filter(p=>p.m>0)];
-      if(allPoints.length>1){
-        // 過去（青）と未来（オレンジ）を分けてグラデーション描画
-        const pastPts=[...linePoints.filter(p=>p.m<0),{x:moonX,y:moonY,m:0}];
-        const futurePts=[{x:moonX,y:moonY,m:0},...linePoints.filter(p=>p.m>0)];
+      const pastPts=[...linePoints.filter(p=>p.m<0),{x:moonX,y:moonY,m:0}];
+      const futurePts=[{x:moonX,y:moonY,m:0},...linePoints.filter(p=>p.m>0)];
 
-        const drawGradLine=(pts,colorFar,colorNear)=>{
-          if(pts.length<2)return;
-          for(let i=0;i<pts.length-1;i++){
-            const t0=i/(pts.length-1);
-            const t1=(i+1)/(pts.length-1);
-            const grad=ctx.createLinearGradient(pts[i].x,pts[i].y,pts[i+1].x,pts[i+1].y);
-            grad.addColorStop(0,colorFar.replace('A',t0.toFixed(2)));
-            grad.addColorStop(1,colorFar.replace('A',t1.toFixed(2)));
-            ctx.beginPath();
-            ctx.moveTo(pts[i].x,pts[i].y);
-            ctx.lineTo(pts[i+1].x,pts[i+1].y);
-            ctx.strokeStyle=grad;
-            ctx.lineWidth=1.2;
-            ctx.setLineDash([]);
-            ctx.stroke();
-          }
-        };
-
-        // 過去：遠いほど薄い青→現在に近いほど濃い青
-        const pastLen=pastPts.length;
-        for(let i=0;i<pastLen-1;i++){
-          const alpha0=0.1+(i/(pastLen-1))*0.6;
-          const alpha1=0.1+((i+1)/(pastLen-1))*0.6;
-          const grad=ctx.createLinearGradient(pastPts[i].x,pastPts[i].y,pastPts[i+1].x,pastPts[i+1].y);
-          grad.addColorStop(0,`rgba(100,180,255,${alpha0})`);
-          grad.addColorStop(1,`rgba(100,180,255,${alpha1})`);
-          ctx.beginPath();ctx.moveTo(pastPts[i].x,pastPts[i].y);ctx.lineTo(pastPts[i+1].x,pastPts[i+1].y);
-          ctx.strokeStyle=grad;ctx.lineWidth=1.2;ctx.setLineDash([]);ctx.stroke();
-        }
-        // 未来：現在に近いほど濃いオレンジ→遠いほど薄い
-        const futLen=futurePts.length;
-        for(let i=0;i<futLen-1;i++){
-          const alpha0=0.6-(i/(futLen-1))*0.5;
-          const alpha1=0.6-((i+1)/(futLen-1))*0.5;
-          const grad=ctx.createLinearGradient(futurePts[i].x,futurePts[i].y,futurePts[i+1].x,futurePts[i+1].y);
-          grad.addColorStop(0,`rgba(220,160,60,${alpha0})`);
-          grad.addColorStop(1,`rgba(220,160,60,${alpha1})`);
-          ctx.beginPath();ctx.moveTo(futurePts[i].x,futurePts[i].y);ctx.lineTo(futurePts[i+1].x,futurePts[i+1].y);
-          ctx.strokeStyle=grad;ctx.lineWidth=1.2;ctx.setLineDash([]);ctx.stroke();
-        }
-        // 矢頭：未来側の線の先端に描画
-        if(futurePts.length>=2){
-          const tip=futurePts[futurePts.length-1];
-          const prev=futurePts[futurePts.length-2];
-          const ang=Math.atan2(tip.y-prev.y, tip.x-prev.x);
-          const hLen=9, hAngle=0.4;
-          ctx.beginPath();
-          ctx.moveTo(tip.x, tip.y);
-          ctx.lineTo(tip.x-hLen*Math.cos(ang-hAngle), tip.y-hLen*Math.sin(ang-hAngle));
-          ctx.moveTo(tip.x, tip.y);
-          ctx.lineTo(tip.x-hLen*Math.cos(ang+hAngle), tip.y-hLen*Math.sin(ang+hAngle));
-          ctx.strokeStyle='rgba(240,180,80,0.85)';
-          ctx.lineWidth=1.8;
-          ctx.lineCap='round';
-          ctx.stroke();
-        }
+      ctx.save();
+      for(let i=0;i<pastPts.length-1;i++){
+        const a0=0.1+(i/(pastPts.length-1))*0.7;
+        const a1=0.1+((i+1)/(pastPts.length-1))*0.7;
+        const g=ctx.createLinearGradient(pastPts[i].x,pastPts[i].y,pastPts[i+1].x,pastPts[i+1].y);
+        g.addColorStop(0,`rgba(100,180,255,${a0})`);g.addColorStop(1,`rgba(100,180,255,${a1})`);
+        ctx.beginPath();ctx.moveTo(pastPts[i].x,pastPts[i].y);ctx.lineTo(pastPts[i+1].x,pastPts[i+1].y);
+        ctx.strokeStyle=g;ctx.lineWidth=1.8;ctx.stroke();
+      }
+      for(let i=0;i<futurePts.length-1;i++){
+        const a0=0.7-(i/(futurePts.length-1))*0.55;
+        const a1=0.7-((i+1)/(futurePts.length-1))*0.55;
+        const g=ctx.createLinearGradient(futurePts[i].x,futurePts[i].y,futurePts[i+1].x,futurePts[i+1].y);
+        g.addColorStop(0,`rgba(220,160,60,${a0})`);g.addColorStop(1,`rgba(220,160,60,${a1})`);
+        ctx.beginPath();ctx.moveTo(futurePts[i].x,futurePts[i].y);ctx.lineTo(futurePts[i+1].x,futurePts[i+1].y);
+        ctx.strokeStyle=g;ctx.lineWidth=1.8;ctx.stroke();
+      }
+      if(futurePts.length>=2){
+        const tip=futurePts[futurePts.length-1];
+        const prev=futurePts[futurePts.length-2];
+        const ang=Math.atan2(tip.y-prev.y,tip.x-prev.x);
+        ctx.beginPath();
+        ctx.moveTo(tip.x,tip.y);ctx.lineTo(tip.x-9*Math.cos(ang-0.4),tip.y-9*Math.sin(ang-0.4));
+        ctx.moveTo(tip.x,tip.y);ctx.lineTo(tip.x-9*Math.cos(ang+0.4),tip.y-9*Math.sin(ang+0.4));
+        ctx.strokeStyle='rgba(240,180,80,0.85)';ctx.lineWidth=1.8;ctx.lineCap='round';ctx.stroke();
       }
       for(const m of trailTimes){
         const dt=new Date(dt0.getTime()+m*60000);
         const bp=sunsetMode?sunPos(dt,sLat,sLng):moonPos(dt,sLat,sLng);
-        const dAz=azDiff(tAz,bp.az);
-        const tx2=cx+dAz*px;
+        const tx2=cx+azDiff(tAz,bp.az)*px;
         const ty2=horizon-bp.alt*pyV;
         if(tx2<-20||tx2>W+20||ty2<-20||ty2>H+20)continue;
         const isPast=m<0;
         const alpha=0.3+0.4*(1-Math.abs(m)/maxMinutes);
         ctx.beginPath();ctx.arc(tx2,ty2,2.5,0,Math.PI*2);
-        ctx.fillStyle=isPast
-          ?`rgba(126,184,232,${alpha})`
-          :`rgba(200,169,110,${alpha})`;
+        ctx.fillStyle=isPast?`rgba(126,184,232,${alpha})`:`rgba(200,169,110,${alpha})`;
         ctx.fill();
-        // ラベルは適切な間隔で表示
         const labelStep=maxMinutes<=15?5:maxMinutes<=30?10:15;
         const nearestLabel=Math.round(m/labelStep)*labelStep;
         if(Math.abs(m-nearestLabel)<step/2+0.1){
           const label=new Date(dt.getTime()+9*3600000).toISOString().substr(11,5);
           ctx.font=`bold 10px 'Space Mono',monospace`;
-          // 背景付きラベル
           const lx=tx2+(tx2<cx?-5:5);
           const ly=ty2-6;
           ctx.textAlign=tx2<cx?'right':'left';
           const tw2=ctx.measureText(label).width;
           const bx=tx2<cx?lx-tw2-2:lx-2;
-          ctx.fillStyle=`rgba(13,17,26,0.65)`;
-          ctx.fillRect(bx,ly-8,tw2+4,11);
-          ctx.fillStyle=isPast
-            ?`rgba(160,210,255,${Math.min(1,alpha+0.3)})`
-            :`rgba(240,200,120,${Math.min(1,alpha+0.3)})`;
+          ctx.fillStyle='rgba(13,17,26,0.72)';ctx.fillRect(bx,ly-8,tw2+4,11);
+          ctx.fillStyle=isPast?'rgba(160,210,255,0.95)':'rgba(240,200,120,0.95)';
           ctx.fillText(label,lx,ly);
         }
       }
       ctx.restore();
+
+      // ── 3. 現在時刻マーカー（固定の◎）──
+      ctx.save();
+      ctx.beginPath();ctx.arc(moonX,moonY,mr+5,0,Math.PI*2);
+      ctx.strokeStyle='rgba(255,255,255,0.6)';ctx.lineWidth=1.5;
+      ctx.setLineDash([3,3]);ctx.stroke();ctx.setLineDash([]);
+      ctx.restore();
+
     }catch(e){}
   }
 
@@ -1592,6 +1583,18 @@ function drawView(dist,tAz,va){
   const flw=ctx.measureText(fovLabel).width;
   ctx.fillStyle='rgba(10,15,28,0.75)';ctx.fillRect(0,H-18,flw+10,18);
   ctx.fillStyle='rgba(200,169,110,.9)';ctx.fillText(fovLabel,5,H-5);
+
+  // 左上に設定日時を大きく表示
+  if(ds&&ts){
+    const dtLabel=`${ds} ${ts}`;
+    ctx.font=`bold 22px 'Space Mono',monospace`;
+    ctx.textAlign='left';
+    const dtW=ctx.measureText(dtLabel).width;
+    ctx.fillStyle='rgba(10,15,28,0.72)';
+    ctx.fillRect(6,6,dtW+14,32);
+    ctx.fillStyle='rgba(240,230,200,0.95)';
+    ctx.fillText(dtLabel,13,30);
+  }
 }
 
 function drawCompass(tAz,va){
@@ -1605,7 +1608,7 @@ function drawCompass(tAz,va){
   ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
 
   if(sLat===null){
-    ctx.fillStyle='rgba(122,130,160,.4)';ctx.font=`9px 'Space Mono',monospace`;
+    ctx.fillStyle='rgba(122,130,160,.6)';ctx.font=`11px 'Space Mono',monospace`;
     ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.fillText('地図をクリックしてください',W/2,H/2);
     ctx.textBaseline='alphabetic';return;
@@ -1616,30 +1619,30 @@ function drawCompass(tAz,va){
   const margin=R+16;
   const cx=margin,cy=H/2;
 
-  ctx.strokeStyle='rgba(200,169,110,.2)';ctx.lineWidth=1;
+  ctx.strokeStyle='rgba(200,169,110,.35)';ctx.lineWidth=1;
   ctx.beginPath();ctx.arc(cx,cy,R,0,6.28);ctx.stroke();
   for(let i=0;i<360;i+=45){
     const a=(i-90)*Math.PI/180,l=i%90===0?7:3;
     ctx.beginPath();
     ctx.moveTo(cx+(R-l)*Math.cos(a),cy+(R-l)*Math.sin(a));
     ctx.lineTo(cx+R*Math.cos(a),cy+R*Math.sin(a));
-    ctx.strokeStyle='rgba(200,169,110,.35)';ctx.stroke();
+    ctx.strokeStyle='rgba(200,169,110,.5)';ctx.stroke();
   }
   ['N','E','S','W'].forEach((c,i)=>{
     const a=(i*90-90)*Math.PI/180;
-    ctx.fillStyle='rgba(200,169,110,.55)';ctx.font=`bold 8px 'Space Mono',monospace`;
+    ctx.fillStyle='rgba(220,200,150,.9)';ctx.font=`bold 10px 'Space Mono',monospace`;
     ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText(c,cx+(R+11)*Math.cos(a),cy+(R+11)*Math.sin(a));
+    ctx.fillText(c,cx+(R+13)*Math.cos(a),cy+(R+13)*Math.sin(a));
   });
 
   // 対象方向
   const tr=(tAz-90)*Math.PI/180;
-  ctx.strokeStyle='#c8a96e';ctx.lineWidth=2.5;ctx.shadowColor='#c8a96e';ctx.shadowBlur=5;
+  ctx.strokeStyle='#c8a96e';ctx.lineWidth=2.5;ctx.shadowColor='#c8a96e';ctx.shadowBlur=6;
   ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+(R-3)*Math.cos(tr),cy+(R-3)*Math.sin(tr));ctx.stroke();ctx.shadowBlur=0;
   const ax=cx+(R-3)*Math.cos(tr),ay=cy+(R-3)*Math.sin(tr);
   ctx.fillStyle='#c8a96e';ctx.beginPath();
-  ctx.moveTo(ax,ay);ctx.lineTo(ax-6*Math.cos(tr-.4),ay-6*Math.sin(tr-.4));
-  ctx.lineTo(ax-6*Math.cos(tr+.4),ay-6*Math.sin(tr+.4));ctx.closePath();ctx.fill();
+  ctx.moveTo(ax,ay);ctx.lineTo(ax-7*Math.cos(tr-.4),ay-7*Math.sin(tr-.4));
+  ctx.lineTo(ax-7*Math.cos(tr+.4),ay-7*Math.sin(tr+.4));ctx.closePath();ctx.fill();
 
   // 月or太陽方向
   const ds=document.getElementById('idate').value;
@@ -1651,45 +1654,60 @@ function drawCompass(tAz,va){
       const mr2=(bp.az-90)*Math.PI/180;
       const bodyColor=sunsetMode?'#ffaa44':'#7eb8e8';
       const bodyIcon=sunsetMode?'☀️':'🌕';
-      ctx.strokeStyle=bodyColor;ctx.lineWidth=1.5;ctx.setLineDash([3,3]);
+      ctx.strokeStyle=bodyColor;ctx.lineWidth=1.8;ctx.setLineDash([4,3]);
+      ctx.shadowColor=bodyColor;ctx.shadowBlur=4;
       ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+(R-12)*Math.cos(mr2),cy+(R-12)*Math.sin(mr2));ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.font='12px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.setLineDash([]);ctx.shadowBlur=0;
+      ctx.font='13px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
       ctx.fillText(bodyIcon,cx+(R-4)*Math.cos(mr2),cy+(R-4)*Math.sin(mr2));
-      ctx.fillStyle=`rgba(${sunsetMode?'255,170,68':'126,184,232'},.6)`;
-      ctx.font=`7px 'Space Mono',monospace`;
-      ctx.fillText(`${bp.az.toFixed(0)}°`,cx+(R+13)*Math.cos(mr2),cy+(R+13)*Math.sin(mr2));
+      // 方位角ラベル（背景付き）
+      const azLabel=`${bp.az.toFixed(0)}°`;
+      const azX=cx+(R+16)*Math.cos(mr2), azY=cy+(R+16)*Math.sin(mr2);
+      ctx.font=`bold 9px 'Space Mono',monospace`;
+      const azW=ctx.measureText(azLabel).width;
+      ctx.fillStyle='rgba(10,15,28,0.7)';ctx.fillRect(azX-azW/2-2,azY-8,azW+4,11);
+      ctx.fillStyle=`rgba(${sunsetMode?'255,200,100':'160,210,255'},0.95)`;
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(azLabel,azX,azY);
     }catch(e){}
   }
 
   ctx.fillStyle='#c8a96e';ctx.beginPath();ctx.arc(cx,cy,3,0,6.28);ctx.fill();
 
-  // 右側に情報テキスト
-  const infoX=cx+R+20;
-  ctx.fillStyle='rgba(200,169,110,.7)';
-  ctx.font=`bold 9px 'Space Mono',monospace`;
+  // 右側に情報テキスト（背景付き）
+  const infoX=cx+R+22;
+  const infoLines=[
+    {text:`AZ ${tAz.toFixed(1)}°`, color:'rgba(220,190,120,0.95)', size:'bold 11px'},
+    {text:`ELEV ${Math.max(0,va).toFixed(2)}°`, color:'rgba(160,210,255,0.95)', size:'bold 11px'},
+    {text:T[cur].name, color:'rgba(160,170,200,0.8)', size:'9px'},
+  ];
   ctx.textAlign='left';ctx.textBaseline='alphabetic';
-  ctx.fillText(`AZ ${tAz.toFixed(1)}°`,infoX,cy-14);
-  ctx.fillText(`ELEV ${Math.max(0,va).toFixed(2)}°`,infoX,cy+4);
-  ctx.fillStyle='rgba(122,130,160,.5)';
-  ctx.font=`7px 'Space Mono',monospace`;
-  ctx.fillText(T[cur].name,infoX,cy+18);
+  infoLines.forEach((line,i)=>{
+    ctx.font=`${line.size} 'Space Mono',monospace`;
+    const lw=ctx.measureText(line.text).width;
+    const ly=cy-16+i*18;
+    ctx.fillStyle='rgba(10,15,28,0.65)';ctx.fillRect(infoX-3,ly-12,lw+8,14);
+    ctx.fillStyle=line.color;ctx.fillText(line.text,infoX,ly);
+  });
 
   // 仰角ダイアグラム（右下）
   const ex=infoX,ey=H-20,ew=Math.min(W-infoX-8,R*1.2),eh=Math.min(H*0.45,R*1.1);
   if(ew>20&&eh>20){
-    ctx.strokeStyle='rgba(200,169,110,.18)';ctx.lineWidth=1;
+    ctx.strokeStyle='rgba(200,169,110,.3)';ctx.lineWidth=1;
     ctx.beginPath();ctx.moveTo(ex,ey-eh);ctx.lineTo(ex,ey);ctx.lineTo(ex+ew,ey);ctx.stroke();
     const ar=Math.max(0,va)*Math.PI/180;
-    ctx.strokeStyle='#c8a96e';ctx.lineWidth=2;
-    ctx.beginPath();ctx.moveTo(ex,ey);ctx.arc(ex,ey,ew*.68,0,-ar,true);ctx.stroke();
+    ctx.strokeStyle='#c8a96e';ctx.lineWidth=2;ctx.shadowColor='#c8a96e';ctx.shadowBlur=4;
+    ctx.beginPath();ctx.moveTo(ex,ey);ctx.arc(ex,ey,ew*.68,0,-ar,true);ctx.stroke();ctx.shadowBlur=0;
     const ll=ew*.74;
-    ctx.strokeStyle='rgba(200,169,110,.4)';ctx.lineWidth=1.5;
+    ctx.strokeStyle='rgba(200,169,110,.5)';ctx.lineWidth=1.5;
     ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex+ll*Math.cos(-ar),ey+ll*Math.sin(-ar));ctx.stroke();
-    ctx.font='11px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText(T[cur].e,ex+ll*Math.cos(-ar),ey+ll*Math.sin(-ar)-4);
-    ctx.fillStyle='#c8a96e';ctx.font=`bold 9px 'Space Mono',monospace`;ctx.textAlign='left';ctx.textBaseline='alphabetic';
-    ctx.fillText(`${Math.max(0,va).toFixed(2)}°`,ex+20,ey-8);
+    ctx.font='13px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(T[cur].e,ex+ll*Math.cos(-ar),ey+ll*Math.sin(-ar)-5);
+    const elvLabel=`${Math.max(0,va).toFixed(2)}°`;
+    ctx.font=`bold 10px 'Space Mono',monospace`;ctx.textAlign='left';ctx.textBaseline='alphabetic';
+    const elw=ctx.measureText(elvLabel).width;
+    ctx.fillStyle='rgba(10,15,28,0.65)';ctx.fillRect(ex+18,ey-20,elw+6,13);
+    ctx.fillStyle='rgba(200,220,160,0.95)';ctx.fillText(elvLabel,ex+20,ey-9);
   }
 }
 
