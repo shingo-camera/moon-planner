@@ -553,9 +553,11 @@ function initMap(){
           }
           const reAt=/@(-?\d+\.?\d*),(-?\d+\.?\d*)/;
           const reQ=/[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/;
-          // 度分秒形式: 34°29'58.3"N+135°32'37.9"E または q=34%C2%B029...
+          const rePlace=/\/place\/(-?\d+\.?\d*),(-?\d+\.?\d*)/;
+          const re3d=/3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/;
+          // 度分秒形式
           const reDMS=/(\d+)[°%C2%B0]+(\d+)[\'%27]+(\d+\.?\d*)["%22]+([NS])[+\s]+(\d+)[°%C2%B0]+(\d+)[\'%27]+(\d+\.?\d*)["%22]+([EW])/;
-          const m=reAt.exec(decodedText)||reQ.exec(decodedText)||reDMS.exec(decodedText);
+          const m=reAt.exec(decodedText)||reQ.exec(decodedText)||rePlace.exec(decodedText)||re3d.exec(decodedText)||reDMS.exec(decodedText);
           if(m){
             let lat,lng;
             if(m.length>5){
