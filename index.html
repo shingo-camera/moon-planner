@@ -1262,9 +1262,11 @@ function drawView(dist,tAz,va){
       ctx.shadowColor=`rgba(255,${g1},0,.6)`;ctx.shadowBlur=mr*1.2;
       ctx.fill();ctx.shadowBlur=0;
       ctx.restore();
-      ctx.fillStyle='rgba(255,180,50,.75)';ctx.font=`8px 'Space Mono',monospace`;
-      ctx.textAlign='center';
-      ctx.fillText(`太陽 ${mAlt.toFixed(1)}° / AZ${mAz.toFixed(0)}°`,moonX,moonY-mr-5);
+      ctx.font=`bold 11px 'Space Mono',monospace`;ctx.textAlign='center';
+      const slabel=`太陽 ${mAlt.toFixed(1)}° / AZ${mAz.toFixed(0)}°`;
+      const slw=ctx.measureText(slabel).width;
+      ctx.fillStyle='rgba(10,15,28,0.7)';ctx.fillRect(moonX-slw/2-4,moonY-mr-18,slw+8,14);
+      ctx.fillStyle='rgba(255,210,100,0.95)';ctx.fillText(slabel,moonX,moonY-mr-7);
     }else{
       // 月（既存の描画）
       const ds2=document.getElementById('idate').value;
@@ -1294,9 +1296,11 @@ function drawView(dist,tAz,va){
         if(ex2>0){ctx.fill();}else{ctx.fillStyle='rgba(6,8,16,.92)';ctx.fill();}
       }
       ctx.restore();ctx.restore();
-      ctx.fillStyle='rgba(126,184,232,.75)';ctx.font=`8px 'Space Mono',monospace`;
-      ctx.textAlign='center';
-      ctx.fillText(`月 ${mAlt.toFixed(1)}° / AZ${mAz.toFixed(0)}°`,moonX,moonY-mr-5);
+      ctx.font=`bold 11px 'Space Mono',monospace`;ctx.textAlign='center';
+      const mlabel=`月 ${mAlt.toFixed(1)}° / AZ${mAz.toFixed(0)}°`;
+      const mlw=ctx.measureText(mlabel).width;
+      ctx.fillStyle='rgba(10,15,28,0.7)';ctx.fillRect(moonX-mlw/2-4,moonY-mr-18,mlw+8,14);
+      ctx.fillStyle='rgba(180,220,255,0.95)';ctx.fillText(mlabel,moonX,moonY-mr-7);
     }
   }
 
@@ -1314,41 +1318,16 @@ function drawView(dist,tAz,va){
         trailTimes.push(m);
       }
 
-      // 軌道方向の矢印：現在位置から+stepと-stepの座標差で向きを計算
+      // 軌道方向の矢印：未来側の軌道線の先端に描画
       const dtFwd=new Date(dt0.getTime()+step*60000);
-      const dtBwd=new Date(dt0.getTime()-step*60000);
+      const dtFwd2=new Date(dt0.getTime()+(step*2)*60000);
       const bpFwd=sunsetMode?sunPos(dtFwd,sLat,sLng):moonPos(dtFwd,sLat,sLng);
-      const bpBwd=sunsetMode?sunPos(dtBwd,sLat,sLng):moonPos(dtBwd,sLat,sLng);
+      const bpFwd2=sunsetMode?sunPos(dtFwd2,sLat,sLng):moonPos(dtFwd2,sLat,sLng);
       const fwdX=cx+azDiff(tAz,bpFwd.az)*px;
       const fwdY=horizon-bpFwd.alt*pyV;
-      const bwdX=cx+azDiff(tAz,bpBwd.az)*px;
-      const bwdY=horizon-bpBwd.alt*pyV;
-      const arrowAngle=Math.atan2(fwdY-bwdY, fwdX-bwdX);
-      const arrowLen=18;
-      const arrowAx=moonX+Math.cos(arrowAngle)*arrowLen;
-      const arrowAy=moonY+Math.sin(arrowAngle)*arrowLen;
-
-      // 矢印描画（月/太陽の横に）
-      ctx.save();
-      ctx.strokeStyle='rgba(255,255,255,0.55)';
-      ctx.lineWidth=1.2;
-      ctx.lineCap='round';
-      ctx.lineJoin='round';
-      ctx.setLineDash([]);
-      // 矢幹
-      ctx.beginPath();
-      ctx.moveTo(moonX+Math.cos(arrowAngle)*(mr+4), moonY+Math.sin(arrowAngle)*(mr+4));
-      ctx.lineTo(arrowAx, arrowAy);
-      ctx.stroke();
-      // 矢頭
-      const hLen=5, hAngle=0.45;
-      ctx.beginPath();
-      ctx.moveTo(arrowAx, arrowAy);
-      ctx.lineTo(arrowAx-hLen*Math.cos(arrowAngle-hAngle), arrowAy-hLen*Math.sin(arrowAngle-hAngle));
-      ctx.moveTo(arrowAx, arrowAy);
-      ctx.lineTo(arrowAx-hLen*Math.cos(arrowAngle+hAngle), arrowAy-hLen*Math.sin(arrowAngle+hAngle));
-      ctx.stroke();
-      ctx.restore();
+      const fwdX2=cx+azDiff(tAz,bpFwd2.az)*px;
+      const fwdY2=horizon-bpFwd2.alt*pyV;
+      const arrowAngle=Math.atan2(fwdY2-fwdY, fwdX2-fwdX);
 
       ctx.save();
       ctx.save();
@@ -1409,6 +1388,22 @@ function drawView(dist,tAz,va){
           ctx.beginPath();ctx.moveTo(futurePts[i].x,futurePts[i].y);ctx.lineTo(futurePts[i+1].x,futurePts[i+1].y);
           ctx.strokeStyle=grad;ctx.lineWidth=1.2;ctx.setLineDash([]);ctx.stroke();
         }
+        // 矢頭：未来側の線の先端に描画
+        if(futurePts.length>=2){
+          const tip=futurePts[futurePts.length-1];
+          const prev=futurePts[futurePts.length-2];
+          const ang=Math.atan2(tip.y-prev.y, tip.x-prev.x);
+          const hLen=9, hAngle=0.4;
+          ctx.beginPath();
+          ctx.moveTo(tip.x, tip.y);
+          ctx.lineTo(tip.x-hLen*Math.cos(ang-hAngle), tip.y-hLen*Math.sin(ang-hAngle));
+          ctx.moveTo(tip.x, tip.y);
+          ctx.lineTo(tip.x-hLen*Math.cos(ang+hAngle), tip.y-hLen*Math.sin(ang+hAngle));
+          ctx.strokeStyle='rgba(240,180,80,0.85)';
+          ctx.lineWidth=1.8;
+          ctx.lineCap='round';
+          ctx.stroke();
+        }
       }
       for(const m of trailTimes){
         const dt=new Date(dt0.getTime()+m*60000);
@@ -1424,11 +1419,12 @@ function drawView(dist,tAz,va){
           ?`rgba(126,184,232,${alpha})`
           :`rgba(200,169,110,${alpha})`;
         ctx.fill();
-        // ラベルは5分刻み以上で表示（望遠時の煩雑さ防止）
-        const labelStep=Math.max(step,5);
-        if(Math.abs(m)%labelStep===0){
+        // ラベルは適切な間隔で表示
+        const labelStep=maxMinutes<=15?5:maxMinutes<=30?10:15;
+        const nearestLabel=Math.round(m/labelStep)*labelStep;
+        if(Math.abs(m-nearestLabel)<step/2+0.1){
           const label=new Date(dt.getTime()+9*3600000).toISOString().substr(11,5);
-          ctx.font=`bold 8px 'Space Mono',monospace`;
+          ctx.font=`bold 10px 'Space Mono',monospace`;
           // 背景付きラベル
           const lx=tx2+(tx2<cx?-5:5);
           const ly=ty2-6;
@@ -1591,8 +1587,11 @@ function drawView(dist,tAz,va){
     ctx.fillText(label,cx,horizon-20);
   }
   // 情報ラベル
-  ctx.fillStyle='rgba(200,169,110,.5)';ctx.font=`8px 'Space Mono',monospace`;ctx.textAlign='left';
-  ctx.fillText(`FOV ${fvH.toFixed(1)}°  月 ${MOON}°  ${T[cur].name}頂 ${angS(T[cur].h,dist).toFixed(1)}°  仰角 ${vaTop.toFixed(2)}°`,5,H-5);
+  const fovLabel=`FOV ${fvH.toFixed(1)}°  月 ${MOON}°  ${T[cur].name}頂 ${angS(T[cur].h,dist).toFixed(1)}°  仰角 ${vaTop.toFixed(2)}°`;
+  ctx.font=`10px 'Space Mono',monospace`;ctx.textAlign='left';
+  const flw=ctx.measureText(fovLabel).width;
+  ctx.fillStyle='rgba(10,15,28,0.75)';ctx.fillRect(0,H-18,flw+10,18);
+  ctx.fillStyle='rgba(200,169,110,.9)';ctx.fillText(fovLabel,5,H-5);
 }
 
 function drawCompass(tAz,va){
