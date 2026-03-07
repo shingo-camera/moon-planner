@@ -284,8 +284,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   }
   .mob-icon-btn:active{background:var(--ac);color:var(--bg);}
 
+  #mob-url-row{display:flex;align-items:center;gap:4px;}
   #mob-url-input{
-    width:100%;height:24px;
+    flex:1;min-width:0;height:24px;
     background:var(--sur2);border:1px solid var(--bd);border-radius:4px;
     color:var(--tx);font-size:11px;padding:0 8px;
     font-family:'Noto Sans JP',sans-serif;
@@ -293,6 +294,14 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   }
   #mob-url-input:focus{border-color:var(--ac);}
   #mob-url-input::placeholder{color:var(--sub);font-size:10px;}
+  #mob-url-clear{
+    flex-shrink:0;width:26px;height:24px;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--sur2);border:1px solid var(--bd);border-radius:4px;
+    color:var(--sub);font-size:11px;cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+  }
+  #mob-url-clear:active{border-color:var(--ac);color:var(--ac);}
 
   /* ドロワー */
   #mob-overlay{
@@ -533,6 +542,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
     <input id="mob-url-input" type="url" placeholder="Google Maps URLを貼り付け…"
       inputmode="url" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
       oninput="handleMobURL(this.value)">
+    <div id="mob-url-clear" onclick="document.getElementById('mob-url-input').value='';document.getElementById('mob-url-input').placeholder='Google Maps URLを貼り付け…';">✕</div>
   </div>
 </div>
 
@@ -756,87 +766,12 @@ function initMap(){
       L.DomEvent.on(btn,'click',L.DomEvent.stopPropagation);
       L.DomEvent.on(btn,'click',async()=>{
         try{
-          let text=await navigator.clipboard.readText();
-          // 短縮URLの場合は展開
-          if(text.includes('maps.app.goo.gl')||text.includes('goo.gl')){
-            btn.innerHTML='⏳';
-            let expanded=null;
-            const proxies=[
-              'https://corsproxy.io/?'+encodeURIComponent(text.trim()),
-              'https://api.allorigins.win/get?url='+encodeURIComponent(text.trim()),
-            ];
-            for(const proxy of proxies){
-              try{
-                const res=await fetch(proxy,{redirect:'follow'});
-                // alloriginsはcontentsフィールドに入る
-                let body='';
-                if(proxy.includes('allorigins')){
-                  const j=await res.json();
-                  body=j.contents||'';
-                  // alloriginsはリダイレクト先URLを返す場合がある
-                  if(j.status&&j.status.url) body+=j.status.url;
-                }else{
-                  body=await res.text();
-                  // corsproxy経由でリダイレクト先URLが res.url に入る場合
-                  if(res.url&&res.url.includes('google.com/maps')) body+=res.url;
-                }
-                console.log('[📋] body (first 300):', body.slice(0,300));
-                const urlMatch=body.match(/https:\/\/www\.google\.com\/maps[^\s"'<>\\]+/);
-                if(urlMatch){expanded=urlMatch[0];break;}
-              }catch(e){
-                console.warn('[📋] proxy failed:', proxy, e);
-              }
-            }
-            if(expanded){
-              text=expanded;
-            }else{
-              console.error('[📋] all proxies failed');
-              btn.innerHTML='❌';
-              setTimeout(()=>btn.innerHTML='📋',1500);
-              return;
-            }
-          }
-          const decodedText=decodeURIComponent(text);
-          // 度分秒形式を十進度に変換
-          function dms2dec(deg,min,sec,dir){
-            const v=parseFloat(deg)+parseFloat(min)/60+parseFloat(sec)/3600;
-            return(dir==='S'||dir==='W')?-v:v;
-          }
-          const reAt=/@(-?\d+\.?\d*),(-?\d+\.?\d*)/;
-          const reQ=/[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/;
-          const rePlace=/\/place\/(-?\d+\.?\d*),(-?\d+\.?\d*)/;
-          const re3d=/3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/;
-          // 度分秒形式
-          const reDMS=/(\d+)[°%C2%B0]+(\d+)[\'%27]+(\d+\.?\d*)["%22]+([NS])[+\s]+(\d+)[°%C2%B0]+(\d+)[\'%27]+(\d+\.?\d*)["%22]+([EW])/;
-          const m=reAt.exec(decodedText)||reQ.exec(decodedText)||rePlace.exec(decodedText)||re3d.exec(decodedText)||reDMS.exec(decodedText);
-          if(m){
-            let lat,lng;
-            if(m.length>5){
-              // 度分秒マッチ
-              lat=dms2dec(m[1],m[2],m[3],m[4]);
-              lng=dms2dec(m[5],m[6],m[7],m[8]);
-            }else{
-              lat=parseFloat(m[1]);
-              lng=parseFloat(m[2]);
-            }
-            sLat=lat;
-            sLng=lng;
-            if(sLat>=-90&&sLat<=90&&sLng>=-180&&sLng<=180){
-              btn.innerHTML='✅';
-              setTimeout(()=>btn.innerHTML='📋',1500);
-              if(map)map.setView([sLat,sLng],map.getZoom());
-              onPick();
-            }else{
-              btn.innerHTML='❌';
-              setTimeout(()=>btn.innerHTML='📋',1500);
-            }
-          }else{
-            // 無効なテキストは無視（フラッシュのみ）
-            btn.innerHTML='❌';
-            setTimeout(()=>btn.innerHTML='📋',1500);
-          }
+          const text=await navigator.clipboard.readText();
+          btn.innerHTML='⏳';
+          const ok=await extractAndApplyMapsURL(text.trim());
+          btn.innerHTML=ok?'✅':'❌';
+          setTimeout(()=>btn.innerHTML='📋',1500);
         }catch(e){
-          // 許可拒否などは無視
           btn.innerHTML='❌';
           setTimeout(()=>btn.innerHTML='📋',1500);
         }
@@ -2073,70 +2008,95 @@ function promptFocal(){
   if(isFinite(n)&&n>=1)setF(n);
 }
 
+// ━━━ Google Maps URL共通パーサー ━━━
+async function extractAndApplyMapsURL(rawText){
+  function isValidCoord(lat,lng){
+    return isFinite(lat)&&isFinite(lng)&&lat>=-90&&lat<=90&&lng>=-180&&lng<=180&&(Math.abs(lat)+Math.abs(lng))>0.01;
+  }
+  function applyCoords(lat,lng){
+    if(!isValidCoord(lat,lng))return false;
+    sLat=lat;sLng=lng;
+    if(map)map.setView([sLat,sLng],15);
+    onPick();
+    return true;
+  }
+  function extractCoords(text){
+    const dec=decodeURIComponent(text);
+    // 1. @lat,lng
+    let m=/@(-?\d+\.?\d+),(-?\d+\.?\d+)/.exec(dec);
+    if(m)return[+m[1],+m[2]];
+    // 2. !3d...!4d...
+    m=/!3d(-?\d+\.?\d+)!4d(-?\d+\.?\d+)/.exec(dec);
+    if(m)return[+m[1],+m[2]];
+    // 3. !8m2!3d...!4d...
+    m=/!8m2!3d(-?\d+\.?\d+)!4d(-?\d+\.?\d+)/.exec(dec);
+    if(m)return[+m[1],+m[2]];
+    // 4. ?q=lat,lng
+    m=/[?&]q=(-?\d+\.?\d+),(-?\d+\.?\d+)/.exec(dec);
+    if(m)return[+m[1],+m[2]];
+    // 5. /place/lat,lng
+    m=/\/place\/(-?\d+\.?\d+),(-?\d+\.?\d+)/.exec(dec);
+    if(m)return[+m[1],+m[2]];
+    // 6. HTML内高精度座標ペア（日本: lat 30-46, lng 129-146）
+    m=/\b(3[0-6]\.\d{5,}),(13[0-9]\.\d{5,})\b/.exec(dec);
+    if(m)return[+m[1],+m[2]];
+    // 7. より広い高精度ペア
+    const allCoords=[...dec.matchAll(/(-?\d{1,3}\.\d{6,})/g)].map(x=>+x[1]);
+    for(let i=0;i<allCoords.length-1;i++){
+      const lat=allCoords[i],lng=allCoords[i+1];
+      if(isValidCoord(lat,lng)&&Math.abs(lng)>90)return[lat,lng];
+    }
+    return null;
+  }
+
+  // まず直接パース
+  const direct=extractCoords(rawText);
+  if(direct&&applyCoords(direct[0],direct[1]))return true;
+
+  // 短縮URLをプロキシで展開
+  if(!rawText.includes('maps.app.goo.gl')&&!rawText.includes('goo.gl'))return false;
+
+  const fetchURL=rawText.replace(/[?&]g_st=[^&]*/g,'').replace(/\?$/,'');
+  const proxies=[
+    {url:'https://api.allorigins.win/get?url='+encodeURIComponent(fetchURL), json:true},
+    {url:'https://corsproxy.io/?'+encodeURIComponent(fetchURL), json:false},
+    {url:'https://api.allorigins.win/raw?url='+encodeURIComponent(fetchURL), json:false},
+  ];
+  for(const {url,json} of proxies){
+    try{
+      const res=await fetch(url,{redirect:'follow'});
+      let body='';
+      if(json){
+        const j=await res.json();
+        body=(j.contents||'')+' '+(j.status&&j.status.url?j.status.url:'');
+      }else{
+        body=await res.text();
+        if(res.url)body=res.url+' '+body;
+      }
+      console.log('[Maps] proxy='+url.slice(0,50)+' len='+body.length);
+      const coords=extractCoords(body);
+      if(coords&&applyCoords(coords[0],coords[1]))return true;
+    }catch(e){console.warn('[Maps] proxy fail:',e);}
+  }
+  return false;
+}
+
 function handleMobURL(val){
   if(!val||val.length<10)return;
   const input=document.getElementById('mob-url-input');
-  // ?g_st=...などのアプリパラメータを除去してクリーンなURL取得
-  const text=val.trim().split('?')[0]+(val.includes('?')?'?'+val.split('?')[1].split('&').filter(p=>!p.startsWith('g_st')).join('&'):'');
-  const cleanText=val.trim();
-  const decodedText=decodeURIComponent(cleanText);
-  const reAt=/@(-?\d+\.?\d*),(-?\d+\.?\d*)/;
-  const reQ=/[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/;
-  const rePlace=/\/place\/(-?\d+\.?\d*),(-?\d+\.?\d*)/;
-  const re3d=/3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/;
-
-  function applyCoords(lat,lng){
-    if(lat>=-90&&lat<=90&&lng>=-180&&lng<=180){
-      sLat=lat;sLng=lng;
-      if(map)map.setView([sLat,sLng],15);
-      onPick();
+  input.style.borderColor='rgba(200,169,110,0.4)';
+  extractAndApplyMapsURL(val.trim()).then(ok=>{
+    input.style.borderColor='';
+    if(ok){
       input.value='';
       input.placeholder='✅ 読み取り成功';
       setTimeout(()=>{input.placeholder='Google Maps URLを貼り付け…';},2000);
-      return true;
-    }
-    return false;
-  }
-
-  // まず直接パース試みる
-  const m=reAt.exec(decodedText)||reQ.exec(decodedText)||rePlace.exec(decodedText)||re3d.exec(decodedText);
-  if(m&&applyCoords(parseFloat(m[1]),parseFloat(m[2])))return;
-
-  // 短縮URLの場合プロキシで展開
-  if(cleanText.includes('maps.app.goo.gl')||cleanText.includes('goo.gl')){
-    input.style.borderColor='rgba(200,169,110,0.5)';
-    // g_stパラメータを除いたURLでfetch
-    const fetchURL=cleanText.replace(/[?&]g_st=[^&]*/,'').replace(/\?$/,'');
-    const proxies=[
-      'https://corsproxy.io/?'+encodeURIComponent(fetchURL),
-      'https://api.allorigins.win/get?url='+encodeURIComponent(fetchURL),
-    ];
-    (async()=>{
-      for(const proxy of proxies){
-        try{
-          const res=await fetch(proxy,{redirect:'follow'});
-          let body='';
-          if(proxy.includes('allorigins')){
-            const j=await res.json();
-            body=(j.contents||'');
-            if(j.status&&j.status.url)body+=j.status.url;
-          }else{
-            body=await res.text();
-            if(res.url&&res.url.includes('google.com/maps'))body+=res.url;
-          }
-          // bodyから座標を直接抽出
-          const dec=decodeURIComponent(body);
-          const m2=reAt.exec(dec)||re3d.exec(dec)||reQ.exec(dec)||rePlace.exec(dec);
-          if(m2&&applyCoords(parseFloat(m2[1]),parseFloat(m2[2]))){
-            input.style.borderColor='';return;
-          }
-        }catch(e){console.warn('proxy fail:',proxy,e);}
-      }
+    }else{
       input.style.borderColor='rgba(255,80,80,0.6)';
-      input.placeholder='❌ 読み取り失敗 - 通常のMaps URLをお試しください';
+      input.placeholder='❌ 読み取り失敗';
       setTimeout(()=>{input.style.borderColor='';input.placeholder='Google Maps URLを貼り付け…';},3000);
-    })();
-  }
+    }
+  });
 }
 
 function syncMobileUI(){
