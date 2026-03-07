@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>月×建造物 撮影プランナー</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌕</text></svg>">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap');
 :root{
@@ -473,39 +474,68 @@ function initMap(){
       L.DomEvent.on(btn,'click',async()=>{
         try{
           let text=await navigator.clipboard.readText();
-          // 短縮URLの場合はcorsproxy.io経由で展開
+          // 短縮URLの場合は展開
           if(text.includes('maps.app.goo.gl')||text.includes('goo.gl')){
             btn.innerHTML='⏳';
-            try{
-              const proxy='https://corsproxy.io/?'+encodeURIComponent(text.trim());
-              console.log('[📋] proxy URL:', proxy);
-              const res=await fetch(proxy,{redirect:'follow'});
-              console.log('[📋] res.status:', res.status, 'res.url:', res.url);
-              const body=await res.text();
-              console.log('[📋] body (first 500):', body.slice(0,500));
-              const urlMatch=body.match(/https:\/\/www\.google\.com\/maps[^\s"'<>]+/);
-              if(urlMatch){
-                console.log('[📋] matched URL:', urlMatch[0]);
-                text=urlMatch[0];
-              }else{
-                console.log('[📋] no match in body, trying res.url');
-                text=res.url;
+            let expanded=null;
+            const proxies=[
+              'https://corsproxy.io/?'+encodeURIComponent(text.trim()),
+              'https://api.allorigins.win/get?url='+encodeURIComponent(text.trim()),
+            ];
+            for(const proxy of proxies){
+              try{
+                const res=await fetch(proxy,{redirect:'follow'});
+                // alloriginsはcontentsフィールドに入る
+                let body='';
+                if(proxy.includes('allorigins')){
+                  const j=await res.json();
+                  body=j.contents||'';
+                  // alloriginsはリダイレクト先URLを返す場合がある
+                  if(j.status&&j.status.url) body+=j.status.url;
+                }else{
+                  body=await res.text();
+                  // corsproxy経由でリダイレクト先URLが res.url に入る場合
+                  if(res.url&&res.url.includes('google.com/maps')) body+=res.url;
+                }
+                console.log('[📋] body (first 300):', body.slice(0,300));
+                const urlMatch=body.match(/https:\/\/www\.google\.com\/maps[^\s"'<>\\]+/);
+                if(urlMatch){expanded=urlMatch[0];break;}
+              }catch(e){
+                console.warn('[📋] proxy failed:', proxy, e);
               }
-            }catch(e){
-              console.error('[📋] fetch error:', e);
+            }
+            if(expanded){
+              text=expanded;
+            }else{
+              console.error('[📋] all proxies failed');
               btn.innerHTML='❌';
               setTimeout(()=>btn.innerHTML='📋',1500);
               return;
             }
           }
           const decodedText=decodeURIComponent(text);
+          // 度分秒形式を十進度に変換
+          function dms2dec(deg,min,sec,dir){
+            const v=parseFloat(deg)+parseFloat(min)/60+parseFloat(sec)/3600;
+            return(dir==='S'||dir==='W')?-v:v;
+          }
           const reAt=/@(-?\d+\.?\d*),(-?\d+\.?\d*)/;
           const reQ=/[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/;
-          const m=reAt.exec(decodedText)||reQ.exec(decodedText);
+          // 度分秒形式: 34°29'58.3"N+135°32'37.9"E または q=34%C2%B029...
+          const reDMS=/(\d+)[°%C2%B0]+(\d+)[\'%27]+(\d+\.?\d*)["%22]+([NS])[+\s]+(\d+)[°%C2%B0]+(\d+)[\'%27]+(\d+\.?\d*)["%22]+([EW])/;
+          const m=reAt.exec(decodedText)||reQ.exec(decodedText)||reDMS.exec(decodedText);
           if(m){
-            sLat=parseFloat(m[1]);
-            sLng=parseFloat(m[2]);
-            // 有効な座標範囲チェック
+            let lat,lng;
+            if(m.length>5){
+              // 度分秒マッチ
+              lat=dms2dec(m[1],m[2],m[3],m[4]);
+              lng=dms2dec(m[5],m[6],m[7],m[8]);
+            }else{
+              lat=parseFloat(m[1]);
+              lng=parseFloat(m[2]);
+            }
+            sLat=lat;
+            sLng=lng;
             if(sLat>=-90&&sLat<=90&&sLng>=-180&&sLng<=180){
               btn.innerHTML='✅';
               setTimeout(()=>btn.innerHTML='📋',1500);
