@@ -1312,10 +1312,13 @@ function drawView(dist,tAz,va){
 
       // ── 1. その日の全軌道（焦点距離連動の刻み）──
       // 視野角から全軌道の刻みとラベル間隔を決定
-      const dayStep=fvH>60?10:fvH>20?5:fvH>6?3:fvH>2?2:1; // 分
-      const dayLabelInterval=fvH>60?60:fvH>20?30:fvH>6?15:fvH>2?10:5; // 分
+      const dayStep  = fvH<1?0.5 : fvH<2?1 : fvH<4?1 : fvH<8?2 : fvH<20?3 : fvH<60?5 : 10;
+      const dayLabelInterval = fvH<1?2 : fvH<2?3 : fvH<4?5 : fvH<8?5 : fvH<20?10 : fvH<60?30 : 60;
+      const dayTotalSteps=Math.ceil(1440/dayStep);
       const dayPts=[];
-      for(let m=0;m<=1440;m+=dayStep){
+      for(let i=0;i<=dayTotalSteps;i++){
+        const m=i*dayStep;
+        if(m>1440)break;
         const dt=new Date(dayStart.getTime()+m*60000);
         const bp=sunsetMode?sunPos(dt,sLat,sLng):moonPos(dt,sLat,sLng);
         const dAz=azDiff(tAz,bp.az);
@@ -1356,10 +1359,17 @@ function drawView(dist,tAz,va){
       // ── 2. 前後トレイル ──
       const moonSpeedDegPerMin=0.5;
       const halfFovH=fvH/2;
-      const maxMinutes=Math.max(15,Math.min(60,Math.floor(halfFovH/moonSpeedDegPerMin*0.8)));
-      const step=fvH>30?10:fvH>10?5:fvH>4?3:2;
+      const autoMinutes=Math.floor(halfFovH/moonSpeedDegPerMin*0.8);
+      const minMinutes= fvH<1?10 : fvH<2?12 : fvH<4?15 : fvH<8?20 : fvH<20?30 : fvH<60?45 : 60;
+      const maxMinutes=Math.max(minMinutes, Math.min(60, autoMinutes));
+      const step= fvH<1?0.5 : fvH<2?1 : fvH<4?1 : fvH<8?2 : fvH<20?3 : fvH<60?5 : 10;
       const trailTimes=[];
-      for(let m=-maxMinutes;m<=maxMinutes;m+=step){ if(m===0)continue; trailTimes.push(m); }
+      const trailSteps=Math.ceil(maxMinutes/step);
+      for(let i=-trailSteps;i<=trailSteps;i++){
+        const m=Math.round(i*step*10)/10;
+        if(m===0)continue;
+        trailTimes.push(m);
+      }
 
       const linePoints=[];
       for(const m of trailTimes){
