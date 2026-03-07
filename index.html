@@ -197,6 +197,115 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   border:1px solid #252a40!important;border-radius:7px!important;box-shadow:none!important;}
 .leaflet-popup-tip{background:#181c2e!important;}
 .leaflet-popup-content{margin:8px 12px!important;font-size:11px!important;}
+
+/* ━━━ スマホ用ボトムバー・ドロワー（デフォルト非表示） ━━━ */
+#mob-bar{display:none;}
+#mob-drawer{display:none;}
+#mob-overlay{display:none;}
+
+/* ━━━ スマホレイアウト ━━━ */
+@media (max-width:600px){
+  :root{--hdr:36px;--mob-bar:108px;}
+
+  /* ヘッダーコンパクト化 */
+  #hdr h1{font-size:10px;}
+  #hdr p{display:none;}
+
+  /* PCパネルを非表示 */
+  #pnl{display:none;}
+
+  /* wrap全画面 */
+  #wrap{bottom:var(--mob-bar);}
+
+  /* 右エリアを縦積み */
+  #right{flex-direction:column;}
+
+  /* 地図：上60% */
+  #mapbox{flex:0 0 55%;}
+
+  /* プレビューパネル：残り */
+  #preview-panel{flex:1;min-height:0;border-top:1px solid var(--bd);}
+
+  /* PC用±ボタン列を非表示 */
+  #tbtn-col{display:none;}
+
+  /* ボトムバー表示 */
+  #mob-bar{
+    display:flex;flex-direction:column;gap:4px;
+    position:fixed;bottom:0;left:0;right:0;
+    height:var(--mob-bar);
+    background:var(--sur);border-top:1px solid var(--bd);
+    padding:5px 6px;z-index:9000;
+  }
+  #mob-time-row{display:flex;align-items:center;gap:3px;}
+  #mob-focal-row{display:flex;align-items:center;gap:3px;overflow-x:auto;scrollbar-width:none;}
+  #mob-focal-row::-webkit-scrollbar{display:none;}
+  #mob-ctrl-row{display:flex;align-items:center;gap:4px;}
+
+  #mob-time-disp{
+    flex:1;text-align:center;
+    font-family:'Space Mono',monospace;font-size:15px;font-weight:700;
+    color:var(--ac);
+  }
+  .mob-tbtn{
+    flex-shrink:0;
+    min-width:36px;height:28px;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--sur2);border:1px solid var(--bd);border-radius:4px;
+    font-family:'Space Mono',monospace;font-size:9px;color:var(--sub);
+    cursor:pointer;-webkit-tap-highlight-color:transparent;
+  }
+  .mob-tbtn:active{border-color:var(--ac);color:var(--ac);}
+  .mob-fbtn{
+    flex-shrink:0;
+    padding:3px 6px;height:24px;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--sur2);border:1px solid var(--bd);border-radius:3px;
+    font-family:'Space Mono',monospace;font-size:9px;color:var(--sub);
+    cursor:pointer;-webkit-tap-highlight-color:transparent;white-space:nowrap;
+  }
+  .mob-fbtn.on{border-color:var(--ac);color:var(--ac);}
+  #mob-focal-disp{
+    font-family:'Space Mono',monospace;font-size:13px;font-weight:700;
+    color:var(--ac);flex-shrink:0;min-width:52px;text-align:center;
+  }
+  .mob-icon-btn{
+    flex-shrink:0;
+    min-width:36px;height:28px;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--sur2);border:1px solid var(--ac);border-radius:4px;
+    font-family:'Space Mono',monospace;font-size:9px;color:var(--ac);
+    cursor:pointer;-webkit-tap-highlight-color:transparent;
+  }
+  .mob-icon-btn:active{background:var(--ac);color:var(--bg);}
+
+  /* ドロワー */
+  #mob-overlay{
+    display:block;
+    position:fixed;inset:0;background:rgba(0,0,0,.5);
+    z-index:9900;opacity:0;pointer-events:none;
+    transition:opacity .25s;
+  }
+  #mob-overlay.open{opacity:1;pointer-events:auto;}
+  #mob-drawer{
+    display:block;
+    position:fixed;bottom:0;left:0;right:0;
+    max-height:75vh;
+    background:var(--sur);border-top:2px solid var(--bd);border-radius:12px 12px 0 0;
+    z-index:9950;
+    transform:translateY(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);
+    overflow-y:auto;
+  }
+  #mob-drawer.open{transform:translateY(0);}
+  #mob-drawer-inner{padding:12px 14px 40px;}
+  #mob-drawer-content{font-size:13px;}
+  /* ドロワー内のパネルをそのまま表示できるよう調整 */
+  #mob-drawer-content .sec{font-size:10px;margin-bottom:6px;}
+  #mob-drawer-content .pb{font-size:11px;padding:4px 8px;}
+  #mob-drawer-content .ig label{font-size:10px;}
+  #mob-drawer-content input[type=date],
+  #mob-drawer-content input[type=time]{font-size:14px;padding:5px;}
+}
 </style>
 </head>
 <body>
@@ -369,6 +478,54 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   </div>
 </div>
 
+<!-- スマホ用ボトムバー -->
+<div id="mob-bar">
+  <div id="mob-time-row">
+    <div class="mob-tbtn" onclick="shiftTime(-10)">−10</div>
+    <div class="mob-tbtn" onclick="shiftTime(-5)">−5</div>
+    <div class="mob-tbtn" onclick="shiftTime(-1)">−1</div>
+    <div id="mob-time-disp">—</div>
+    <div class="mob-tbtn" onclick="shiftTime(1)">+1</div>
+    <div class="mob-tbtn" onclick="shiftTime(5)">+5</div>
+    <div class="mob-tbtn" onclick="shiftTime(10)">+10</div>
+  </div>
+  <div id="mob-focal-row">
+    <span style="font-size:9px;color:var(--sub);font-family:'Space Mono',monospace;flex-shrink:0;">FL</span>
+    <div id="mob-focal-disp">400<span style="font-size:9px;color:var(--sub);">mm</span></div>
+    <div class="mob-fbtn on" onclick="setF(100)">100</div>
+    <div class="mob-fbtn" onclick="setF(200)">200</div>
+    <div class="mob-fbtn" onclick="setF(400)">400</div>
+    <div class="mob-fbtn" onclick="setF(600)">600</div>
+    <div class="mob-fbtn" onclick="setF(1000)">1000</div>
+    <div class="mob-fbtn" onclick="setF(1200)">1200</div>
+    <div class="mob-fbtn" onclick="setF(1600)">1600</div>
+  </div>
+  <div id="mob-ctrl-row">
+    <div class="mob-tbtn" onclick="shiftTripod(-5)">H−5</div>
+    <div class="mob-tbtn" onclick="shiftTripod(-1)">H−1</div>
+    <span id="mob-tripod-disp" style="font-size:10px;font-family:'Space Mono',monospace;color:var(--ac);min-width:42px;text-align:center;">150cm</span>
+    <div class="mob-tbtn" onclick="shiftTripod(1)">H+1</div>
+    <div class="mob-tbtn" onclick="shiftTripod(5)">H+5</div>
+    <div style="flex:1;"></div>
+    <div class="mob-icon-btn" onclick="setNow()" title="現在時刻">NOW</div>
+    <div class="mob-icon-btn" onclick="getLocation()" title="現在地">📍</div>
+    <div class="mob-icon-btn" onclick="pasteURL()" title="URL貼付">📋</div>
+    <div class="mob-icon-btn" onclick="toggleDrawer()" title="設定">⚙️</div>
+  </div>
+</div>
+
+<!-- スマホ用ドロワー -->
+<div id="mob-drawer">
+  <div id="mob-drawer-inner">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--bd);">
+      <span style="font-family:'Space Mono',monospace;font-size:11px;color:var(--ac);">詳細設定</span>
+      <div onclick="toggleDrawer()" style="cursor:pointer;font-size:18px;color:var(--sub);padding:4px 8px;">✕</div>
+    </div>
+    <div id="mob-drawer-content"></div>
+  </div>
+</div>
+<div id="mob-overlay" onclick="toggleDrawer()"></div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -392,7 +549,53 @@ let sunsetMode=false; // 夕日モード（PLのみ）
 function layout(){
   const W=window.innerWidth;
   const H=window.innerHeight;
-  const hdrH=40, pnlW=200, btnW=34, lblH=22;
+  const isMobile=W<=600;
+
+  if(isMobile){
+    const hdrH=36, mobBarH=108, lblH=22, btnW=0;
+    const avH=H-hdrH-mobBarH;
+    const mapH=Math.round(avH*0.55);
+    const pvH=avH-mapH;
+
+    document.getElementById('mapbox').style.height=mapH+'px';
+    document.getElementById('mapbox').style.flex='none';
+    document.getElementById('preview-panel').style.height=pvH+'px';
+    document.getElementById('preview-panel').style.flex='none';
+
+    // プレビューとダイアグラムを横並び
+    const pvPanelH=pvH;
+    const cvH=pvPanelH-lblH;
+    const cvW=Math.round(cvH*(orientation==='land'?3/2:2/3));
+    const diagW=W-cvW;
+    const diagH=cvH;
+
+    document.getElementById('pv-left').style.width=cvW+'px';
+    const pvWrap=document.getElementById('pv-cv-wrap');
+    pvWrap.style.width=cvW+'px';
+    pvWrap.style.height=pvPanelH+'px';
+
+    const cv1=document.getElementById('cv1');
+    cv1.width=cvW;cv1.height=cvH;
+    cv1.style.cssText=`width:${cvW}px!important;height:${cvH}px!important;display:block;background:#060810;`;
+
+    const cv2=document.getElementById('cv2');
+    cv2.width=diagW;cv2.height=diagH;
+    cv2.style.cssText=`width:${diagW}px!important;height:${diagH}px!important;display:block;background:#060810;`;
+
+    if(map) map.invalidateSize();
+    if(sLat!==null){
+      const t=T[cur];
+      const d=dist3D(sLat,sLng,sElev,t.lat,t.lng,t.elev);
+      const az=brng(sLat,sLng,t.lat,t.lng);
+      const va=elAng(hav(sLat,sLng,t.lat,t.lng),sElev,t.elev,t.h);
+      try{drawView(d,az,va);}catch(e){}
+      try{drawCompass(az,va);}catch(e){}
+    } else {
+      try{drawView(5,180,5);}catch(e){}
+      try{drawCompass(180,5);}catch(e){}
+    }
+    return;
+  }
   const avH=H-hdrH;
   const rightW=W-pnlW;
 
@@ -1806,7 +2009,41 @@ function shiftTripod(v, reset=false){
   tripodH=reset?150:Math.max(10,Math.min(300,tripodH+v));
   const el=document.getElementById('tripod-disp');
   if(el)el.innerHTML=`${tripodH}<span style="font-size:8px;color:var(--sub);">cm</span>`;
+  syncMobileUI();
   if(sLat!==null) onPick();
+}
+
+function toggleDrawer(){
+  const drawer=document.getElementById('mob-drawer');
+  const overlay=document.getElementById('mob-overlay');
+  const isOpen=drawer.classList.contains('open');
+  if(!isOpen){
+    // ドロワーにパネル内容をコピー
+    const src=document.getElementById('pnl');
+    const dst=document.getElementById('mob-drawer-content');
+    dst.innerHTML=src.innerHTML;
+  }
+  drawer.classList.toggle('open');
+  overlay.classList.toggle('open');
+}
+
+function syncMobileUI(){
+  if(window.innerWidth>600)return;
+  // 時刻表示
+  const ts=document.getElementById('itime').value;
+  const el=document.getElementById('mob-time-disp');
+  if(el)el.textContent=ts||'—';
+  // 焦点距離
+  const fd=document.getElementById('mob-focal-disp');
+  if(fd)fd.innerHTML=`${focal}<span style="font-size:9px;color:var(--sub);">mm</span>`;
+  // 三脚高さ
+  const td=document.getElementById('mob-tripod-disp');
+  if(td)td.textContent=`${tripodH}cm`;
+  // 焦点距離ボタンのon状態
+  document.querySelectorAll('.mob-fbtn').forEach(b=>{
+    const v=parseInt(b.textContent);
+    b.classList.toggle('on',v===focal);
+  });
 }
 
 function setNow(){
@@ -1934,6 +2171,7 @@ function setF(v){
   document.querySelectorAll('.ps .pb').forEach(b=>{
     b.classList.toggle('on',parseInt(b.textContent)===v);
   });
+  syncMobileUI();
   scheduleLayout();
 }
 
@@ -1961,6 +2199,7 @@ function shiftTime(minutes){
   // tbtn-time表示更新
   const td=document.getElementById('tbtn-time-disp');
   if(td)td.textContent=el.value;
+  syncMobileUI();
   el.dispatchEvent(new Event('input'));
   el.dispatchEvent(new Event('change'));
 }
@@ -1980,6 +2219,7 @@ window.addEventListener('load',()=>{
 
   calcSunMoon();
   initMap();
+  syncMobileUI();
 
   setTimeout(()=>{
     if(map)map.invalidateSize();
