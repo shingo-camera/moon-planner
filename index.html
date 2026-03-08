@@ -2331,10 +2331,22 @@ function toggleDrawer(){
 function _syncDrawerContent(){
   const dst=document.getElementById('mob-drawer-content');
   const src=document.getElementById('pnl');
-  // #pnlのinnerHTMLをドロワーにコピー（イベントはonclick属性で動くので再アタッチ不要）
   dst.innerHTML=src.innerHTML;
-  // 値を同期
   _mirrorValues(src, dst);
+  // ドロワー内のidate・itimeの変更を元の要素に転送してイベントを発火
+  ['idate','itime'].forEach(id=>{
+    const dEl=dst.querySelector('#'+id);
+    const sEl=document.getElementById(id);
+    if(!dEl||!sEl)return;
+    dEl.addEventListener('change',()=>{
+      sEl.value=dEl.value;
+      sEl.dispatchEvent(new Event('change'));
+    });
+    dEl.addEventListener('input',()=>{
+      sEl.value=dEl.value;
+      sEl.dispatchEvent(new Event('input'));
+    });
+  });
 }
 
 function _mirrorValues(src, dst){
