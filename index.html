@@ -2507,33 +2507,63 @@ async function extractAndApplyMapsURL(rawText){
     return true;
   }
   function extractCoords(text){
-    let dec=text;try{dec=decodeURIComponent(text);}catch(e){dec=text;}
+    // URLデコードを2段階で試みる（%25エンコード対策）
+    let dec=text;
+    try{dec=decodeURIComponent(text);}catch(e){dec=text;}
+    let dec2=dec;
+    try{dec2=decodeURIComponent(dec);}catch(e){dec2=dec;}
+
+    // 両方の文字列を検索対象にする
+    function search(pattern, ...texts){
+      for(const t of texts){
+        const m=pattern.exec(t);
+        if(m)return m;
+      }
+      return null;
+    }
+
     // 1. @lat,lng
-    let m=/@(-?\d+\.?\d+),(-?\d+\.?\d+)/.exec(dec);
+    let m=search(/@(-?\d+\.\d+),(-?\d+\.\d+)/, dec, dec2);
     if(m)return[+m[1],+m[2]];
     // 2. !3d...!4d...
-    m=/!3d(-?\d+\.?\d+)!4d(-?\d+\.?\d+)/.exec(dec);
+    m=search(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/, dec, dec2);
     if(m)return[+m[1],+m[2]];
     // 3. !8m2!3d...!4d...
-    m=/!8m2!3d(-?\d+\.?\d+)!4d(-?\d+\.?\d+)/.exec(dec);
+    m=search(/!8m2!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/, dec, dec2);
     if(m)return[+m[1],+m[2]];
-    // 4. ?q=lat,lng
-    m=/[?&]q=(-?\d+\.?\d+),(-?\d+\.?\d+)/.exec(dec);
+    // 4. !3d lat !2d lng (pbパラメータデコード後の形式)
+    m=search(/!3d(-?\d+\.\d+)[^!]*!2d(-?\d+\.\d+)/, dec2);
+    if(m){ const lat=+m[1],lng=+m[2]; if(isValidCoord(lat,lng))return[lat,lng]; }
+    // 5. !2d lng !3d lat (逆順)
+    m=search(/!2d(-?\d+\.\d+)[^!]*!3d(-?\d+\.\d+)/, dec2);
+    if(m){ const lng=+m[1],lat=+m[2]; if(isValidCoord(lat,lng))return[lat,lng]; }
+    // 6. ?q=lat,lng
+    m=search(/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/, dec, dec2);
     if(m)return[+m[1],+m[2]];
-    // 5. /place/lat,lng
-    m=/\/place\/(-?\d+\.?\d+),(-?\d+\.?\d+)/.exec(dec);
+    // 7. /place/lat,lng
+    m=search(/\/place\/(-?\d+\.\d+),(-?\d+\.\d+)/, dec, dec2);
     if(m)return[+m[1],+m[2]];
-    // 6. ll=lat,lng (Googleマップリダイレクト先URL等)
-    m=/[?&]ll=(-?\d+\.\d+),(-?\d+\.\d+)/.exec(dec);
+    // 8. ll=lat,lng
+    m=search(/[?&]ll=(-?\d+\.\d+),(-?\d+\.\d+)/, dec, dec2);
     if(m)return[+m[1],+m[2]];
-    // 7. HTML内高精度座標ペア（日本: lat 30-46, lng 129-146）
-    m=/\b(3[0-6]\.\d{5,}),(13[0-9]\.\d{5,})\b/.exec(dec);
+    // 9. center=lat,lng
+    m=search(/center=(-?\d+\.\d+),(-?\d+\.\d+)/, dec, dec2);
     if(m)return[+m[1],+m[2]];
-    // 8. より広い高精度ペア
-    const allCoords=[...dec.matchAll(/(-?\d{1,3}\.\d{6,})/g)].map(x=>+x[1]);
-    for(let i=0;i<allCoords.length-1;i++){
-      const lat=allCoords[i],lng=allCoords[i+1];
-      if(isValidCoord(lat,lng)&&Math.abs(lng)>90)return[lat,lng];
+    // 10. HTML内日本座標高精度ペア（lat 30-46, lng 129-146）
+    m=search(/\b(3[0-6]\.\d{5,}),(13[0-9]\.\d{5,})\b/, dec, dec2);
+    if(m)return[+m[1],+m[2]];
+    // 11. より広い高精度連続数値ペア（日本座標優先）
+    for(const src of [dec, dec2]){
+      const allCoords=[...src.matchAll(/(-?\d{1,3}\.\d{5,})/g)].map(x=>+x[1]);
+      for(let i=0;i<allCoords.length-1;i++){
+        const lat=allCoords[i],lng=allCoords[i+1];
+        // 日本の緯度経度範囲を優先チェック
+        if(lat>=24&&lat<=46&&lng>=122&&lng<=154)return[lat,lng];
+      }
+      for(let i=0;i<allCoords.length-1;i++){
+        const lat=allCoords[i],lng=allCoords[i+1];
+        if(isValidCoord(lat,lng)&&Math.abs(lng)>90)return[lat,lng];
+      }
     }
     return null;
   }
@@ -2583,10 +2613,12 @@ async function extractAndApplyMapsURL(rawText){
   }
 
   // プロキシを順番に試す（並列だとレート制限に引っかかりやすいため直列に変更）
+  // hl=ja&gl=jp を付与してGoogleのgeo-IPによるUS向けリダイレクトを回避
+  const fetchURLja = fetchURL + (fetchURL.includes('?')?'&':'?') + 'hl=ja&gl=jp';
   const proxies=[
-    {url:'https://api.allorigins.win/get?url='+encodeURIComponent(fetchURL), json:true},
-    {url:'https://corsproxy.io/?'+encodeURIComponent(fetchURL), json:false},
-    {url:'https://api.allorigins.win/raw?url='+encodeURIComponent(fetchURL), json:false},
+    {url:'https://api.allorigins.win/get?url='+encodeURIComponent(fetchURLja), json:true},
+    {url:'https://corsproxy.io/?'+encodeURIComponent(fetchURLja), json:false},
+    {url:'https://api.allorigins.win/raw?url='+encodeURIComponent(fetchURLja), json:false},
   ];
 
   for(const {url,json} of proxies){
