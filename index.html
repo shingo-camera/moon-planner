@@ -814,8 +814,14 @@ function initMap(){
             return;
           }
           const ok=await extractAndApplyMapsURL(text.trim());
-          btn.innerHTML=ok?'✅':'❌';
-          setTimeout(()=>{btn.innerHTML='📋';btn.style.cursor='pointer';_clipBusy=false;},1800);
+          if(ok){
+            btn.innerHTML='✅';
+          }else{
+            btn.title='失敗 — Googleマップで地図を長押し→座標タップ→コピーして再試行';
+            btn.innerHTML='❌';
+            showHint('❌ 読み取り失敗 — Googleマップで地図を長押し → 座標をタップ → コピーして再試行', 6000);
+          }
+          setTimeout(()=>{btn.innerHTML='📋';btn.title='StreetView URLをクリップボードから読み取り';btn.style.cursor='pointer';_clipBusy=false;},2500);
         }catch(e){
           console.warn('[Clip]',e);
           btn.innerHTML='❌';
@@ -2487,6 +2493,22 @@ function _mirrorValues(src, dst){
   });
 }
 
+let _hintTimer=null;
+function showHint(msg, durationMs=5000){
+  const h=document.getElementById('hint');
+  if(!h)return;
+  h.textContent=msg;
+  h.style.display='block';
+  h.style.color='#ff8866';
+  clearTimeout(_hintTimer);
+  _hintTimer=setTimeout(()=>{
+    h.style.color='';
+    // 撮影地点未設定なら元のメッセージに戻す
+    if(sLat===null) h.textContent='📍 地図をクリックして撮影地点を選択';
+    else h.style.display='none';
+  }, durationMs);
+}
+
 function promptFocal(){
   const v=prompt('焦点距離を入力（mm）', focal);
   if(v===null)return;
@@ -2522,8 +2544,11 @@ async function extractAndApplyMapsURL(rawText){
       return null;
     }
 
+    // 0. 括弧付き座標テキスト: (34.123, 135.456) または 34.123, 135.456
+    let m=search(/\(?\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*\)?/, dec, dec2);
+    if(m){ const lat=+m[1],lng=+m[2]; if(isValidCoord(lat,lng))return[lat,lng]; }
     // 1. @lat,lng
-    let m=search(/@(-?\d+\.\d+),(-?\d+\.\d+)/, dec, dec2);
+    m=search(/@(-?\d+\.\d+),(-?\d+\.\d+)/, dec, dec2);
     if(m)return[+m[1],+m[2]];
     // 2. !3d...!4d...
     m=search(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/, dec, dec2);
@@ -2568,128 +2593,36 @@ async function extractAndApplyMapsURL(rawText){
     return null;
   }
 
-  // まず直接パース
+  // まず直接パース（座標テキスト・通常URL）
   const direct=extractCoords(rawText);
   if(direct&&applyCoords(direct[0],direct[1]))return true;
 
-  // 短縮URLをプロキシで展開
+  // 短縮URL以外で直接パース失敗 → 諦める
   if(!rawText.includes('maps.app.goo.gl')&&!rawText.includes('goo.gl'))return false;
 
   // g_stパラメータを除去してfetchURL生成
   let fetchURL=rawText.trim();
   fetchURL=fetchURL.replace(/[?&]g_st=[^&]*/g,'').replace(/[?&]+$/,'');
 
-  // ① プロキシなし直接fetch（CORSエラーでもres.urlにリダイレクト先が入る場合がある）
+  // corsproxy.io経由で展開
   try{
     const ctrl=new AbortController();
     const tid=setTimeout(()=>ctrl.abort(),5000);
-    const res=await fetch(fetchURL,{redirect:'follow',signal:ctrl.signal}).catch(e=>e);
+    const res=await fetch('https://corsproxy.io/?'+encodeURIComponent(fetchURL),{redirect:'follow',signal:ctrl.signal});
     clearTimeout(tid);
-    // CORSエラー等でResponseでない場合もres.urlが取れることがある
-    const redirectURL=(res&&res.url)?res.url:'';
-    if(redirectURL&&redirectURL!==fetchURL){
-      const coords=extractCoords(redirectURL);
-      if(coords&&applyCoords(coords[0],coords[1])){
-        console.log('[Maps] direct fetch redirect hit:',redirectURL.slice(0,80));
-        return true;
-      }
-    }
+    let body=await res.text();
+    if(res.url) body=res.url+' '+body;
+    console.log('[Maps] corsproxy OK len='+body.length,'body[:200]='+body.slice(0,200));
+    const coords=extractCoords(body);
+    console.log('[Maps] coords=',coords);
+    if(coords&&applyCoords(coords[0],coords[1]))return true;
+    console.warn('[Maps] corsproxy: no coords in body');
   }catch(e){
-    // CORSブロック等は無視して次へ
-  }
-
-  // タイムアウト付きfetch
-  async function fetchWithTimeout(url, timeout=8000){
-    const ctrl=new AbortController();
-    const tid=setTimeout(()=>ctrl.abort(),timeout);
-    try{
-      const res=await fetch(url,{redirect:'follow',signal:ctrl.signal});
-      clearTimeout(tid);
-      return res;
-    }catch(e){
-      clearTimeout(tid);
-      throw e;
-    }
-  }
-
-  // プロキシを順番に試す（並列だとレート制限に引っかかりやすいため直列に変更）
-  // ① 短縮URL展開専用API（軽量・高速・URL展開に特化）
-  const unshortenAPIs=[
-    // unshorten.me: resolved_url に展開後URLを返す
-    async()=>{
-      const res=await fetchWithTimeout('https://unshorten.me/api/v1/unshorten?url='+encodeURIComponent(fetchURL),5000);
-      const j=await res.json();
-      console.log('[Maps] unshorten.me:',j);
-      if(j&&j.success&&j.resolved_url){
-        const coords=extractCoords(j.resolved_url);
-        if(coords&&applyCoords(coords[0],coords[1]))return true;
-        // 展開後URLをさらにプロキシで取得
-        return j.resolved_url;
-      }
-      return null;
-    },
-  ];
-
-  let resolvedURL=null;
-  for(const fn of unshortenAPIs){
-    try{
-      const result=await fn();
-      if(result===true)return true;
-      if(typeof result==='string')resolvedURL=result;
-    }catch(e){
-      console.warn('[Maps] unshorten failed:',e.message||e);
-    }
-  }
-
-  // ② プロキシで展開（短縮URL自体 or 展開後URL）
-  const targetURL=resolvedURL||fetchURL;
-  const targetURLja=targetURL+(targetURL.includes('?')?'&':'?')+'hl=ja&gl=jp';
-
-  const proxies=[
-    {url:'https://api.allorigins.win/get?url='+encodeURIComponent(targetURLja), json:true},
-    {url:'https://corsproxy.io/?'+encodeURIComponent(targetURL), json:false},
-    {url:'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(targetURL), json:false},
-  ];
-
-  for(const {url,json} of proxies){
-    try{
-      const res=await fetchWithTimeout(url, 8000);
-      let body='';
-      if(json){
-        const j=await res.json();
-        body=(j.contents||'')+' '+(j.status&&j.status.url?j.status.url:'');
-      }else{
-        body=await res.text();
-        if(res.url)body=res.url+' '+body;
-      }
-      console.log('[Maps] proxy OK:',url.slice(0,60),'len='+body.length,'body[:200]='+body.slice(0,200));
-      const coords=extractCoords(body);
-      console.log('[Maps] coords=',coords);
-      if(coords&&applyCoords(coords[0],coords[1]))return true;
-      console.warn('[Maps] proxy returned body but no coords matched. body[500:3000]=',body.slice(500,3000));
-    }catch(e){
-      console.warn('[Maps] proxy failed:',url.slice(0,60),e.message||e);
-    }
+    console.warn('[Maps] corsproxy failed:',e.message||e);
   }
   return false;
 }
 
-function handleMobURL(val){
-  if(!val||val.length<10)return;
-  const input=document.getElementById('mob-url-input');
-  if(input)input.style.borderColor='rgba(200,169,110,0.4)';
-  extractAndApplyMapsURL(val.trim()).then(ok=>{
-    if(input)input.style.borderColor='';
-    if(ok){
-      if(input){input.value='';input.placeholder='✅ 読み取り成功';}
-      setTimeout(()=>{if(input)input.placeholder='Google Maps URLを貼り付け…';},2000);
-    }else{
-      if(input)input.style.borderColor='rgba(255,80,80,0.6)';
-      if(input){input.placeholder='❌ 読み取り失敗';}
-      setTimeout(()=>{if(input){input.style.borderColor='';input.placeholder='Google Maps URLを貼り付け…';}},3000);
-    }
-  });
-}
 
 async function mobClipRead(){
   const btn=document.getElementById('mob-clip-btn');
@@ -2710,10 +2643,12 @@ async function mobClipRead(){
     const ok=await extractAndApplyMapsURL(text.trim());
     if(ok){
       btn.textContent='✅ 読み込み成功';
+      setTimeout(()=>{btn.innerHTML='📋 Googleマップのリンクを読み込む';},2500);
     }else{
-      btn.textContent='❌ 読み取り失敗';
+      btn.innerHTML='❌ 失敗';
+      showHint('❌ 読み取り失敗 — Googleマップで地図を長押し → 座標をタップ → コピーして再試行', 6000);
+      setTimeout(()=>{btn.innerHTML='📋 Googleマップのリンクを読み込む';btn.style.whiteSpace='';},3000);
     }
-    setTimeout(()=>{btn.innerHTML='📋 Googleマップのリンクを読み込む';},2500);
   }catch(e){
     // クリップボード権限拒否など
     btn.textContent='❌ 許可が必要です';
