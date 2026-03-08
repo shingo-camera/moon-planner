@@ -2837,15 +2837,19 @@ window.addEventListener('load',()=>{
         if(dEl&&dEl.value!==el.value) dEl.value=el.value;
       }
     }
-    if(sLat!==null){
-      try{
+    try{
+      if(sLat!==null){
         const t=T[cur];
         const dH=hav(sLat,sLng,t.lat,t.lng),dD=dist3D(sLat,sLng,sElev,t.lat,t.lng,t.elev);
         const az=brng(sLat,sLng,t.lat,t.lng);
         drawView(dD,az,elAng(dH,sElev,t.elev,t.h));
         drawCompass(az,elAng(dH,sElev,t.elev,t.h));
-      }catch(e){console.error('onTimeChange:',e);}
-    }
+      }else{
+        // 撮影地点未設定でも時刻表示を更新するためデフォルト値で再描画
+        drawView(5,180,3.30);
+        drawCompass(180,3.30);
+      }
+    }catch(e){console.error('onTimeChange:',e);}
   };
   document.getElementById('itime').addEventListener('change',onTimeChange);
   document.getElementById('itime').addEventListener('input',onTimeChange);
