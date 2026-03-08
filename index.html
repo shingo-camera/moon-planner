@@ -2521,10 +2521,13 @@ async function extractAndApplyMapsURL(rawText){
     // 5. /place/lat,lng
     m=/\/place\/(-?\d+\.?\d+),(-?\d+\.?\d+)/.exec(dec);
     if(m)return[+m[1],+m[2]];
-    // 6. HTML内高精度座標ペア（日本: lat 30-46, lng 129-146）
+    // 6. ll=lat,lng (Googleマップリダイレクト先URL等)
+    m=/[?&]ll=(-?\d+\.\d+),(-?\d+\.\d+)/.exec(dec);
+    if(m)return[+m[1],+m[2]];
+    // 7. HTML内高精度座標ペア（日本: lat 30-46, lng 129-146）
     m=/\b(3[0-6]\.\d{5,}),(13[0-9]\.\d{5,})\b/.exec(dec);
     if(m)return[+m[1],+m[2]];
-    // 7. より広い高精度ペア
+    // 8. より広い高精度ペア
     const allCoords=[...dec.matchAll(/(-?\d{1,3}\.\d{6,})/g)].map(x=>+x[1]);
     for(let i=0;i<allCoords.length-1;i++){
       const lat=allCoords[i],lng=allCoords[i+1];
@@ -2595,9 +2598,11 @@ async function extractAndApplyMapsURL(rawText){
         body=await res.text();
         if(res.url)body=res.url+' '+body;
       }
-      console.log('[Maps] proxy OK:',url.slice(0,60),'len='+body.length);
+      console.log('[Maps] proxy OK:',url.slice(0,60),'len='+body.length,'body[:200]='+body.slice(0,200));
       const coords=extractCoords(body);
+      console.log('[Maps] coords=',coords);
       if(coords&&applyCoords(coords[0],coords[1]))return true;
+      console.warn('[Maps] proxy returned body but no coords matched. body[:500]=',body.slice(0,500));
     }catch(e){
       console.warn('[Maps] proxy failed:',url.slice(0,60),e.message||e);
     }
