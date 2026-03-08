@@ -1842,6 +1842,28 @@ function drawView(dist,tAz,va){
     });
     ctx.setLineDash([]);
   }else{
+    // ━━━ 金華山（先に描いて城を手前に重ねる）━━━
+    {
+      const hDraw=Math.min(horizon, H*0.90); // 山裾=地面
+      const mLeft=W*0.55;
+      const mRight=W*0.55;
+      const flatW=W*0.12; // 山頂の平坦部（城の幅に合わせる）
+      ctx.save();
+      ctx.beginPath();ctx.rect(0,0,W,H);ctx.clip();
+      ctx.fillStyle='#1a3020';
+      ctx.strokeStyle='rgba(200,169,110,0.8)';
+      ctx.lineWidth=1.5;
+      ctx.beginPath();
+      ctx.moveTo(0, hDraw);
+      ctx.lineTo(cx-mLeft, hDraw);
+      ctx.quadraticCurveTo(cx-mLeft*0.4, bY*0.7+hDraw*0.3, cx-flatW/2, bY);
+      ctx.lineTo(cx+flatW/2, bY);
+      ctx.quadraticCurveTo(cx+mRight*0.4, bY*0.7+hDraw*0.3, cx+mRight, hDraw);
+      ctx.lineTo(W, hDraw);
+      ctx.closePath();
+      ctx.fill();ctx.stroke();
+      ctx.restore();
+    }
     // ━━━ 岐阜城 3D投影シルエット ━━━
     const FRONT_AZ=203;
     const viewDir=(tAz+180+360)%360;
@@ -2000,29 +2022,6 @@ function drawView(dist,tAz,va){
     });
     ctx.globalAlpha=1;
 
-    // 山（金華山）- 建物の後に描いて手前に見せる
-    {
-      const hDraw=Math.min(horizon, H*0.90);
-      const mountainH=H*0.35;
-      const mLeft=W*0.60;
-      const mRight=W*0.60;
-      const flatW=W*0.15;
-      ctx.save();
-      ctx.beginPath();ctx.rect(0,0,W,H);ctx.clip();
-      ctx.fillStyle='#1e3a2e';
-      ctx.strokeStyle='rgba(200,169,110,1.0)';
-      ctx.lineWidth=2.5;
-      ctx.beginPath();
-      ctx.moveTo(0, hDraw);
-      ctx.lineTo(cx-mLeft, hDraw);
-      ctx.quadraticCurveTo(cx-mLeft*0.4, hDraw-mountainH*0.7, cx-flatW/2, hDraw-mountainH);
-      ctx.lineTo(cx+flatW/2, hDraw-mountainH);
-      ctx.quadraticCurveTo(cx+mRight*0.4, hDraw-mountainH*0.7, cx+mRight, hDraw);
-      ctx.lineTo(W, hDraw);
-      ctx.closePath();
-      ctx.fill();ctx.stroke();
-      ctx.restore();
-    }
   }
 
   // 地面・地平線（描画用horizonをclamp）
