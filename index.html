@@ -662,7 +662,7 @@ function layout(){
   const rightW=W-pnlW;
 
   // プレビューパネル高さ = 利用可能高さの30%
-  const pvPanelH=Math.round(avH*0.30);
+  const pvPanelH=Math.round(avH*0.45);
   const cvH_port=pvPanelH-lblH;              // 縦構図canvas高さ
   const cvW_port=Math.round(cvH_port*2/3);   // 縦構図canvas幅
   const cvH_land=cvH_port;                   // 横構図canvas高さ（パネルいっぱい）
@@ -937,7 +937,9 @@ function elAng(dKm,se,te,th){
   // 地球曲率補正：距離dKmでの地表沈み込み量（m）
   const R=6371000; // 地球半径(m)
   const curv=(dKm*1000)**2/(2*R); // 約d²/2R
-  return Math.atan2((te+th)-(se+curv), dKm*1000)*180/Math.PI;
+  const altRaw=Math.atan2((te+th)-(se+curv), dKm*1000)*180/Math.PI;
+  // 大気差補正を加算（月と同条件：低仰角ほど見かけ上高く見える）
+  return altRaw+refraction(altRaw);
 }
 function angS(hM,dKm){return Math.atan2(hM,dKm*1000)*180/Math.PI;}
 function azDiff(a,b){let d=((b-a)+360)%360;return d>180?d-360:d;}
@@ -985,7 +987,14 @@ function sunPos(date,lat,lng){
   const altRaw=Math.asin(sinAlt)*180/Math.PI;
   const alt=altRaw+refraction(altRaw);
   const az=((Math.atan2(Math.sin(Hr),Math.cos(Hr)*Math.sin(latr)-Math.tan(dec)*Math.cos(latr))*180/Math.PI)+180)%360;
-  return{alt,az};
+  // 地心距離（AU）：Meeus Ch.25 式25.4
+  // R = 1.000001018*(1-e²)/(1+e*cos(v))  e=離心率≈0.0167, v=真近点角=M+C
+  const ecc=0.016708634-0.000042037*T;
+  const v=M+(C*Math.PI/180); // 真近点角（rad）
+  const dist_au=(1.000001018*(1-ecc*ecc))/(1+ecc*Math.cos(v));
+  // 太陽の角直径（度）：太陽半径695700km、1AU=149597870km
+  const angDiam=2*Math.atan2(695700, dist_au*149597870)*180/Math.PI;
+  return{alt,az,dist_au,angDiam,ra,dec};
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1010,11 +1019,25 @@ function moonPos(date,lat,lng){
     [3994,2,0,2,0],[3861,4,0,0,0],[3665,2,0,-3,0],[-2689,0,1,-2,0],
     [-2602,2,0,-1,2],[-2348,1,0,1,0],[2236,2,-2,0,0],[-2120,0,1,2,0],
   ];
-  // 経度・緯度の合計計算
-  let sumL=0,sumB=0;
-  for(const [c,d,m,mp,f] of lTerms){
+  // 距離主要項（Meeus Ch.47 Table 47.A r列、単位0.001km）
+  const rTerms=[
+    [-20905355,0,0,1,0],[-3699111,2,0,-1,0],[-2955968,2,0,0,0],[-569925,0,0,2,0],
+    [48888,0,1,0,0],[-3149,0,0,0,2],[246158,2,0,-2,0],[-152138,2,-1,-1,0],
+    [-170733,2,0,1,0],[-204586,2,-1,0,0],[-129620,0,1,-1,0],[108743,1,0,0,0],
+    [104755,0,1,1,0],[10321,2,0,0,-2],[0,0,0,1,2],[79661,0,0,1,-2],
+    [-34782,4,0,-1,0],[-23210,0,0,3,0],[-21636,4,0,-2,0],[24208,2,1,-1,0],
+    [30824,2,1,0,0],[-8379,1,0,-1,0],[-16675,1,1,0,0],[-12831,2,-1,1,0],
+    [-10445,2,0,2,0],[-11650,4,0,0,0],[14403,2,0,-3,0],[-7003,0,1,-2,0],
+    [0,2,0,-1,2],[10056,2,-1,-1,0],[6322,1,0,1,0],[-9884,2,-2,0,0],
+  ];
+  // 経度・緯度・距離の合計計算
+  let sumL=0,sumB=0,sumR=0;
+  for(let i=0;i<lTerms.length;i++){
+    const [c,d,m,mp,f]=lTerms[i];
     const em=Math.abs(m)===1?E:(Math.abs(m)===2?E*E:1);
-    sumL+=c*em*Math.sin(d*D+m*M+mp*Mp+f*F);
+    const angle=d*D+m*M+mp*Mp+f*F;
+    sumL+=c*em*Math.sin(angle);
+    if(i<rTerms.length) sumR+=rTerms[i][0]*em*Math.cos(angle);
   }
   // 緯度主要項
   const bT=[
@@ -1041,7 +1064,18 @@ function moonPos(date,lat,lng){
   const altRaw=Math.asin(sinAlt)*180/Math.PI;
   const alt=altRaw+refraction(altRaw);
   const az=((Math.atan2(Math.sin(Hr),Math.cos(Hr)*Math.sin(latr)-Math.tan(dec)*Math.cos(latr))*180/Math.PI)+180)%360;
-  return{alt,az};
+  // 地心距離（km）：385000.56 + sumR/1000
+  const dist_km=385000.56+sumR/1000;
+  // 月の角直径（度）：月の平均半径1737.4kmから計算
+  const angDiam=2*Math.atan2(1737.4, dist_km)*180/Math.PI;
+  // 地心視差補正（Meeus Ch.40）
+  // 地心座標 → 地表観測者座標への変換
+  // 赤道水平視差 π_eq = arcsin(R_earth / dist_km)
+  // 高度補正量 Δalt = -arcsin(sin(π_eq)·cos(alt_地心))
+  // 月は常に地心より低く見える（最大約0.95°、望遠で支配的な誤差源）
+  const pi_eq=Math.asin(6378.14/dist_km);
+  const parallaxCorr=-Math.asin(Math.sin(pi_eq)*Math.cos(altRaw*Math.PI/180))*180/Math.PI;
+  return{alt:alt+parallaxCorr,az,dist_km,angDiam,ra,dec,Hr};
 }
 
 // 日の出・日の入り計算（精密sunPosを使って反復で求める）
@@ -1384,8 +1418,14 @@ function drawView(dist,tAz,va){
 
   const fvH=orientation==='land'?fovD(focal):fovV(focal);
   const fvV=orientation==='land'?fovV(focal):fovD(focal);
-  const px=W/fvH;
-  const pyV=H/fvV;
+  // gnomonic投影（中心透視投影）：レンズの実際の結像に対応
+  // f_px = センサー幅(px) / (2*tan(FOV/2))
+  const r=Math.PI/180;
+  const f_px_H=W/(2*Math.tan(fvH/2*r));
+  const f_px_V=H/(2*Math.tan(fvV/2*r));
+  // 角度[度]→画素数変換（gnomonic）
+  const gnoH=deg=>f_px_H*Math.tan(deg*r);  // 水平方向
+  const gnoV=deg=>f_px_V*Math.tan(deg*r);  // 垂直方向
   const cx=W/2;
 
   // 背景
@@ -1401,16 +1441,14 @@ function drawView(dist,tAz,va){
 
   // 頂点位置の計算：地上線固定で頂点を求め、頂点がH*0.40より上なら頂点固定に切替
   const horizonDefault = H * 0.85;
-  const topFromHorizon = horizonDefault - vaTop * pyV;
+  const topFromHorizon = horizonDefault - gnoV(vaTop);
   let targetTopY, horizon;
   if(topFromHorizon >= H * 0.40){
-    // 通常：地上線固定、頂点は上に計算
     horizon = horizonDefault;
     targetTopY = topFromHorizon;
   } else {
-    // 仰角が大きい：頂点をH*0.40に固定、地上線は画面外でもいい
     targetTopY = H * 0.40;
-    horizon = targetTopY + vaTop * pyV;
+    horizon = targetTopY + gnoV(vaTop);
   }
 
   // 地面（地上線が画面内の場合のみ描画）
@@ -1427,25 +1465,57 @@ function drawView(dist,tAz,va){
   // 天体の位置計算（月 or 太陽）
   const ds=document.getElementById('idate').value;
   const ts=document.getElementById('itime').value;
-  let mAz=null,mAlt=null,bodyVisible=false;
+  let mAz=null,mAlt=null,bodyVisible=false,bodyAngDiam=sunsetMode?0.533:0.53;
+  let moonTilt=0; // 月の位相傾き（rad）：地平線基準の明暗境界回転角
   if(ds&&ts&&sLat!==null){
     try{
       const dt=new Date(`${ds}T${ts}:00+09:00`);
       const bp=sunsetMode?sunPos(dt,sLat,sLng):moonPos(dt,sLat,sLng);
       mAz=bp.az;mAlt=bp.alt;
+      if(bp.angDiam) bodyAngDiam=bp.angDiam;
       bodyVisible=sunsetMode?(mAlt>-1):(mAlt>-5);
+      // 月の位相傾き計算（sunsetMode=falseのときのみ）
+      // Meeus Ch.48：輝縁位置角χ（天の北極基準）と視差角qから地平線基準の傾きを算出
+      if(!sunsetMode && bp.ra!==undefined){
+        const sp=sunPos(dt,sLat,sLng);
+        // χ: 輝縁の位置角（天の北極基準、rad）
+        const chi=Math.atan2(
+          Math.cos(sp.dec)*Math.sin(sp.ra-bp.ra),
+          Math.sin(sp.dec)*Math.cos(bp.dec)-Math.cos(sp.dec)*Math.sin(bp.dec)*Math.cos(sp.ra-bp.ra)
+        );
+        // q: 視差角（地平線基準への変換項、rad）
+        const latr=sLat*Math.PI/180;
+        const q=Math.atan2(
+          Math.sin(bp.Hr),
+          Math.tan(latr)*Math.cos(bp.dec)-Math.sin(bp.dec)*Math.cos(bp.Hr)
+        );
+        moonTilt=chi-q; // 正=時計回り（canvas座標系）
+      }
     }catch(e){}
   }
 
   let moonX=cx,moonY=horizon-50;
   if(mAz!==null){
     const dAz=azDiff(tAz,mAz);
-    moonX=cx+dAz*px;
-    moonY=horizon-mAlt*pyV;
+    moonX=cx+gnoH(dAz);
+    moonY=horizon-gnoV(mAlt);
   }
 
   // 天体描画（月 or 太陽）
-  const mr=Math.max((MOON/2)*pyV,2);
+  // 天体の半径：動的角直径を使用（軌道距離連動）、gnomonic投影で計算
+  const mr=Math.max(gnoH(bodyAngDiam/2), 2);
+  // 低仰角での大気差による楕円変形：垂直方向を圧縮
+  // 大気差は低仰角ほど強く、天体の上端と下端で大気差量が異なるため縦に潰れる
+  let mrV=Math.max(gnoV(bodyAngDiam/2), 2);
+  if(mAlt!==null&&mAlt<15){
+    const altTop=mAlt+(bodyAngDiam/2);
+    const altBot=mAlt-(bodyAngDiam/2);
+    const refTop=refraction(Math.max(altTop,-1));
+    const refBot=refraction(Math.max(altBot,-1));
+    // 補正後の縦径 = angDiam + (refTop-refBot)  ※低仰角では refBot > refTop なので縦が縮む
+    const apparentVertDiam=bodyAngDiam+(refTop-refBot);
+    mrV=Math.max(gnoV(apparentVertDiam/2), 2);
+  }
   if(bodyVisible){
     ctx.save();ctx.translate(moonX,moonY);
     if(sunsetMode){
@@ -1456,50 +1526,74 @@ function drawView(dist,tAz,va){
       mg.addColorStop(0,`rgb(255,${g1+80},${b1+60})`);
       mg.addColorStop(0.5,`rgb(${r1},${g1},${b1})`);
       mg.addColorStop(1,`rgb(${Math.round(r1*0.8)},${Math.round(g1*0.6)},0)`);
-      ctx.beginPath();ctx.arc(0,0,mr,0,Math.PI*2);
+      ctx.beginPath();ctx.ellipse(0,0,mr,mrV,0,0,Math.PI*2);
       ctx.fillStyle=mg;
       ctx.shadowColor=`rgba(255,${g1},0,.6)`;ctx.shadowBlur=mr*1.2;
       ctx.fill();ctx.shadowBlur=0;
       ctx.restore();
       ctx.font=`bold 11px 'Space Mono',monospace`;ctx.textAlign='center';
-      const slabel=`太陽 ${mAlt.toFixed(1)}° / AZ${mAz.toFixed(0)}°`;
+      const slabel=`太陽 ${mAlt.toFixed(1)}° / AZ${mAz.toFixed(0)}° / ø${bodyAngDiam.toFixed(3)}°`;
       const slw=ctx.measureText(slabel).width;
-      ctx.fillStyle='rgba(10,15,28,0.7)';ctx.fillRect(moonX-slw/2-4,moonY-mr-18,slw+8,14);
-      ctx.fillStyle='rgba(255,210,100,0.95)';ctx.fillText(slabel,moonX,moonY-mr-7);
+      ctx.fillStyle='rgba(10,15,28,0.7)';ctx.fillRect(moonX-slw/2-4,moonY-mrV-18,slw+8,14);
+      ctx.fillStyle='rgba(255,210,100,0.95)';ctx.fillText(slabel,moonX,moonY-mrV-7);
     }else{
-      // 月（既存の描画）
+      // 月：動的角直径＋低仰角楕円変形＋位相傾き（Meeus Ch.48 limb orientation）
+      // mrH=水平半径（mr）、mrV=垂直半径（楕円変形時は圧縮）
+      ctx.rotate(moonTilt); // 明暗境界を地平線基準で正確に傾ける
       const ds2=document.getElementById('idate').value;
       const age=ds2?moonAge(new Date(ds2+'T03:00:00Z')):0;
       const phase=age/29.53058867;
-      const mg=ctx.createRadialGradient(-mr*.3,-mr*.3,1,0,0,mr);
-      mg.addColorStop(0,'#fffde8');mg.addColorStop(.5,'#e8d5a0');mg.addColorStop(1,'#b89840');
-      ctx.beginPath();ctx.arc(0,0,mr,0,Math.PI*2);
-      ctx.fillStyle=mg;ctx.shadowColor='rgba(200,150,50,.5)';ctx.shadowBlur=mr*0.6;
-      ctx.fill();ctx.shadowBlur=0;
+      // 月の色：仰角による大気散乱（Rayleigh散乱）を反映
+      // 高仰角: 白〜淡黄、低仰角: オレンジ〜深紅
+      // t=0(仰角2°以下)〜1(仰角20°以上)で線形補間
+      const moonAltClamped=mAlt!==null?mAlt:45;
+      const ct=Math.max(0,Math.min(1,(moonAltClamped-2)/43)); // 2°→45°で赤橙〜淡黄白
+      const mcR=255;
+      const mcG=Math.round(85 +ct*155); // 85(深橙)→240(淡黄白)
+      const mcB=Math.round(15 +ct*180); // 15(深橙)→195(淡黄白)
+      // ハイライト（中心明部）
+      const mhR=255, mhG=Math.round(Math.min(255,mcG+50)), mhB=Math.round(Math.min(255,mcB+45));
+      // エッジ（周縁暗部）
+      const meR=Math.round(mcR*0.72), meG=Math.round(mcG*0.60), meB=Math.round(mcB*0.45);
+      const moonGrad=(gx,gy)=>{
+        const mg=ctx.createRadialGradient(gx,gy,1,0,0,mr);
+        mg.addColorStop(0,`rgb(${mhR},${mhG},${mhB})`);
+        mg.addColorStop(0.55,`rgb(${mcR},${mcG},${mcB})`);
+        mg.addColorStop(1,`rgb(${meR},${meG},${meB})`);
+        return mg;
+      };
+      // 月の外形を楕円で描画
+      ctx.beginPath();ctx.ellipse(0,0,mr,mrV,0,0,Math.PI*2);
+      ctx.fillStyle=moonGrad(-mr*.3,-mrV*.3);
+      ctx.shadowColor=`rgba(${mcR},${Math.round(mcG*0.8)},${Math.round(mcB*0.5)},.5)`;
+      ctx.shadowBlur=mr*0.6;ctx.fill();ctx.shadowBlur=0;
+      // 位相描画：楕円クリップ内で影を乗せる
       ctx.save();
-      ctx.beginPath();ctx.arc(0,0,mr,0,Math.PI*2);ctx.clip();
+      ctx.beginPath();ctx.ellipse(0,0,mr,mrV,0,0,Math.PI*2);ctx.clip();
       const illum2=(1-Math.cos(2*Math.PI*phase))/2;
+      // 位相の境界楕円：水平軸はmr*(2*illum-1)、垂直軸はmrV
       const ex2=mr*(2*illum2-1);
       ctx.fillStyle='rgba(6,8,16,.92)';
-      ctx.beginPath();ctx.arc(0,0,mr,0,Math.PI*2);ctx.fill();
-      const mg2=ctx.createRadialGradient(-mr*.3,-mr*.3,1,0,0,mr);
-      mg2.addColorStop(0,'#fffde8');mg2.addColorStop(.5,'#e8d5a0');mg2.addColorStop(1,'#b89840');
-      ctx.fillStyle=mg2;
+      ctx.beginPath();ctx.ellipse(0,0,mr,mrV,0,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle=moonGrad(-mr*.3,-mrV*.3);
       if(phase<0.5){
-        ctx.beginPath();ctx.arc(0,0,mr,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();
-        ctx.beginPath();ctx.ellipse(0,0,Math.abs(ex2),mr,0,0,Math.PI*2);
+        // 右半分（illuminated）+ 境界楕円
+        ctx.beginPath();ctx.ellipse(0,0,mr,mrV,0,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();
+        ctx.beginPath();ctx.ellipse(0,0,Math.abs(ex2),mrV,0,0,Math.PI*2);
         if(ex2>0){ctx.fill();}else{ctx.fillStyle='rgba(6,8,16,.92)';ctx.fill();}
       }else{
-        ctx.beginPath();ctx.arc(0,0,mr,Math.PI/2,-Math.PI/2,false);ctx.closePath();ctx.fill();
-        ctx.beginPath();ctx.ellipse(0,0,Math.abs(ex2),mr,0,0,Math.PI*2);
+        // 左半分（illuminated）+ 境界楕円
+        ctx.beginPath();ctx.ellipse(0,0,mr,mrV,0,Math.PI/2,-Math.PI/2,false);ctx.closePath();ctx.fill();
+        ctx.beginPath();ctx.ellipse(0,0,Math.abs(ex2),mrV,0,0,Math.PI*2);
         if(ex2>0){ctx.fill();}else{ctx.fillStyle='rgba(6,8,16,.92)';ctx.fill();}
       }
       ctx.restore();ctx.restore();
+      // ラベル（月齢・角直径も表示）
       ctx.font=`bold 11px 'Space Mono',monospace`;ctx.textAlign='center';
-      const mlabel=`月 ${mAlt.toFixed(1)}° / AZ${mAz.toFixed(0)}°`;
+      const mlabel=`月 ${mAlt.toFixed(1)}° / AZ${mAz.toFixed(0)}° / ø${bodyAngDiam.toFixed(2)}°`;
       const mlw=ctx.measureText(mlabel).width;
-      ctx.fillStyle='rgba(10,15,28,0.7)';ctx.fillRect(moonX-mlw/2-4,moonY-mr-18,mlw+8,14);
-      ctx.fillStyle='rgba(180,220,255,0.95)';ctx.fillText(mlabel,moonX,moonY-mr-7);
+      ctx.fillStyle='rgba(10,15,28,0.7)';ctx.fillRect(moonX-mlw/2-4,moonY-mrV-18,mlw+8,14);
+      ctx.fillStyle='rgba(180,220,255,0.95)';ctx.fillText(mlabel,moonX,moonY-mrV-7);
     }
   }
 
@@ -1521,7 +1615,7 @@ function drawView(dist,tAz,va){
         const dt=new Date(dayStart.getTime()+m*60000);
         const bp=sunsetMode?sunPos(dt,sLat,sLng):moonPos(dt,sLat,sLng);
         const dAz=azDiff(tAz,bp.az);
-        dayPts.push({x:cx+dAz*px, y:horizon-bp.alt*pyV, m, dt, alt:bp.alt});
+        dayPts.push({x:cx+gnoH(azDiff(tAz,bp.az)), y:horizon-gnoV(bp.alt), m, dt, alt:bp.alt});
       }
       ctx.save();
       ctx.strokeStyle='rgba(255,255,255,0.12)';
@@ -1574,7 +1668,7 @@ function drawView(dist,tAz,va){
       for(const m of trailTimes){
         const dt=new Date(dt0.getTime()+m*60000);
         const bp=sunsetMode?sunPos(dt,sLat,sLng):moonPos(dt,sLat,sLng);
-        linePoints.push({x:cx+azDiff(tAz,bp.az)*px, y:horizon-bp.alt*pyV, m});
+        linePoints.push({x:cx+gnoH(azDiff(tAz,bp.az)), y:horizon-gnoV(bp.alt), m});
       }
       const pastPts=[...linePoints.filter(p=>p.m<0),{x:moonX,y:moonY,m:0}];
       const futurePts=[{x:moonX,y:moonY,m:0},...linePoints.filter(p=>p.m>0)];
@@ -1602,11 +1696,11 @@ function drawView(dist,tAz,va){
         const dtFwdB=new Date(dt0.getTime()+step*2*60000);
         const bpA=sunsetMode?sunPos(dtFwdA,sLat,sLng):moonPos(dtFwdA,sLat,sLng);
         const bpB=sunsetMode?sunPos(dtFwdB,sLat,sLng):moonPos(dtFwdB,sLat,sLng);
-        const axA=cx+azDiff(tAz,bpA.az)*px, ayA=horizon-bpA.alt*pyV;
-        const axB=cx+azDiff(tAz,bpB.az)*px, ayB=horizon-bpB.alt*pyV;
+        const axA=cx+gnoH(azDiff(tAz,bpA.az)), ayA=horizon-gnoV(bpA.alt);
+        const axB=cx+gnoH(azDiff(tAz,bpB.az)), ayB=horizon-gnoV(bpB.alt);
         const ang=Math.atan2(ayB-ayA, axB-axA);
         // 月の外縁から少し離れた位置に矢頭
-        const arrowDist=mr+22;
+        const arrowDist=Math.max(mr,mrV)+22;
         const arrowX=moonX+Math.cos(ang)*arrowDist;
         const arrowY=moonY+Math.sin(ang)*arrowDist;
         const hLen=10, hAngle=0.42;
@@ -1625,8 +1719,8 @@ function drawView(dist,tAz,va){
       for(const m of trailTimes){
         const dt=new Date(dt0.getTime()+m*60000);
         const bp=sunsetMode?sunPos(dt,sLat,sLng):moonPos(dt,sLat,sLng);
-        const tx2=cx+azDiff(tAz,bp.az)*px;
-        const ty2=horizon-bp.alt*pyV;
+        const tx2=cx+gnoH(azDiff(tAz,bp.az));
+        const ty2=horizon-gnoV(bp.alt);
         if(tx2<-20||tx2>W+20||ty2<-20||ty2>H+20)continue;
         const isPast=m<0;
         const alpha=0.3+0.4*(1-Math.abs(m)/maxMinutes);
@@ -1649,7 +1743,7 @@ function drawView(dist,tAz,va){
 
       // ── 3. 現在時刻マーカー（固定の◎）──
       ctx.save();
-      ctx.beginPath();ctx.arc(moonX,moonY,mr+5,0,Math.PI*2);
+      ctx.beginPath();ctx.arc(moonX,moonY,Math.max(mr,mrV)+5,0,Math.PI*2);
       ctx.strokeStyle='rgba(255,255,255,0.6)';ctx.lineWidth=1.5;
       ctx.setLineDash([3,3]);ctx.stroke();ctx.setLineDash([]);
       ctx.restore();
@@ -1658,34 +1752,35 @@ function drawView(dist,tAz,va){
   }
 
   // 対象シルエット
-  // 塔の見かけの高さは距離から計算（仰角に依存しない）
-  const tAngH=angS(T[cur].h, dist);
-  const thTrue=tAngH*pyV; // 距離ベースの塔の高さピクセル
-  const physW=cur==='pl'?60:180;
-  const tAngW=angS(physW, dist);
+  // gnomonic投影：atan(h/d) で角度を求め、f_px_V * tan(ang) でピクセル化
+  const tAngH=angS(T[cur].h, dist);          // 対象高さの角度（度）
+  const thTrue=gnoV(tAngH);                   // gnomonic投影後の高さ（px）
+  const physW=cur==='pl'?62:180;
+  const tAngW=angS(physW, dist);              // 対象幅の角度（度）
+  const tw=Math.max(gnoH(tAngW), 2);          // gnomonic投影後の幅（px）
 
-  // 頂点は仰角vaTopの位置、底辺は頂点からthTrue分下（地面クリップはcanvasに任せる）
-  const tY=horizon-vaTop*pyV;
+  // 頂点Y：地上線からvaTop分だけ上
+  const tY=horizon-gnoV(vaTop);
   const bY=tY+thTrue;
-
-  // twはthTrueに対する比率で計算（焦点距離・距離によらず角度一定）
-  const tw=Math.max(thTrue*(tAngW/Math.max(tAngH,0.001)),2);
-  const thDrawn=bY-tY; // =thTrue（描画はcanvasのclipに任せる）
 
   ctx.fillStyle='#0e172a';ctx.strokeStyle='rgba(200,169,110,.35)';ctx.lineWidth=.8;
 
   if(cur==='pl'){
     // PLの塔シルエット正規化座標（dx/H, dy/H）中心x=0, 上端y=0, 下端y=1
     const PL_PTS=[[-0.0130,0.0000],[-0.0026,0.0104],[-0.0026,0.0208],[-0.0026,0.0312],[-0.0026,0.0416],[0.0000,0.0519],[0.0026,0.0623],[0.0078,0.0727],[0.0182,0.0831],[0.0260,0.0935],[0.0286,0.1039],[0.0286,0.1143],[0.0286,0.1247],[0.0312,0.1351],[0.0338,0.1455],[0.0338,0.1558],[0.0364,0.1662],[0.0390,0.1766],[0.0390,0.1870],[0.0390,0.1974],[0.0390,0.2078],[0.0312,0.2182],[0.0286,0.2286],[0.0260,0.2390],[0.0260,0.2494],[0.0260,0.2597],[0.0260,0.2701],[0.0260,0.2805],[0.0260,0.2909],[0.0260,0.3013],[0.0260,0.3117],[0.0286,0.3221],[0.0286,0.3325],[0.0312,0.3429],[0.0312,0.3532],[0.0390,0.3636],[0.0390,0.3740],[0.0442,0.3844],[0.0442,0.3948],[0.0442,0.4052],[0.0468,0.4156],[0.0468,0.4260],[0.0494,0.4364],[0.0545,0.4468],[0.0571,0.4571],[0.0623,0.4675],[0.0675,0.4779],[0.0675,0.4883],[0.0675,0.4987],[0.0675,0.5091],[0.0675,0.5195],[0.0675,0.5299],[0.0675,0.5403],[0.0675,0.5506],[0.0727,0.5610],[0.0779,0.5714],[0.0805,0.5818],[0.0831,0.5922],[0.0883,0.6026],[0.0909,0.6130],[0.0961,0.6234],[0.1013,0.6338],[0.1065,0.6442],[0.1091,0.6545],[0.1117,0.6649],[0.1169,0.6753],[0.1221,0.6857],[0.1247,0.6961],[0.1273,0.7065],[0.1299,0.7169],[0.1325,0.7273],[0.1351,0.7377],[0.1377,0.7481],[0.1429,0.7584],[0.1455,0.7688],[0.1506,0.7792],[0.1558,0.7896],[0.1584,0.8000],[0.1610,0.8104],[0.1584,0.8208],[0.1584,0.8312],[0.1610,0.8416],[0.1610,0.8519],[0.1610,0.8623],[0.1636,0.8727],[0.1688,0.8831],[0.1740,0.8935],[0.1896,0.9039],[0.2130,0.9143],[0.2338,0.9247],[0.2416,0.9351],[0.2519,0.9455],[0.2519,0.9558],[0.2468,0.9662],[0.2468,0.9766],[0.2468,0.9870],[0.2468,0.9974],[0.2468,0.9974],[0.2468,1.0000],[-0.2468,1.0000],[-0.2468,0.9974],[-0.2468,0.9974],[-0.2468,0.9870],[-0.2468,0.9766],[-0.2494,0.9662],[-0.2390,0.9558],[-0.2338,0.9455],[-0.2286,0.9351],[-0.2234,0.9247],[-0.2182,0.9143],[-0.2130,0.9039],[-0.2078,0.8935],[-0.2078,0.8831],[-0.2078,0.8727],[-0.2052,0.8623],[-0.2052,0.8519],[-0.2052,0.8416],[-0.2000,0.8312],[-0.1974,0.8208],[-0.1974,0.8104],[-0.1948,0.8000],[-0.1922,0.7896],[-0.1896,0.7792],[-0.1922,0.7688],[-0.1896,0.7584],[-0.1766,0.7481],[-0.1740,0.7377],[-0.1688,0.7273],[-0.1636,0.7169],[-0.1584,0.7065],[-0.1558,0.6961],[-0.1481,0.6857],[-0.1429,0.6753],[-0.1455,0.6649],[-0.1455,0.6545],[-0.1481,0.6442],[-0.1455,0.6338],[-0.1377,0.6234],[-0.1325,0.6130],[-0.1299,0.6026],[-0.1195,0.5922],[-0.1143,0.5818],[-0.1195,0.5714],[-0.1221,0.5610],[-0.1195,0.5506],[-0.1117,0.5403],[-0.1039,0.5299],[-0.0961,0.5195],[-0.0935,0.5091],[-0.0935,0.4987],[-0.0935,0.4883],[-0.0935,0.4779],[-0.0935,0.4675],[-0.0909,0.4571],[-0.0883,0.4468],[-0.0831,0.4364],[-0.0779,0.4260],[-0.0753,0.4156],[-0.0701,0.4052],[-0.0701,0.3948],[-0.0675,0.3844],[-0.0675,0.3740],[-0.0675,0.3636],[-0.0649,0.3532],[-0.0623,0.3429],[-0.0597,0.3325],[-0.0597,0.3221],[-0.0545,0.3117],[-0.0519,0.3013],[-0.0519,0.2909],[-0.0519,0.2805],[-0.0494,0.2701],[-0.0494,0.2597],[-0.0468,0.2494],[-0.0468,0.2390],[-0.0519,0.2286],[-0.0571,0.2182],[-0.0623,0.2078],[-0.0649,0.1974],[-0.0675,0.1870],[-0.0675,0.1766],[-0.0701,0.1662],[-0.0701,0.1558],[-0.0675,0.1455],[-0.0623,0.1351],[-0.0494,0.1247],[-0.0416,0.1143],[-0.0442,0.1039],[-0.0416,0.0935],[-0.0312,0.0831],[-0.0286,0.0727],[-0.0286,0.0623],[-0.0260,0.0519],[-0.0234,0.0416],[-0.0234,0.0312],[-0.0234,0.0208],[-0.0208,0.0104],[-0.0130,0.0000]];
-    const plH=thTrue; // 実際の高さ180mをベースにスケーリング済み
+    const plH=thTrue; // 高さ方向: 180mに対応するpx
+    // 幅補正係数: PL_PTSのdxは高さ180mで正規化されているが
+    // 実測基部幅62m に対しPL_PTSから逆算される幅は90.7m(=0.5038×180m)
+    // → 水平方向を 62/90.7 = 0.6837 倍に補正
+    const PL_W_SCALE = 62 / (0.5038 * 180); // = 0.6837
     // ポリゴン描画
     ctx.fillStyle='#0e172a';
     ctx.strokeStyle='rgba(200,169,110,.6)';
     ctx.lineWidth=1.2;
     ctx.beginPath();
     PL_PTS.forEach(([dx,dy],i)=>{
-      const px=cx+dx*plH, py=tY+dy*plH;
-      i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+      const plx=cx+dx*plH*PL_W_SCALE, ply=tY+dy*plH;
+      i===0?ctx.moveTo(plx,ply):ctx.lineTo(plx,ply);
     });
     ctx.closePath();ctx.fill();ctx.stroke();
     // 縦三分割の横線（塔幅内のみ）
@@ -1699,7 +1794,7 @@ function drawView(dist,tAz,va){
         const y0=tY+dy0*plH,y1=tY+dy1*plH;
         if((y0<=lineY&&lineY<=y1)||(y1<=lineY&&lineY<=y0)){
           const t2=(lineY-y0)/(y1-y0||1e-9);
-          const ix=cx+(dx0+(dx1-dx0)*t2)*plH;
+          const ix=cx+(dx0+(dx1-dx0)*t2)*plH*PL_W_SCALE;
           if(ix>rx)rx=ix; if(ix<lx)lx=ix;
         }
       }
@@ -1810,7 +1905,8 @@ function drawView(dist,tAz,va){
     ctx.fillText(label,cx,horizon-20);
   }
   // 情報ラベル
-  const fovLabel=`FOV ${fvH.toFixed(1)}°  月 ${MOON}°  ${T[cur].name}頂 ${angS(T[cur].h,dist).toFixed(1)}°  仰角 ${vaTop.toFixed(2)}°`;
+  const bodyName=sunsetMode?'太陽':'月';
+  const fovLabel=`FOV ${fvH.toFixed(1)}°  ${bodyName} ${bodyAngDiam.toFixed(3)}°  ${T[cur].name}頂 ${angS(T[cur].h,dist).toFixed(1)}°  仰角 ${vaTop.toFixed(2)}°`;
   ctx.font=`10px 'Space Mono',monospace`;ctx.textAlign='left';
   const flw=ctx.measureText(fovLabel).width;
   ctx.fillStyle='rgba(10,15,28,0.75)';ctx.fillRect(0,H-18,flw+10,18);
