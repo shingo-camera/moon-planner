@@ -1843,23 +1843,22 @@ function drawView(dist,tAz,va){
     ctx.setLineDash([]);
   }else{
     // ━━━ 金華山（先に描いて城を手前に重ねる）━━━
-    {
-      const hDraw=Math.min(horizon, H*0.90); // 山裾=地面
+    if(horizon < H){
       const mLeft=W*0.55;
       const mRight=W*0.55;
-      const flatW=W*0.12; // 山頂の平坦部（城の幅に合わせる）
+      const flatW=W*0.12;
       ctx.save();
       ctx.beginPath();ctx.rect(0,0,W,H);ctx.clip();
       ctx.fillStyle='#1a3020';
       ctx.strokeStyle='rgba(200,169,110,0.8)';
       ctx.lineWidth=1.5;
       ctx.beginPath();
-      ctx.moveTo(0, hDraw);
-      ctx.lineTo(cx-mLeft, hDraw);
-      ctx.quadraticCurveTo(cx-mLeft*0.4, bY*0.7+hDraw*0.3, cx-flatW/2, bY);
+      ctx.moveTo(0, horizon);
+      ctx.lineTo(cx-mLeft, horizon);
+      ctx.quadraticCurveTo(cx-mLeft*0.4, bY*0.7+horizon*0.3, cx-flatW/2, bY);
       ctx.lineTo(cx+flatW/2, bY);
-      ctx.quadraticCurveTo(cx+mRight*0.4, bY*0.7+hDraw*0.3, cx+mRight, hDraw);
-      ctx.lineTo(W, hDraw);
+      ctx.quadraticCurveTo(cx+mRight*0.4, bY*0.7+horizon*0.3, cx+mRight, horizon);
+      ctx.lineTo(W, horizon);
       ctx.closePath();
       ctx.fill();ctx.stroke();
       ctx.restore();
@@ -2025,10 +2024,12 @@ function drawView(dist,tAz,va){
   }
 
   // 地面・地平線（描画用horizonをclamp）
-  const hDraw=Math.min(horizon, H*0.90);
-  ctx.fillStyle='rgba(12,18,32,.95)';ctx.fillRect(0,hDraw,W,H-hDraw);
-  ctx.strokeStyle='rgba(200,169,110,.4)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
-  ctx.beginPath();ctx.moveTo(0,hDraw);ctx.lineTo(W,hDraw);ctx.stroke();ctx.setLineDash([]);
+  // 地面・地平線：horizonが画面内にある場合のみ描画
+  if(horizon < H){
+    ctx.fillStyle='rgba(12,18,32,.95)';ctx.fillRect(0,horizon,W,H-horizon);
+    ctx.strokeStyle='rgba(200,169,110,.4)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
+    ctx.beginPath();ctx.moveTo(0,horizon);ctx.lineTo(W,horizon);ctx.stroke();ctx.setLineDash([]);
+  }
 
   // 月/太陽がFOV外
   if(bodyVisible&&mAz!==null){
