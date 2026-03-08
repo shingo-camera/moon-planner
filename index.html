@@ -294,24 +294,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   }
   .mob-icon-btn:active{background:var(--ac);color:var(--bg);}
 
-  #mob-url-row{display:flex;align-items:center;gap:4px;}
-  #mob-url-input{
-    flex:1;min-width:0;height:24px;
-    background:var(--sur2);border:1px solid var(--bd);border-radius:4px;
-    color:var(--tx);font-size:11px;padding:0 8px;
-    font-family:'Noto Sans JP',sans-serif;
-    outline:none;
-  }
-  #mob-url-input:focus{border-color:var(--ac);}
-  #mob-url-input::placeholder{color:var(--sub);font-size:10px;}
-  #mob-url-clear{
-    flex-shrink:0;width:26px;height:24px;
-    display:flex;align-items:center;justify-content:center;
-    background:var(--sur2);border:1px solid var(--bd);border-radius:4px;
-    color:var(--sub);font-size:11px;cursor:pointer;
-    -webkit-tap-highlight-color:transparent;
-  }
-  #mob-url-clear:active{border-color:var(--ac);color:var(--ac);}
+  #mob-url-row{display:flex;align-items:center;}
+  #mob-clip-btn{height:26px;font-size:11px;letter-spacing:.02em;}
 
   /* ドロワー */
   #mob-overlay{
@@ -570,12 +554,12 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
     <div class="mob-icon-btn" onclick="setNow()">NOW</div>
     <div class="mob-icon-btn" onclick="toggleDrawer()">⚙️</div>
   </div>
-  <!-- URL入力欄 -->
+  <!-- クリップボードからMaps URL読み取り -->
   <div id="mob-url-row">
-    <input id="mob-url-input" type="url" placeholder="Google Maps URLを貼り付け…"
-      inputmode="url" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-      oninput="handleMobURL(this.value)">
-    <div id="mob-url-clear" onclick="document.getElementById('mob-url-input').value='';document.getElementById('mob-url-input').placeholder='Google Maps URLを貼り付け…';">✕</div>
+    <div id="mob-clip-btn" class="mob-icon-btn" style="flex:1;font-size:11px;gap:5px;"
+      onclick="mobClipRead()">
+      📋 Googleマップのリンクを読み込む
+    </div>
   </div>
 </div>
 
@@ -2433,19 +2417,48 @@ async function extractAndApplyMapsURL(rawText){
 function handleMobURL(val){
   if(!val||val.length<10)return;
   const input=document.getElementById('mob-url-input');
-  input.style.borderColor='rgba(200,169,110,0.4)';
+  if(input)input.style.borderColor='rgba(200,169,110,0.4)';
   extractAndApplyMapsURL(val.trim()).then(ok=>{
-    input.style.borderColor='';
+    if(input)input.style.borderColor='';
     if(ok){
-      input.value='';
-      input.placeholder='✅ 読み取り成功';
-      setTimeout(()=>{input.placeholder='Google Maps URLを貼り付け…';},2000);
+      if(input){input.value='';input.placeholder='✅ 読み取り成功';}
+      setTimeout(()=>{if(input)input.placeholder='Google Maps URLを貼り付け…';},2000);
     }else{
-      input.style.borderColor='rgba(255,80,80,0.6)';
-      input.placeholder='❌ 読み取り失敗';
-      setTimeout(()=>{input.style.borderColor='';input.placeholder='Google Maps URLを貼り付け…';},3000);
+      if(input)input.style.borderColor='rgba(255,80,80,0.6)';
+      if(input){input.placeholder='❌ 読み取り失敗';}
+      setTimeout(()=>{if(input){input.style.borderColor='';input.placeholder='Google Maps URLを貼り付け…';}},3000);
     }
   });
+}
+
+async function mobClipRead(){
+  const btn=document.getElementById('mob-clip-btn');
+  if(!btn)return;
+  if(!navigator.clipboard||!navigator.clipboard.readText){
+    btn.textContent='❌ クリップボード非対応';
+    setTimeout(()=>{btn.innerHTML='📋 Googleマップのリンクを読み込む';},2500);
+    return;
+  }
+  btn.textContent='⏳ 読み取り中…';
+  try{
+    const text=await navigator.clipboard.readText();
+    if(!text||text.length<10){
+      btn.textContent='❌ クリップボードが空';
+      setTimeout(()=>{btn.innerHTML='📋 Googleマップのリンクを読み込む';},2500);
+      return;
+    }
+    const ok=await extractAndApplyMapsURL(text.trim());
+    if(ok){
+      btn.textContent='✅ 読み込み成功';
+    }else{
+      btn.textContent='❌ 読み取り失敗';
+    }
+    setTimeout(()=>{btn.innerHTML='📋 Googleマップのリンクを読み込む';},2500);
+  }catch(e){
+    // クリップボード権限拒否など
+    btn.textContent='❌ 許可が必要です';
+    setTimeout(()=>{btn.innerHTML='📋 Googleマップのリンクを読み込む';},2500);
+  }
 }
 
 function syncMobileUI(){
