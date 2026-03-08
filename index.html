@@ -628,8 +628,8 @@ function layout(){
       try{drawView(d,az,va);}catch(e){}
       try{drawCompass(az,va);}catch(e){}
     } else {
-      try{drawView(5,180,5);}catch(e){}
-      try{drawCompass(180,5);}catch(e){}
+      try{drawView(5,180,0);}catch(e){}
+      try{drawCompass(180,0);}catch(e){}
     }
     return;
   }
@@ -678,8 +678,8 @@ function layout(){
     try{drawView(d,az,va);}catch(e){console.error('layout drawView:',e);}
     try{drawCompass(az,va);}catch(e){console.error('layout drawCompass:',e);}
   } else {
-    try{drawView(5,180,5);}catch(e){}
-    try{drawCompass(180,5);}catch(e){}
+    try{drawView(5,180,0);}catch(e){}
+    try{drawCompass(180,0);}catch(e){}
   }
 }
 
@@ -1758,11 +1758,7 @@ function drawView(dist,tAz,va){
   ctx.beginPath();ctx.moveTo(0,horizon);ctx.lineTo(W,horizon);ctx.stroke();ctx.setLineDash([]);
   // 地面
   ctx.fillStyle='rgba(12,18,32,.95)';ctx.fillRect(0,horizon,W,H-horizon);
-  // 仰角ガイド
-  if(vaTop>0){
-    ctx.strokeStyle='rgba(200,169,110,.08)';ctx.lineWidth=1;ctx.setLineDash([2,6]);
-    ctx.beginPath();ctx.moveTo(0,targetTopY);ctx.lineTo(W,targetTopY);ctx.stroke();ctx.setLineDash([]);
-  }
+
   // 月/太陽がFOV外
   if(bodyVisible&&mAz!==null){
     const dAz=azDiff(tAz,mAz);
