@@ -2613,12 +2613,42 @@ async function extractAndApplyMapsURL(rawText){
   }
 
   // プロキシを順番に試す（並列だとレート制限に引っかかりやすいため直列に変更）
-  // hl=ja&gl=jp を付与してGoogleのgeo-IPによるUS向けリダイレクトを回避
-  const fetchURLja = fetchURL + (fetchURL.includes('?')?'&':'?') + 'hl=ja&gl=jp';
+  // ① 短縮URL展開専用API（軽量・高速・URL展開に特化）
+  const unshortenAPIs=[
+    // unshorten.me: resolved_url に展開後URLを返す
+    async()=>{
+      const res=await fetchWithTimeout('https://unshorten.me/api/v1/unshorten?url='+encodeURIComponent(fetchURL),5000);
+      const j=await res.json();
+      console.log('[Maps] unshorten.me:',j);
+      if(j&&j.success&&j.resolved_url){
+        const coords=extractCoords(j.resolved_url);
+        if(coords&&applyCoords(coords[0],coords[1]))return true;
+        // 展開後URLをさらにプロキシで取得
+        return j.resolved_url;
+      }
+      return null;
+    },
+  ];
+
+  let resolvedURL=null;
+  for(const fn of unshortenAPIs){
+    try{
+      const result=await fn();
+      if(result===true)return true;
+      if(typeof result==='string')resolvedURL=result;
+    }catch(e){
+      console.warn('[Maps] unshorten failed:',e.message||e);
+    }
+  }
+
+  // ② プロキシで展開（短縮URL自体 or 展開後URL）
+  const targetURL=resolvedURL||fetchURL;
+  const targetURLja=targetURL+(targetURL.includes('?')?'&':'?')+'hl=ja&gl=jp';
+
   const proxies=[
-    {url:'https://api.allorigins.win/get?url='+encodeURIComponent(fetchURLja), json:true},
-    {url:'https://corsproxy.io/?'+encodeURIComponent(fetchURLja), json:false},
-    {url:'https://api.allorigins.win/raw?url='+encodeURIComponent(fetchURLja), json:false},
+    {url:'https://api.allorigins.win/get?url='+encodeURIComponent(targetURLja), json:true},
+    {url:'https://corsproxy.io/?'+encodeURIComponent(targetURL), json:false},
+    {url:'https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent(targetURL), json:false},
   ];
 
   for(const {url,json} of proxies){
