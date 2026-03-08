@@ -618,27 +618,26 @@ function layout(){
     document.getElementById('mapbox').style.height=mapH+'px';
     document.getElementById('mapbox').style.flex='none';
 
-    // preview-panelを縦積みに（高さはpvHに厳密に収める）
+    // プレビューとダイアグラムを横並び（元のレイアウト）
     const ppanel=document.getElementById('preview-panel');
-    ppanel.style.flexDirection='column';
+    ppanel.style.flexDirection='row';
     ppanel.style.height=pvH+'px';
     ppanel.style.flex='none';
     ppanel.style.overflow='hidden';
 
-    // プレビューcanvasとダイアグラムをpvHで分割（プレビュー60%・ダイアグラム40%）
-    const cvPanelH=Math.round(pvH*0.60);
-    const diagPanelH=pvH-cvPanelH;
-    const cvH=cvPanelH-lblH;
-    const diagH=diagPanelH-lblH;
-    const cvW=W;
-    const diagW=W;
+    const cvH=pvH-lblH;
+    const maxCvW=Math.round(W*0.70);
+    const cvWbyAspect=Math.round(cvH*(orientation==='land'?3/2:2/3));
+    const cvW=Math.min(cvWbyAspect, maxCvW);
+    const diagW=W-cvW;
+    const diagH=cvH;
 
-    document.getElementById('pv-left').style.width=W+'px';
-    document.getElementById('pv-left').style.flexDirection='column';
+    document.getElementById('pv-left').style.width=cvW+'px';
+    document.getElementById('pv-left').style.flexDirection='row';
     document.getElementById('pv-left').style.flexShrink='0';
     const pvWrap=document.getElementById('pv-cv-wrap');
     pvWrap.style.width=cvW+'px';
-    pvWrap.style.height=cvPanelH+'px';
+    pvWrap.style.height=pvH+'px';
 
     const cv1=document.getElementById('cv1');
     cv1.width=cvW;cv1.height=cvH;
