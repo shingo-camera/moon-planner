@@ -1880,7 +1880,7 @@ function drawView(dist,tAz,va){
     const gFaces=[];
     function gAddFace(verts3d,nx,nz,fillFn,stroke,lw=0.8){
       const dot=nx*gSinA+nz*gCosA;
-      if(dot<=0.01)return;
+      if(dot<=0.08)return;
       const br=0.5+dot*0.45;
       gFaces.push({
         verts2d:verts3d.map(v=>gp(v[0],v[1],v[2])),
@@ -1889,17 +1889,18 @@ function drawView(dist,tAz,va){
       });
     }
 
-    // 山（金華山）
+    // 山（金華山）- 底辺はhorizon基準
     const mountainH=G_TOTAL*1.35;
     const mLeft=G_BW*(2.5+0.8*Math.cos(gAngle));
     const mRight=G_BW*(2.5+0.8*Math.sin(gAngle+Math.PI/2));
     const flatW=G_BW*1.6;
+    const mBaseY=Math.max(bY, horizon); // 地平線以下に山が出ないよう
     ctx.fillStyle='#0a1320';ctx.strokeStyle='rgba(200,169,110,.12)';ctx.lineWidth=.8;
     ctx.beginPath();
-    ctx.moveTo(cx-Math.abs(mLeft),bY);
-    ctx.quadraticCurveTo(cx-Math.abs(mLeft)*0.3,bY-mountainH*0.7,cx-flatW/2,bY-mountainH);
-    ctx.lineTo(cx+flatW/2,bY-mountainH);
-    ctx.quadraticCurveTo(cx+Math.abs(mRight)*0.3,bY-mountainH*0.7,cx+Math.abs(mRight),bY);
+    ctx.moveTo(cx-Math.abs(mLeft),mBaseY);
+    ctx.quadraticCurveTo(cx-Math.abs(mLeft)*0.3,mBaseY-mountainH*0.7,cx-flatW/2,mBaseY-mountainH);
+    ctx.lineTo(cx+flatW/2,mBaseY-mountainH);
+    ctx.quadraticCurveTo(cx+Math.abs(mRight)*0.3,mBaseY-mountainH*0.7,cx+Math.abs(mRight),mBaseY);
     ctx.closePath();ctx.fill();ctx.stroke();
 
     // 石垣
