@@ -570,7 +570,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 <div id="mob-drawer">
   <div id="mob-drawer-header" style="display:flex;justify-content:space-between;align-items:center;
     padding:10px 14px 8px;border-bottom:1px solid var(--bd);flex-shrink:0;">
-    <span style="font-family:'Space Mono',monospace;font-size:11px;color:var(--ac);">詳細設定</span>
+    <div style="display:flex;flex-direction:column;gap:2px;">
+      <span style="font-family:'Space Mono',monospace;font-size:11px;color:var(--ac);">詳細設定</span>
+      <span id="mob-drawer-datetime" style="font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:var(--tx);letter-spacing:.04em;">—</span>
+    </div>
     <div onclick="toggleDrawer()" style="cursor:pointer;font-size:18px;color:var(--sub);padding:4px 8px;">✕</div>
   </div>
   <div id="mob-drawer-inner">
@@ -795,16 +798,26 @@ function initMap(){
       btn.style.cssText='width:30px;height:30px;background:#111320;border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:#e8eaf0;';
       btn.innerHTML='📋';
       L.DomEvent.on(btn,'click',L.DomEvent.stopPropagation);
+      let _clipBusy=false;
       L.DomEvent.on(btn,'click',async()=>{
+        if(_clipBusy)return; // 多重実行防止
+        _clipBusy=true;
+        btn.innerHTML='⏳';
+        btn.style.cursor='not-allowed';
         try{
           const text=await navigator.clipboard.readText();
-          btn.innerHTML='⏳';
+          if(!text||!text.trim()){
+            btn.innerHTML='❌';
+            setTimeout(()=>{btn.innerHTML='📋';btn.style.cursor='pointer';_clipBusy=false;},1500);
+            return;
+          }
           const ok=await extractAndApplyMapsURL(text.trim());
           btn.innerHTML=ok?'✅':'❌';
-          setTimeout(()=>btn.innerHTML='📋',1500);
+          setTimeout(()=>{btn.innerHTML='📋';btn.style.cursor='pointer';_clipBusy=false;},1800);
         }catch(e){
+          console.warn('[Clip]',e);
           btn.innerHTML='❌';
-          setTimeout(()=>btn.innerHTML='📋',1500);
+          setTimeout(()=>{btn.innerHTML='📋';btn.style.cursor='pointer';_clipBusy=false;},1500);
         }
       });
       return btn;
@@ -850,6 +863,8 @@ function updateMapBtns(az){
 async function onPick(){
   if(sLat===null||sLng===null)return;
   elevOffset=0; // 新しい地点選択時はオフセットをリセット
+  // スマホでは撮影地点確定後にhintを非表示
+  if(window.innerWidth<=600){const h=document.getElementById('hint');if(h)h.style.display='none';}
   if(map&&sMarker){try{map.removeLayer(sMarker);}catch(e){}}
   if(map&&polyLine){try{map.removeLayer(polyLine);}catch(e){}}
 
@@ -1206,11 +1221,13 @@ function drawMoonPhase(age){
   ctx.save();
   ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.clip();
   if(phase<0.5){
+    // 右半分が光る（上弦方向）
     ctx.beginPath();ctx.arc(cx,cy,r,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();
     ctx.beginPath();ctx.ellipse(cx,cy,Math.abs(ex),r,0,0,Math.PI*2);
     if(ex>0){ctx.fill();}else{ctx.fillStyle='#060810';ctx.fill();}
   }else{
-    ctx.beginPath();ctx.arc(cx,cy,r,Math.PI/2,-Math.PI/2,false);ctx.closePath();ctx.fill();
+    // 左半分が光る（下弦方向）
+    ctx.beginPath();ctx.arc(cx,cy,r,Math.PI/2,-Math.PI/2,true);ctx.closePath();ctx.fill();
     ctx.beginPath();ctx.ellipse(cx,cy,Math.abs(ex),r,0,0,Math.PI*2);
     if(ex>0){ctx.fill();}else{ctx.fillStyle='#060810';ctx.fill();}
   }
@@ -2391,7 +2408,13 @@ function updateDrawerIfOpen(){
   const cbD=dst.querySelector('#cb-sunset');
   if(cbS&&cbD){cbD.style.opacity=cbS.style.opacity;cbD.style.cursor=cbS.style.cursor;}
 
-  // ⑤ 月相canvas
+  // ⑤ ヘッダー日時表示
+  const ds=document.getElementById('idate').value;
+  const ts=document.getElementById('itime').value;
+  const dtEl=document.getElementById('mob-drawer-datetime');
+  if(dtEl) dtEl.textContent=(ds&&ts)?ds+' '+ts:'—';
+
+  // ⑥ 月相canvas
   const srcCanvas=src.querySelector('#cv-phase');
   const dstCanvas=dst.querySelector('#cv-phase');
   if(srcCanvas&&dstCanvas){
@@ -2409,6 +2432,11 @@ function _syncDrawerContent(){
   const src=document.getElementById('pnl');
   dst.innerHTML=src.innerHTML;
   _mirrorValues(src, dst);
+  // ヘッダー日時表示を即時更新
+  const _ds=document.getElementById('idate').value;
+  const _ts=document.getElementById('itime').value;
+  const _dtEl=document.getElementById('mob-drawer-datetime');
+  if(_dtEl) _dtEl.textContent=(_ds&&_ts)?_ds+' '+_ts:'—';
   // ドロワー内のidate・itimeの変更を元の要素に転送してイベントを発火
   ['idate','itime'].forEach(id=>{
     const dEl=dst.querySelector('#'+id);
@@ -2512,29 +2540,68 @@ async function extractAndApplyMapsURL(rawText){
   // 短縮URLをプロキシで展開
   if(!rawText.includes('maps.app.goo.gl')&&!rawText.includes('goo.gl'))return false;
 
-  const fetchURL=rawText.replace(/[?&]g_st=[^&]*/g,'').replace(/\?$/,'');
+  // g_stパラメータを除去してfetchURL生成
+  let fetchURL=rawText.trim();
+  fetchURL=fetchURL.replace(/[?&]g_st=[^&]*/g,'').replace(/[?&]+$/,'');
+
+  // ① プロキシなし直接fetch（CORSエラーでもres.urlにリダイレクト先が入る場合がある）
+  try{
+    const ctrl=new AbortController();
+    const tid=setTimeout(()=>ctrl.abort(),5000);
+    const res=await fetch(fetchURL,{redirect:'follow',signal:ctrl.signal}).catch(e=>e);
+    clearTimeout(tid);
+    // CORSエラー等でResponseでない場合もres.urlが取れることがある
+    const redirectURL=(res&&res.url)?res.url:'';
+    if(redirectURL&&redirectURL!==fetchURL){
+      const coords=extractCoords(redirectURL);
+      if(coords&&applyCoords(coords[0],coords[1])){
+        console.log('[Maps] direct fetch redirect hit:',redirectURL.slice(0,80));
+        return true;
+      }
+    }
+  }catch(e){
+    // CORSブロック等は無視して次へ
+  }
+
+  // タイムアウト付きfetch
+  async function fetchWithTimeout(url, timeout=8000){
+    const ctrl=new AbortController();
+    const tid=setTimeout(()=>ctrl.abort(),timeout);
+    try{
+      const res=await fetch(url,{redirect:'follow',signal:ctrl.signal});
+      clearTimeout(tid);
+      return res;
+    }catch(e){
+      clearTimeout(tid);
+      throw e;
+    }
+  }
+
+  // プロキシを順番に試す（並列だとレート制限に引っかかりやすいため直列に変更）
   const proxies=[
     {url:'https://api.allorigins.win/get?url='+encodeURIComponent(fetchURL), json:true},
     {url:'https://corsproxy.io/?'+encodeURIComponent(fetchURL), json:false},
     {url:'https://api.allorigins.win/raw?url='+encodeURIComponent(fetchURL), json:false},
   ];
-  // 全プロキシ並列実行、最初に座標取得できたものを採用
-  const result=await Promise.any(proxies.map(async({url,json})=>{
-    const res=await fetch(url,{redirect:'follow'});
-    let body='';
-    if(json){
-      const j=await res.json();
-      body=(j.contents||'')+' '+(j.status&&j.status.url?j.status.url:'');
-    }else{
-      body=await res.text();
-      if(res.url)body=res.url+' '+body;
+
+  for(const {url,json} of proxies){
+    try{
+      const res=await fetchWithTimeout(url, 8000);
+      let body='';
+      if(json){
+        const j=await res.json();
+        body=(j.contents||'')+' '+(j.status&&j.status.url?j.status.url:'');
+      }else{
+        body=await res.text();
+        if(res.url)body=res.url+' '+body;
+      }
+      console.log('[Maps] proxy OK:',url.slice(0,60),'len='+body.length);
+      const coords=extractCoords(body);
+      if(coords&&applyCoords(coords[0],coords[1]))return true;
+    }catch(e){
+      console.warn('[Maps] proxy failed:',url.slice(0,60),e.message||e);
     }
-    console.log('[Maps] proxy='+url.slice(0,50)+' len='+body.length);
-    const coords=extractCoords(body);
-    if(!coords)throw new Error('no coords');
-    return coords;
-  })).catch(()=>null);
-  if(result&&applyCoords(result[0],result[1]))return true;
+  }
   return false;
 }
 
