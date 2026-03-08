@@ -894,6 +894,7 @@ async function onPick(){
   calcSunMoon();
   redraw(distD,tAz,va);
   suggest(distH,tAz,va);
+  updateDrawerIfOpen();
 }
 
 function updateElevDisplay(){
@@ -918,6 +919,7 @@ function shiftElevOffset(v,reset=false){
   const va=elAng(distH,sElev,t.elev,t.h);
   document.getElementById('i-v').innerHTML=`${va.toFixed(2)}<span class="u">°</span>`;
   redraw(distD,tAz,va);
+  updateDrawerIfOpen();
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2261,6 +2263,7 @@ function setSunsetMode(v){
     try{drawView(dD,az,elAng(dH,sElev,t.elev,t.h));}catch(e){}
     try{drawCompass(az,elAng(dH,sElev,t.elev,t.h));}catch(e){}
   }
+  updateDrawerIfOpen();
 }
 
 function selTarget(k){
@@ -2283,6 +2286,7 @@ function selTarget(k){
   if(map){map.setView([T[k].lat,T[k].lng],T[k].zoom);addTargetPin();}
   clearFans();
   if(sLat!==null)onPick();else calcSunMoon();
+  updateDrawerIfOpen();
 }
 
 function shiftTripod(v, reset=false){
@@ -2291,6 +2295,7 @@ function shiftTripod(v, reset=false){
   if(el)el.innerHTML=`${tripodH}<span style="font-size:8px;color:var(--sub);">cm</span>`;
   syncMobileUI();
   if(sLat!==null) onPick();
+  updateDrawerIfOpen();
 }
 
 function _syncFromDrawer(){
@@ -2337,28 +2342,66 @@ function updateDrawerIfOpen(){
   const dst=document.getElementById('mob-drawer-content');
   const src=document.getElementById('pnl');
   if(!dst||!src)return;
-  // 値・表示の同期のみ（innerHTML再生成しない）
-  // input値
+
+  // ① input値・チェックボックス
   src.querySelectorAll('input').forEach(el=>{
     if(!el.id)return;
     const d=dst.querySelector('#'+el.id);
     if(!d)return;
-    if(el.type==='checkbox') d.checked=el.checked;
+    if(el.type==='checkbox'){d.checked=el.checked;d.disabled=el.disabled;}
     else d.value=el.value;
   });
-  // テキスト表示
+
+  // ② innerHTML更新が必要なテキスト表示要素
   ['i-d','i-e','i-a','i-v','t-sr','t-ss','t-mr','t-ms','p-age','p-name',
-   'i-dow','tripod-disp','fn','chance-list'].forEach(id=>{
+   'i-dow','tripod-disp','fn','chance-list','spot-list'].forEach(id=>{
     const s=src.querySelector('#'+id);
     const d=dst.querySelector('#'+id);
     if(s&&d) d.innerHTML=s.innerHTML;
   });
-  // .on クラス
-  src.querySelectorAll('[class]').forEach(el=>{
-    if(!el.id)return;
-    const d=dst.querySelector('#'+el.id);
-    if(d) d.className=el.className;
+
+  // ③ className同期（.on切替など）
+  ['c-pl','c-gifu','btn-land','btn-port','btn-chance'].forEach(id=>{
+    const s=src.querySelector('#'+id);
+    const d=dst.querySelector('#'+id);
+    if(s&&d) d.className=s.className;
   });
+  // .ps内の.pb（焦点距離プリセット）
+  src.querySelectorAll('.ps .pb').forEach(s=>{
+    if(!s.textContent)return;
+    dst.querySelectorAll('.ps .pb').forEach(d=>{
+      if(d.textContent===s.textContent) d.className=s.className;
+    });
+  });
+  // 縦横ボタン
+  src.querySelectorAll('.orient-row .pb').forEach(s=>{
+    dst.querySelectorAll('.orient-row .pb').forEach(d=>{
+      if(d.textContent===s.textContent) d.className=s.className;
+    });
+  });
+
+  // ④ style属性の同期（lb-sunsetの色など）
+  ['lb-sunset'].forEach(id=>{
+    const s=src.querySelector('#'+id);
+    const d=dst.querySelector('#'+id);
+    if(s&&d) d.style.cssText=s.style.cssText;
+  });
+  // cb-sunsetのstyle（opacity/cursor）
+  const cbS=src.querySelector('#cb-sunset');
+  const cbD=dst.querySelector('#cb-sunset');
+  if(cbS&&cbD){cbD.style.opacity=cbS.style.opacity;cbD.style.cursor=cbS.style.cursor;}
+
+  // ⑤ 月相canvas
+  const srcCanvas=src.querySelector('#cv-phase');
+  const dstCanvas=dst.querySelector('#cv-phase');
+  if(srcCanvas&&dstCanvas){
+    try{
+      const dstCtx=dstCanvas.getContext('2d');
+      const img=new Image();
+      img.onload=()=>dstCtx.drawImage(img,0,0);
+      img.src=srcCanvas.toDataURL();
+    }catch(e){}
+  }
 }
 
 function _syncDrawerContent(){
@@ -2569,7 +2612,11 @@ function setNow(){
 }
 
 function setTimeFromEl(id){
-  const el=document.getElementById(id);
+  // ドロワーが開いている場合はドロワー内の要素から取得
+  const drawer=document.getElementById('mob-drawer');
+  const isDrawerOpen=drawer&&drawer.classList.contains('open');
+  const container=isDrawerOpen?document.getElementById('mob-drawer-content'):document;
+  const el=container?container.querySelector('#'+id):null;
   if(!el)return;
   const t=el.textContent.trim();
   if(!t||t==='—')return;
@@ -2580,6 +2627,7 @@ function setTimeFromEl(id){
     if(td)td.textContent=t;
     syncMobileUI();
     itime.dispatchEvent(new Event('change'));
+    updateDrawerIfOpen();
   }
 }
 
@@ -2649,6 +2697,7 @@ function calcChances(){
 
     if(results.length===0){
       list.textContent='今後30日以内に条件を満たす日はありません。（方位角±'+AZ_THR+'°、仰角0°〜'+topAlt.toFixed(1)+'°）';
+      updateDrawerIfOpen();
       return;
     }
 
@@ -2664,6 +2713,7 @@ function calcChances(){
         <span style="color:var(--sub)">月齢${r.age.toFixed(1)}日 ±${r.azDiff.toFixed(1)}° 高${altPct}%</span>
       </div>`;
     }).join('');
+    updateDrawerIfOpen();
   },20);
 }
 
@@ -2676,6 +2726,7 @@ function setChance(ds,ts){
   if(td)td.textContent=ts;
   syncMobileUI();
   itime.dispatchEvent(new Event('change'));
+  updateDrawerIfOpen();
 }
 
 function setF(v){
@@ -2717,6 +2768,7 @@ function setOrientation(o){
   if(bp)bp.classList.toggle('on',o==='port');
   syncMobileUI();
   scheduleLayout();
+  updateDrawerIfOpen();
 }
 
 function shiftTime(minutes){
