@@ -2330,6 +2330,37 @@ function toggleDrawer(){
   overlay.classList.toggle('open');
 }
 
+// ドロワーが開いている場合、元pnlの状態をドロワーに同期
+function updateDrawerIfOpen(){
+  const drawer=document.getElementById('mob-drawer');
+  if(!drawer||!drawer.classList.contains('open'))return;
+  const dst=document.getElementById('mob-drawer-content');
+  const src=document.getElementById('pnl');
+  if(!dst||!src)return;
+  // 値・表示の同期のみ（innerHTML再生成しない）
+  // input値
+  src.querySelectorAll('input').forEach(el=>{
+    if(!el.id)return;
+    const d=dst.querySelector('#'+el.id);
+    if(!d)return;
+    if(el.type==='checkbox') d.checked=el.checked;
+    else d.value=el.value;
+  });
+  // テキスト表示
+  ['i-d','i-e','i-a','i-v','t-sr','t-ss','t-mr','t-ms','p-age','p-name',
+   'i-dow','tripod-disp','fn','chance-list'].forEach(id=>{
+    const s=src.querySelector('#'+id);
+    const d=dst.querySelector('#'+id);
+    if(s&&d) d.innerHTML=s.innerHTML;
+  });
+  // .on クラス
+  src.querySelectorAll('[class]').forEach(el=>{
+    if(!el.id)return;
+    const d=dst.querySelector('#'+el.id);
+    if(d) d.className=el.className;
+  });
+}
+
 function _syncDrawerContent(){
   const dst=document.getElementById('mob-drawer-content');
   const src=document.getElementById('pnl');
@@ -2340,13 +2371,13 @@ function _syncDrawerContent(){
     const dEl=dst.querySelector('#'+id);
     const sEl=document.getElementById(id);
     if(!dEl||!sEl)return;
-    dEl.addEventListener('change',()=>{
-      sEl.value=dEl.value;
-      sEl.dispatchEvent(new Event('change'));
-    });
-    dEl.addEventListener('input',()=>{
-      sEl.value=dEl.value;
-      sEl.dispatchEvent(new Event('input'));
+    ['change','input'].forEach(evName=>{
+      dEl.addEventListener(evName,()=>{
+        if(dEl.value===sEl.value)return; // 無限ループ防止
+        sEl.value=dEl.value;
+        sEl.dispatchEvent(new Event(evName,{bubbles:true}));
+        syncMobileUI();
+      });
     });
   });
 }
@@ -2674,6 +2705,7 @@ function setF(v){
     const va=elAng(distH,sElev,t.elev,t.h);
   }
   scheduleLayout();
+  updateDrawerIfOpen();
 }
 
 function setOrientation(o){
@@ -2746,6 +2778,12 @@ window.addEventListener('load',()=>{
     if(el&&el.value){
       const td=document.getElementById('tbtn-time-disp');
       if(td)td.textContent=el.value;
+      // ドロワーが開いていればitime表示も同期
+      const drawer=document.getElementById('mob-drawer');
+      if(drawer&&drawer.classList.contains('open')){
+        const dEl=document.getElementById('mob-drawer-content').querySelector('#itime');
+        if(dEl&&dEl.value!==el.value) dEl.value=el.value;
+      }
     }
     if(sLat!==null){
       try{
