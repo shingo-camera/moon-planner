@@ -1486,7 +1486,7 @@ function drawView(dist,tAz,va){
   const vaTop=Math.max(va,0.01);
 
   // 頂点位置の計算：地上線固定で頂点を求め、頂点がH*0.40より上なら頂点固定に切替
-  const horizonDefault = H * 0.72; // 下端のFOVラベル(18px)を避けるため72%に
+  const horizonDefault = H * 0.72;
   const topFromHorizon = horizonDefault - gnoV(vaTop);
   let targetTopY, horizon;
   if(topFromHorizon >= H * 0.40){
@@ -1496,6 +1496,9 @@ function drawView(dist,tAz,va){
     targetTopY = H * 0.40;
     horizon = targetTopY + gnoV(vaTop);
   }
+  // 仰角が大きくhorizonが画面外に出る場合はclamp
+  // horizonが画面外に出ることは仰角が大きい場合は許容する
+  // （山・地平線の描画時のみ別途clampする）
 
   // 地面・地平線は建物描画後に描く（後述）
 
@@ -1796,8 +1799,8 @@ function drawView(dist,tAz,va){
   const tAngW=angS(physW, dist);              // 対象幅の角度（度）
   const tw=Math.max(gnoH(tAngW), 2);          // gnomonic投影後の幅（px）
 
-  // 頂点Y：地上線からvaTop分だけ上
-  const tY=horizon-gnoV(vaTop);
+  // 頂点Y：targetTopYを使う（clamp済み）
+  const tY=targetTopY;
   const bY=tY+thTrue;
 
   ctx.fillStyle='#0e172a';ctx.strokeStyle='rgba(200,169,110,.35)';ctx.lineWidth=.8;
@@ -1999,25 +2002,34 @@ function drawView(dist,tAz,va){
 
     // 山（金華山）- 建物の後に描いて手前に見せる
     {
-      const mountainH=H*0.28;
-      const mLeft=W*0.55;
-      const mRight=W*0.55;
-      const flatW=W*0.18;
-      ctx.fillStyle='#1a2a3a';ctx.strokeStyle='rgba(200,169,110,.5)';ctx.lineWidth=1.5;
+      const hDraw=Math.min(horizon, H*0.90);
+      const mountainH=H*0.35;
+      const mLeft=W*0.60;
+      const mRight=W*0.60;
+      const flatW=W*0.15;
+      ctx.save();
+      ctx.beginPath();ctx.rect(0,0,W,H);ctx.clip();
+      ctx.fillStyle='#1e3a2e';
+      ctx.strokeStyle='rgba(200,169,110,1.0)';
+      ctx.lineWidth=2.5;
       ctx.beginPath();
-      ctx.moveTo(cx-mLeft, horizon);
-      ctx.quadraticCurveTo(cx-mLeft*0.3, horizon-mountainH*0.7, cx-flatW/2, horizon-mountainH);
-      ctx.lineTo(cx+flatW/2, horizon-mountainH);
-      ctx.quadraticCurveTo(cx+mRight*0.3, horizon-mountainH*0.7, cx+mRight, horizon);
-      ctx.closePath();ctx.fill();ctx.stroke();
+      ctx.moveTo(0, hDraw);
+      ctx.lineTo(cx-mLeft, hDraw);
+      ctx.quadraticCurveTo(cx-mLeft*0.4, hDraw-mountainH*0.7, cx-flatW/2, hDraw-mountainH);
+      ctx.lineTo(cx+flatW/2, hDraw-mountainH);
+      ctx.quadraticCurveTo(cx+mRight*0.4, hDraw-mountainH*0.7, cx+mRight, hDraw);
+      ctx.lineTo(W, hDraw);
+      ctx.closePath();
+      ctx.fill();ctx.stroke();
+      ctx.restore();
     }
   }
 
-  // 地面（先に塗る）
-  ctx.fillStyle='rgba(12,18,32,.95)';ctx.fillRect(0,horizon,W,H-horizon);
-  // 地平線（地面の上に描く）
+  // 地面・地平線（描画用horizonをclamp）
+  const hDraw=Math.min(horizon, H*0.90);
+  ctx.fillStyle='rgba(12,18,32,.95)';ctx.fillRect(0,hDraw,W,H-hDraw);
   ctx.strokeStyle='rgba(200,169,110,.4)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
-  ctx.beginPath();ctx.moveTo(0,horizon);ctx.lineTo(W,horizon);ctx.stroke();ctx.setLineDash([]);
+  ctx.beginPath();ctx.moveTo(0,hDraw);ctx.lineTo(W,hDraw);ctx.stroke();ctx.setLineDash([]);
 
   // 月/太陽がFOV外
   if(bodyVisible&&mAz!==null){
