@@ -1843,7 +1843,9 @@ function drawView(dist,tAz,va){
     ctx.setLineDash([]);
   }else{
     // ━━━ 金華山（先に描いて城を手前に重ねる）━━━
-    if(horizon < H){
+    // 山裾はhorizonではなく画面下端H（地平線FOV外でも山は見える）
+    {
+      const mBase=Math.max(Math.min(horizon, H), bY); // 地平線・画面下端・城底辺のうち最も下
       const mLeft=W*0.55;
       const mRight=W*0.55;
       const flatW=W*0.12;
@@ -1853,12 +1855,12 @@ function drawView(dist,tAz,va){
       ctx.strokeStyle='rgba(200,169,110,0.8)';
       ctx.lineWidth=1.5;
       ctx.beginPath();
-      ctx.moveTo(0, horizon);
-      ctx.lineTo(cx-mLeft, horizon);
-      ctx.quadraticCurveTo(cx-mLeft*0.4, bY*0.7+horizon*0.3, cx-flatW/2, bY);
+      ctx.moveTo(0, mBase);
+      ctx.lineTo(cx-mLeft, mBase);
+      ctx.quadraticCurveTo(cx-mLeft*0.4, bY*0.7+mBase*0.3, cx-flatW/2, bY);
       ctx.lineTo(cx+flatW/2, bY);
-      ctx.quadraticCurveTo(cx+mRight*0.4, bY*0.7+horizon*0.3, cx+mRight, horizon);
-      ctx.lineTo(W, horizon);
+      ctx.quadraticCurveTo(cx+mRight*0.4, bY*0.7+mBase*0.3, cx+mRight, mBase);
+      ctx.lineTo(W, mBase);
       ctx.closePath();
       ctx.fill();ctx.stroke();
       ctx.restore();
