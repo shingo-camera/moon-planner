@@ -1497,16 +1497,7 @@ function drawView(dist,tAz,va){
     horizon = targetTopY + gnoV(vaTop);
   }
 
-  // 地面（地上線が画面内の場合のみ描画）
-  if(horizon < H){
-    ctx.fillStyle='#060e0a';
-    ctx.fillRect(0, horizon, W, H - horizon);
-  }
-  // 地平線（画面内の場合のみ）
-  if(horizon < H){
-    ctx.strokeStyle='rgba(200,169,110,.2)';ctx.lineWidth=1;
-    ctx.beginPath();ctx.moveTo(0,horizon);ctx.lineTo(W,horizon);ctx.stroke();
-  }
+  // 地面・地平線は建物描画後に描く（後述）
 
   // 天体の位置計算（月 or 太陽）
   const ds=document.getElementById('idate').value;
@@ -1889,18 +1880,17 @@ function drawView(dist,tAz,va){
       });
     }
 
-    // 山（金華山）- 底辺はhorizon基準
-    const mountainH=G_TOTAL*1.35;
-    const mLeft=G_BW*(2.5+0.8*Math.cos(gAngle));
-    const mRight=G_BW*(2.5+0.8*Math.sin(gAngle+Math.PI/2));
-    const flatW=G_BW*1.6;
-    const mBaseY=Math.max(bY, horizon); // 地平線以下に山が出ないよう
+    // 山（金華山）- 画面高さ基準で固定スケール、底辺はhorizon
+    const mountainH=H*0.28; // 画面高さの28%固定
+    const mLeft=W*0.55;
+    const mRight=W*0.55;
+    const flatW=W*0.18;
     ctx.fillStyle='#0a1320';ctx.strokeStyle='rgba(200,169,110,.12)';ctx.lineWidth=.8;
     ctx.beginPath();
-    ctx.moveTo(cx-Math.abs(mLeft),mBaseY);
-    ctx.quadraticCurveTo(cx-Math.abs(mLeft)*0.3,mBaseY-mountainH*0.7,cx-flatW/2,mBaseY-mountainH);
-    ctx.lineTo(cx+flatW/2,mBaseY-mountainH);
-    ctx.quadraticCurveTo(cx+Math.abs(mRight)*0.3,mBaseY-mountainH*0.7,cx+Math.abs(mRight),mBaseY);
+    ctx.moveTo(cx-mLeft, horizon);
+    ctx.quadraticCurveTo(cx-mLeft*0.3, horizon-mountainH*0.7, cx-flatW/2, horizon-mountainH);
+    ctx.lineTo(cx+flatW/2, horizon-mountainH);
+    ctx.quadraticCurveTo(cx+mRight*0.3, horizon-mountainH*0.7, cx+mRight, horizon);
     ctx.closePath();ctx.fill();ctx.stroke();
 
     // 石垣
@@ -2021,11 +2011,11 @@ function drawView(dist,tAz,va){
     ctx.globalAlpha=1;
   }
 
-  // 水平線
-  ctx.strokeStyle='rgba(200,169,110,.15)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
-  ctx.beginPath();ctx.moveTo(0,horizon);ctx.lineTo(W,horizon);ctx.stroke();ctx.setLineDash([]);
-  // 地面
+  // 地面（先に塗る）
   ctx.fillStyle='rgba(12,18,32,.95)';ctx.fillRect(0,horizon,W,H-horizon);
+  // 地平線（地面の上に描く）
+  ctx.strokeStyle='rgba(200,169,110,.4)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
+  ctx.beginPath();ctx.moveTo(0,horizon);ctx.lineTo(W,horizon);ctx.stroke();ctx.setLineDash([]);
 
   // 月/太陽がFOV外
   if(bodyVisible&&mAz!==null){
