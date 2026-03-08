@@ -433,6 +433,14 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
         <div class="ic"><div class="lb">方位角</div><div class="vl" id="i-a">—</div></div>
         <div class="ic"><div class="lb">仰角</div><div class="vl" id="i-v">—</div></div>
       </div>
+      <!-- 標高オフセット -->
+      <div style="display:flex;align-items:center;gap:2px;margin-top:4px;">
+        <span style="font-size:8px;color:var(--sub);font-family:'Space Mono',monospace;flex-shrink:0;">標高+</span>
+        <div class="tbtn" onclick="shiftElevOffset(1)">+1</div>
+        <div class="tbtn" onclick="shiftElevOffset(3)">+3</div>
+        <div class="tbtn" onclick="shiftElevOffset(5)">+5</div>
+        <span class="now-btn" onclick="shiftElevOffset(0,true)" title="オフセットをリセット" style="margin-left:2px;">Rst</span>
+      </div>
       <!-- 保存ボタン -->
       <div style="display:flex;gap:3px;margin-top:5px;">
         <button id="btn-save-spot" onclick="saveSpot()"
@@ -594,6 +602,8 @@ const T={
 };
 let cur='pl', focal=400, orientation='land';
 let sLat=null, sLng=null, sElev=0;
+let sElevGround=0; // 地面標高（APIから取得）
+let elevOffset=0;  // 標高オフセット（+1/+3/+5m追加分）
 let tripodH=150; // 三脚高さ(cm)デフォルト150cm
 let map, sMarker, tMarker, polyLine;
 let _layoutRAF=null;
@@ -858,6 +868,7 @@ function shootingPopupHTML(az, distKm, va){
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function onPick(){
   if(sLat===null||sLng===null)return;
+  elevOffset=0; // 新しい地点選択時はオフセットをリセット
   if(map&&sMarker){try{map.removeLayer(sMarker);}catch(e){}}
   if(map&&polyLine){try{map.removeLayer(polyLine);}catch(e){}}
 
@@ -882,7 +893,8 @@ async function onPick(){
   document.getElementById('i-e').textContent='取得中…';
   let se=0;
   try{se=await getElev(sLat,sLng);}catch(e){se=0;}
-  sElev=se+tripodH/100;
+  sElevGround=se;
+  sElev=se+elevOffset+tripodH/100;
 
   const distH=hav(sLat,sLng,t.lat,t.lng);
   const distD=dist3D(sLat,sLng,sElev,t.lat,t.lng,t.elev);
@@ -893,13 +905,37 @@ async function onPick(){
   if(sMarker) sMarker.bindPopup(shootingPopupHTML(tAz, distH, va));
 
   document.getElementById('i-d').innerHTML=`${distH.toFixed(2)}<span class="u">km</span>`;
-  document.getElementById('i-e').innerHTML=`${se.toFixed(0)}<span class="u">m</span>`;
+  updateElevDisplay();
   document.getElementById('i-a').innerHTML=`${tAz.toFixed(1)}<span class="u">°</span>`;
   document.getElementById('i-v').innerHTML=`${va.toFixed(2)}<span class="u">°</span>`;
 
   calcSunMoon();
   redraw(distD,tAz,va);
   suggest(distH,tAz,va);
+}
+
+function updateElevDisplay(){
+  const el=document.getElementById('i-e');
+  if(!el)return;
+  const base=sElevGround.toFixed(0);
+  const offStr=elevOffset!==0
+    ?` <span style="font-size:9px;color:var(--ac);font-family:'Space Mono',monospace;">+${elevOffset}m</span>`
+    :'';
+  el.innerHTML=`${base}<span class="u">m</span>${offStr}`;
+}
+
+function shiftElevOffset(v,reset=false){
+  if(sLat===null)return;
+  elevOffset=reset?0:elevOffset+v;
+  sElev=sElevGround+elevOffset+tripodH/100;
+  updateElevDisplay();
+  const t=T[cur];
+  const distH=hav(sLat,sLng,t.lat,t.lng);
+  const distD=dist3D(sLat,sLng,sElev,t.lat,t.lng,t.elev);
+  const tAz=brng(sLat,sLng,t.lat,t.lng);
+  const va=elAng(distH,sElev,t.elev,t.h);
+  document.getElementById('i-v').innerHTML=`${va.toFixed(2)}<span class="u">°</span>`;
+  redraw(distD,tAz,va);
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
