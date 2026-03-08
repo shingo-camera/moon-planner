@@ -251,8 +251,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
     padding:4px 6px;z-index:9000;
   }
   #mob-time-row{display:flex;align-items:center;gap:2px;}
-  #mob-focal-row{display:flex;align-items:center;gap:2px;overflow-x:auto;scrollbar-width:none;}
-  #mob-focal-row::-webkit-scrollbar{display:none;}
+  #mob-focal-row{display:flex;align-items:center;gap:6px;}
   #mob-ctrl-row{display:flex;align-items:center;gap:3px;}
   #mob-url-row{display:flex;align-items:center;}
 
@@ -281,8 +280,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   .mob-fbtn.on{border-color:var(--ac);color:var(--ac);}
   #mob-focal-disp{
     font-family:'Space Mono',monospace;font-size:13px;font-weight:700;
-    color:var(--ac);flex-shrink:0;min-width:52px;text-align:center;
-    cursor:pointer;border-bottom:1px dashed var(--ac);
+    color:var(--ac);flex-shrink:0;width:58px;text-align:center;
+    background:var(--sur2);border:1px solid var(--ac);border-radius:4px;
+    padding:2px 4px;-webkit-appearance:none;appearance:none;
+    outline:none;
   }
   .mob-icon-btn{
     flex-shrink:0;
@@ -545,15 +546,14 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
     <div class="mob-tbtn" onclick="shiftTime(60)">+60</div>
   </div>
   <div id="mob-focal-row">
-    <div id="mob-focal-disp" onclick="promptFocal()" title="タップで入力">400<span style="font-size:9px;color:var(--sub);">mm</span></div>
-    <div class="mob-fbtn" onclick="setF(100)">100</div>
-    <div class="mob-fbtn" onclick="setF(200)">200</div>
-    <div class="mob-fbtn" onclick="setF(400)">400</div>
-    <div class="mob-fbtn" onclick="setF(600)">600</div>
-    <div class="mob-fbtn" onclick="setF(800)">800</div>
-    <div class="mob-fbtn" onclick="setF(1000)">1000</div>
-    <div class="mob-fbtn" onclick="setF(1200)">1200</div>
-    <div class="mob-fbtn" onclick="setF(1600)">1600</div>
+    <input type="range" id="mob-focal-slider" min="9" max="1600" value="400"
+      style="flex:1;height:4px;accent-color:var(--ac);cursor:pointer;"
+      oninput="setF(+this.value)">
+    <input type="number" id="mob-focal-disp" min="9" max="1600" value="400"
+      inputmode="numeric"
+      onchange="setF(Math.max(9,Math.min(1600,+this.value||400)))"
+      oninput="setF(Math.max(9,Math.min(1600,+this.value||400)))">
+    <span style="font-size:9px;color:var(--sub);flex-shrink:0;">mm</span>
   </div>
   <div id="mob-ctrl-row">
     <div class="mob-tbtn" onclick="shiftTripod(-5)">−5</div>
@@ -1846,24 +1846,30 @@ function drawView(dist,tAz,va){
     // 山裾はhorizonではなく画面下端H（地平線FOV外でも山は見える）
     {
       const mBase=Math.max(Math.min(horizon, H), bY); // 地平線・画面下端・城底辺のうち最も下
+      // 山頂: 石垣奥コーナーが仰角により bY より下に出るため、その分だけ下げる
+      const gVA2=vaTop*Math.PI/180;
+      const mTop=bY + G_TOTAL*0.3655*Math.sin(gVA2);
       const mLeft=W*0.55;
       const mRight=W*0.55;
-      const flatW=W*0.12;
-      ctx.save();
-      ctx.beginPath();ctx.rect(0,0,W,H);ctx.clip();
-      ctx.fillStyle='#1a3020';
-      ctx.strokeStyle='rgba(200,169,110,0.8)';
-      ctx.lineWidth=1.5;
-      ctx.beginPath();
-      ctx.moveTo(0, mBase);
-      ctx.lineTo(cx-mLeft, mBase);
-      ctx.quadraticCurveTo(cx-mLeft*0.4, bY*0.7+mBase*0.3, cx-flatW/2, bY);
-      ctx.lineTo(cx+flatW/2, bY);
-      ctx.quadraticCurveTo(cx+mRight*0.4, bY*0.7+mBase*0.3, cx+mRight, mBase);
-      ctx.lineTo(W, mBase);
-      ctx.closePath();
-      ctx.fill();ctx.stroke();
-      ctx.restore();
+      const flatW=W*0.50; // 全角度での石垣最大投影幅をカバー
+      // 山頂が画面内かつ山に高さがある場合のみ描画
+      if(mTop < H && mBase > mTop + 2){
+        ctx.save();
+        ctx.beginPath();ctx.rect(0,0,W,H);ctx.clip();
+        ctx.fillStyle='#1a3020';
+        ctx.strokeStyle='rgba(200,169,110,0.8)';
+        ctx.lineWidth=1.5;
+        ctx.beginPath();
+        ctx.moveTo(0, mBase);
+        ctx.lineTo(cx-mLeft, mBase);
+        ctx.quadraticCurveTo(cx-mLeft*0.4, mTop*0.7+mBase*0.3, cx-flatW/2, mTop);
+        ctx.lineTo(cx+flatW/2, mTop);
+        ctx.quadraticCurveTo(cx+mRight*0.4, mTop*0.7+mBase*0.3, cx+mRight, mBase);
+        ctx.lineTo(W, mBase);
+        ctx.closePath();
+        ctx.fill();ctx.stroke();
+        ctx.restore();
+      }
     }
     // ━━━ 岐阜城 3D投影シルエット ━━━
     const FRONT_AZ=203;
@@ -2767,13 +2773,11 @@ function syncMobileUI(){
   const el=document.getElementById('mob-time-disp');
   if(el)el.textContent=ts||'—';
   const fd=document.getElementById('mob-focal-disp');
-  if(fd)fd.innerHTML=`${focal}<span style="font-size:9px;color:var(--sub);">mm</span>`;
+  if(fd)fd.value=focal;
+  const fs=document.getElementById('mob-focal-slider');
+  if(fs)fs.value=focal;
   const td=document.getElementById('mob-tripod-disp');
   if(td)td.textContent=`H${tripodH}`;
-  document.querySelectorAll('.mob-fbtn').forEach(b=>{
-    const v=parseInt(b.textContent);
-    b.classList.toggle('on',v===focal);
-  });
 }
 
 function setNow(){
@@ -2917,13 +2921,11 @@ function setF(v){
   document.querySelectorAll('.ps .pb').forEach(b=>{
     b.classList.toggle('on',parseInt(b.textContent)===v);
   });
-  // スマホ用ボタン（ボトムバー・ドロワー両方）
-  document.querySelectorAll('.mob-fbtn').forEach(b=>{
-    b.classList.toggle('on',parseInt(b.textContent)===v);
-  });
-  // スマホ用焦点距離表示
+  // スマホ用スライダー・数値入力を同期
   const fd=document.getElementById('mob-focal-disp');
-  if(fd)fd.innerHTML=`${v}<span style="font-size:9px;color:var(--sub);">mm</span>`;
+  if(fd)fd.value=v;
+  const fs=document.getElementById('mob-focal-slider');
+  if(fs)fs.value=v;
   // 撮影地点が選択済みならポップアップのFOV情報も更新
   if(sLat!==null&&sMarker){
     const t=T[cur];
