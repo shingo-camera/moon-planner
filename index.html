@@ -1630,9 +1630,8 @@ function drawView(dist,tAz,va){
   const physW=cur==='pl'?60:180;
   const tAngW=angS(physW, dist);
 
-  // 頂点位置：H*0.40以上に来る場合はH*0.40に固定
-  // 地上線：頂点からthTrue分下（画面外に出てもcanvasがclipする）
-  const tY=Math.min(horizon-thTrue, H*0.40);
+  // 頂点は仰角vaTopの位置、底辺は頂点からthTrue分下（地面クリップはcanvasに任せる）
+  const tY=horizon-vaTop*pyV;
   const bY=tY+thTrue;
 
   // twはthTrueに対する比率で計算（焦点距離・距離によらず角度一定）
