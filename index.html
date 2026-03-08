@@ -2037,7 +2037,7 @@ async function extractAndApplyMapsURL(rawText){
     return true;
   }
   function extractCoords(text){
-    const dec=decodeURIComponent(text);
+    let dec=text;try{dec=decodeURIComponent(text);}catch(e){dec=text;}
     // 1. @lat,lng
     let m=/@(-?\d+\.?\d+),(-?\d+\.?\d+)/.exec(dec);
     if(m)return[+m[1],+m[2]];
