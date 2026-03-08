@@ -1842,13 +1842,14 @@ function drawView(dist,tAz,va){
     });
     ctx.setLineDash([]);
   }else{
+    try{
     // ━━━ 金華山（先に描いて城を手前に重ねる）━━━
     // 山裾はhorizonではなく画面下端H（地平線FOV外でも山は見える）
     {
       const mBase=Math.max(Math.min(horizon, H), bY); // 地平線・画面下端・城底辺のうち最も下
       // 山頂: 石垣奥コーナーが仰角により bY より下に出るため、その分だけ下げる
       const gVA2=vaTop*Math.PI/180;
-      const mTop=bY + G_TOTAL*0.3655*Math.sin(gVA2);
+      const mTop=bY + thTrue*0.3655*Math.sin(gVA2);
       const mLeft=W*0.55;
       const mRight=W*0.55;
       const flatW=W*0.50; // 全角度での石垣最大投影幅をカバー
@@ -2029,6 +2030,9 @@ function drawView(dist,tAz,va){
     });
     ctx.globalAlpha=1;
 
+  }catch(e){
+    ctx.fillStyle='red';ctx.font='12px monospace';ctx.fillText('ERROR: '+e.message,10,50);
+    console.error('城描画エラー:',e);
   }
 
   // 地面・地平線（描画用horizonをclamp）
