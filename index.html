@@ -2078,22 +2078,23 @@ async function extractAndApplyMapsURL(rawText){
     {url:'https://corsproxy.io/?'+encodeURIComponent(fetchURL), json:false},
     {url:'https://api.allorigins.win/raw?url='+encodeURIComponent(fetchURL), json:false},
   ];
-  for(const {url,json} of proxies){
-    try{
-      const res=await fetch(url,{redirect:'follow'});
-      let body='';
-      if(json){
-        const j=await res.json();
-        body=(j.contents||'')+' '+(j.status&&j.status.url?j.status.url:'');
-      }else{
-        body=await res.text();
-        if(res.url)body=res.url+' '+body;
-      }
-      console.log('[Maps] proxy='+url.slice(0,50)+' len='+body.length);
-      const coords=extractCoords(body);
-      if(coords&&applyCoords(coords[0],coords[1]))return true;
-    }catch(e){console.warn('[Maps] proxy fail:',e);}
-  }
+  // 全プロキシ並列実行、最初に座標取得できたものを採用
+  const result=await Promise.any(proxies.map(async({url,json})=>{
+    const res=await fetch(url,{redirect:'follow'});
+    let body='';
+    if(json){
+      const j=await res.json();
+      body=(j.contents||'')+' '+(j.status&&j.status.url?j.status.url:'');
+    }else{
+      body=await res.text();
+      if(res.url)body=res.url+' '+body;
+    }
+    console.log('[Maps] proxy='+url.slice(0,50)+' len='+body.length);
+    const coords=extractCoords(body);
+    if(!coords)throw new Error('no coords');
+    return coords;
+  })).catch(()=>null);
+  if(result&&applyCoords(result[0],result[1]))return true;
   return false;
 }
 
