@@ -479,6 +479,16 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
       <div id="map"></div>
       <div id="hint">📍 地図をクリックして撮影地点を選択</div>
       <div id="fan-legend"></div>
+      <div id="map-btns" style="display:none;position:absolute;bottom:24px;right:8px;z-index:1000;flex-direction:column;gap:4px;">
+        <a id="map-btn-gmap" href="#" target="_blank"
+          style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;
+          background:#4285f4;border-radius:6px;text-decoration:none;font-size:18px;
+          box-shadow:0 2px 6px rgba(0,0,0,.5);" title="Googleマップで開く">🗺</a>
+        <a id="map-btn-sv" href="#" target="_blank"
+          style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;
+          background:#34a853;border-radius:6px;text-decoration:none;font-size:18px;
+          box-shadow:0 2px 6px rgba(0,0,0,.5);" title="ストリートビューで開く">👁</a>
+      </div>
     </div>
 
     <!-- プレビューパネル -->
@@ -815,35 +825,22 @@ function addTargetPin(){
   }).addTo(map).bindPopup(`<b>${t.name}</b><br>高さ ${t.h}m`);
 }
 
-// ポップアップHTMLを生成（方位角渡し）
-function shootingPopupHTML(az, distKm, va){
-  const lat=sLat.toFixed(6), lng=sLng.toFixed(6);
+// 地図右下ボタンのhrefを更新して表示
+function updateMapBtns(az){
+  if(sLat===null)return;
+  const lat=sLat.toFixed(6),lng=sLng.toFixed(6);
+  const fovDeg=Math.round(Math.min(90,Math.max(10,fovD(focal))));
+  const svAz=az.toFixed(1);
   const mapsUrl=`https://www.google.com/maps?q=${lat},${lng}`;
-  // FOV：焦点距離から視野角を計算（StreetViewはFOV 10〜100°）
-  const svFov=Math.min(100, Math.max(10, Math.round(fovD(focal))));
-  // 仰角：対象方向に向けた仰角（地面=90°がStreetViewの基準=水平視点）
-  // StreetView仰角パラメータtは90°が水平。vaが正なら上向き→90-va
-  const svTilt=Math.min(120, Math.max(60, Math.round(90 - (va||0))));
-  const svUrl=`https://www.google.com/maps/@${lat},${lng},3a,${svFov}y,${az.toFixed(1)}h,${svTilt}t/data=!3m1!1e1`;
-  const distStr=distKm!=null?`${distKm.toFixed(2)}km`:'';
-  const vaStr=va!=null?`仰角${va.toFixed(1)}°`:'';
-  const infoStr=[distStr,vaStr].filter(Boolean).join(' · ');
-  return `
-    <div style="font-family:sans-serif;font-size:11px;min-width:160px;">
-      <b>📷 撮影地点</b><br>
-      <span style="color:#888;font-size:10px;">${lat}, ${lng}</span><br>
-      ${infoStr?`<span style="color:#aaa;font-size:10px;">${infoStr}</span><br>`:''}
-      <div style="margin-top:6px;display:flex;gap:4px;">
-        <a href="${mapsUrl}" target="_blank"
-          style="flex:1;text-align:center;padding:3px 0;background:#4285f4;color:white;
-          border-radius:3px;text-decoration:none;font-size:10px;">🗺 マップ</a>
-        <a href="${svUrl}" target="_blank"
-          style="flex:1;text-align:center;padding:3px 0;background:#34a853;color:white;
-          border-radius:3px;text-decoration:none;font-size:10px;">👁 Street</a>
-      </div>
-      <div style="color:#666;font-size:9px;margin-top:4px;">FOV ${svFov}° (${focal}mm相当)</div>
-    </div>`;
+  const svUrl=`https://www.google.com/maps/@${lat},${lng},3a,${fovDeg}y,${svAz}h,90t/data=!3m1!1e1`;
+  const btns=document.getElementById('map-btns');
+  if(!btns)return;
+  btns.style.display='flex';
+  document.getElementById('map-btn-gmap').href=mapsUrl;
+  document.getElementById('map-btn-sv').href=svUrl;
 }
+
+// ポップアップHTMLを生成（方位角渡し）
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // CLICK HANDLER
@@ -860,7 +857,7 @@ async function onPick(){
       className:'',iconAnchor:[6,6]
     }),
     draggable:true
-  }).addTo(map).bindPopup('📷 撮影地点');
+  }).addTo(map);
 
   sMarker.on('dragend',e=>{
     const ll=e.target.getLatLng();
@@ -883,8 +880,9 @@ async function onPick(){
   const tAz=brng(sLat,sLng,t.lat,t.lng);
   const va=elAng(distH,sElev,t.elev,t.h);
 
-  // ポップアップを方位角・距離・仰角込みで更新
-  if(sMarker) sMarker.bindPopup(shootingPopupHTML(tAz, distH, va));
+
+  // 地図右下のマップ・ストリートボタンを更新
+  updateMapBtns(tAz);
 
   document.getElementById('i-d').innerHTML=`${distH.toFixed(2)}<span class="u">km</span>`;
   updateElevDisplay();
@@ -2660,7 +2658,6 @@ function setF(v){
     const distH=hav(sLat,sLng,t.lat,t.lng);
     const tAz=brng(sLat,sLng,t.lat,t.lng);
     const va=elAng(distH,sElev,t.elev,t.h);
-    sMarker.bindPopup(shootingPopupHTML(tAz,distH,va));
   }
   scheduleLayout();
 }
