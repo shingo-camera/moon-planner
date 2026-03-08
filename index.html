@@ -608,34 +608,37 @@ function layout(){
   const isMobile=W<=600;
 
   if(isMobile){
-    const hdrH=0, mobBarH=136, lblH=22, btnW=0;
+    const hdrH=0, lblH=22;
+    // CSSの--mob-barに合わせた実際のボトムバー高さを取得
+    const mobBarH=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--mob-bar'))||104;
     const avH=H-hdrH-mobBarH;
     const mapH=Math.round(avH*0.55);
     const pvH=avH-mapH;
 
     document.getElementById('mapbox').style.height=mapH+'px';
     document.getElementById('mapbox').style.flex='none';
-    document.getElementById('preview-panel').style.height=pvH+'px';
-    document.getElementById('preview-panel').style.flex='none';
 
-    // スマホ：プレビューとダイアグラムを縦積み
-    // プレビューcanvas：横構図=3:2、縦構図=2:3 で幅いっぱい
-    const cvW=W;
-    const cvH=Math.round(cvW*(orientation==='land'?2/3:3/2));
-    // ダイアグラム：残り高さ（ラベル2本分を引く）
-    const diagW=W;
-    const diagH=Math.max(pvH-cvH-lblH, 60); // 最低60px
-
-    // preview-panelを縦積みに
+    // preview-panelを縦積みに（高さはpvHに厳密に収める）
     const ppanel=document.getElementById('preview-panel');
     ppanel.style.flexDirection='column';
-    ppanel.style.height=(cvH+lblH+lblH+diagH)+'px';
+    ppanel.style.height=pvH+'px';
+    ppanel.style.flex='none';
+    ppanel.style.overflow='hidden';
+
+    // プレビューcanvasとダイアグラムをpvHで分割（プレビュー60%・ダイアグラム40%）
+    const cvPanelH=Math.round(pvH*0.60);
+    const diagPanelH=pvH-cvPanelH;
+    const cvH=cvPanelH-lblH;
+    const diagH=diagPanelH-lblH;
+    const cvW=W;
+    const diagW=W;
 
     document.getElementById('pv-left').style.width=W+'px';
     document.getElementById('pv-left').style.flexDirection='column';
+    document.getElementById('pv-left').style.flexShrink='0';
     const pvWrap=document.getElementById('pv-cv-wrap');
     pvWrap.style.width=cvW+'px';
-    pvWrap.style.height=(cvH+lblH)+'px';
+    pvWrap.style.height=cvPanelH+'px';
 
     const cv1=document.getElementById('cv1');
     cv1.width=cvW;cv1.height=cvH;
