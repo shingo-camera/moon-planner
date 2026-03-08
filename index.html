@@ -1486,7 +1486,7 @@ function drawView(dist,tAz,va){
   const vaTop=Math.max(va,0.01);
 
   // 頂点位置の計算：地上線固定で頂点を求め、頂点がH*0.40より上なら頂点固定に切替
-  const horizonDefault = H * 0.85;
+  const horizonDefault = H * 0.72; // 下端のFOVラベル(18px)を避けるため72%に
   const topFromHorizon = horizonDefault - gnoV(vaTop);
   let targetTopY, horizon;
   if(topFromHorizon >= H * 0.40){
@@ -1880,19 +1880,6 @@ function drawView(dist,tAz,va){
       });
     }
 
-    // 山（金華山）- 画面高さ基準で固定スケール、底辺はhorizon
-    const mountainH=H*0.28; // 画面高さの28%固定
-    const mLeft=W*0.55;
-    const mRight=W*0.55;
-    const flatW=W*0.18;
-    ctx.fillStyle='#0a1320';ctx.strokeStyle='rgba(200,169,110,.12)';ctx.lineWidth=.8;
-    ctx.beginPath();
-    ctx.moveTo(cx-mLeft, horizon);
-    ctx.quadraticCurveTo(cx-mLeft*0.3, horizon-mountainH*0.7, cx-flatW/2, horizon-mountainH);
-    ctx.lineTo(cx+flatW/2, horizon-mountainH);
-    ctx.quadraticCurveTo(cx+mRight*0.3, horizon-mountainH*0.7, cx+mRight, horizon);
-    ctx.closePath();ctx.fill();ctx.stroke();
-
     // 石垣
     {
       const sw=G_BW*1.10, sd=G_BD*1.10, h=G_SEK, tp=G_UNIT*0.05;
@@ -2009,6 +1996,21 @@ function drawView(dist,tAz,va){
       if(f.stroke){ctx.strokeStyle=f.stroke;ctx.lineWidth=f.lw||0.8;ctx.stroke();}
     });
     ctx.globalAlpha=1;
+
+    // 山（金華山）- 建物の後に描いて手前に見せる
+    {
+      const mountainH=H*0.28;
+      const mLeft=W*0.55;
+      const mRight=W*0.55;
+      const flatW=W*0.18;
+      ctx.fillStyle='#1a2a3a';ctx.strokeStyle='rgba(200,169,110,.5)';ctx.lineWidth=1.5;
+      ctx.beginPath();
+      ctx.moveTo(cx-mLeft, horizon);
+      ctx.quadraticCurveTo(cx-mLeft*0.3, horizon-mountainH*0.7, cx-flatW/2, horizon-mountainH);
+      ctx.lineTo(cx+flatW/2, horizon-mountainH);
+      ctx.quadraticCurveTo(cx+mRight*0.3, horizon-mountainH*0.7, cx+mRight, horizon);
+      ctx.closePath();ctx.fill();ctx.stroke();
+    }
   }
 
   // 地面（先に塗る）
