@@ -2636,7 +2636,7 @@ async function extractAndApplyMapsURL(rawText){
       const coords=extractCoords(body);
       console.log('[Maps] coords=',coords);
       if(coords&&applyCoords(coords[0],coords[1]))return true;
-      console.warn('[Maps] proxy returned body but no coords matched. body[:500]=',body.slice(0,500));
+      console.warn('[Maps] proxy returned body but no coords matched. body[500:3000]=',body.slice(500,3000));
     }catch(e){
       console.warn('[Maps] proxy failed:',url.slice(0,60),e.message||e);
     }
