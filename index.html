@@ -2403,7 +2403,12 @@ function selTarget(k){
   }
   if(map){map.setView([T[k].lat,T[k].lng],T[k].zoom);addTargetPin();}
   clearFans();
-  if(sLat!==null)onPick();else calcSunMoon();
+  if(sLat!==null)onPick();
+  else{
+    calcSunMoon();
+    try{drawView(5,180,3.30);}catch(e){}
+    try{drawCompass(180,3.30);}catch(e){}
+  }
   updateDrawerIfOpen();
 }
 
