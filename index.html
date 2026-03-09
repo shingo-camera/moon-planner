@@ -1697,25 +1697,28 @@ function drawView(dist,tAz,va){
     ctx.setLineDash([]);
   }else{
     // ━━━ 金華山（先に描いて城を手前に重ねる）━━━
-    if(horizon < H){
-      const mLeft=W*0.55;
-      const mRight=W*0.55;
-      const flatW=W*0.12;
-      ctx.save();
-      ctx.beginPath();ctx.rect(0,0,W,H);ctx.clip();
-      ctx.fillStyle='#1a3020';
-      ctx.strokeStyle='rgba(200,169,110,0.8)';
-      ctx.lineWidth=1.5;
-      ctx.beginPath();
-      ctx.moveTo(0, horizon);
-      ctx.lineTo(cx-mLeft, horizon);
-      ctx.quadraticCurveTo(cx-mLeft*0.4, bY*0.7+horizon*0.3, cx-flatW/2, bY);
-      ctx.lineTo(cx+flatW/2, bY);
-      ctx.quadraticCurveTo(cx+mRight*0.4, bY*0.7+horizon*0.3, cx+mRight, horizon);
-      ctx.lineTo(W, horizon);
-      ctx.closePath();
-      ctx.fill();ctx.stroke();
-      ctx.restore();
+    {
+      // 山頂Y：城の底（石垣根元）= bY、山頂は城全体高さの約36%分上
+      const mTopY = bY - thTrue * 0.36;
+      const mBaseY = Math.min(horizon < H ? horizon : H, H);
+      if(mTopY < mBaseY){
+        const mLeft=W*0.55, mRight=W*0.55, flatW=W*0.12;
+        ctx.save();
+        ctx.beginPath();ctx.rect(0,0,W,H);ctx.clip();
+        ctx.fillStyle='#1a3020';
+        ctx.strokeStyle='rgba(200,169,110,0.55)';
+        ctx.lineWidth=1.2;
+        ctx.beginPath();
+        ctx.moveTo(0, mBaseY);
+        ctx.lineTo(cx-mLeft, mBaseY);
+        ctx.quadraticCurveTo(cx-mLeft*0.4, mTopY*0.7+mBaseY*0.3, cx-flatW/2, mTopY);
+        ctx.lineTo(cx+flatW/2, mTopY);
+        ctx.quadraticCurveTo(cx+mRight*0.4, mTopY*0.7+mBaseY*0.3, cx+mRight, mBaseY);
+        ctx.lineTo(W, mBaseY);
+        ctx.closePath();
+        ctx.fill();ctx.stroke();
+        ctx.restore();
+      }
     }
     // ━━━ 岐阜城 3D投影シルエット ━━━
     const FRONT_AZ=203;
@@ -1749,7 +1752,7 @@ function drawView(dist,tAz,va){
     const gFaces=[];
     function gAddFace(verts3d,nx,nz,fillFn,stroke,lw=0.8){
       const dot=nx*gSinA+nz*gCosA;
-      if(dot<=0.08)return;
+      if(dot<=0.02)return; // 裏面カリング：ほぼ真横まで描画
       const br=0.5+dot*0.45;
       gFaces.push({
         verts2d:verts3d.map(v=>gp(v[0],v[1],v[2])),
@@ -1761,11 +1764,13 @@ function drawView(dist,tAz,va){
     // 石垣
     {
       const sw=G_BW*1.10, sd=G_BD*1.10, h=G_SEK, tp=G_UNIT*0.05;
+      // 石垣上面
       gFaces.push({
         verts2d:[gp(-sw,h,-sd),gp(sw,h,-sd),gp(sw,h,sd),gp(-sw,h,sd)],
         fill:'#1e2d42',stroke:'rgba(200,169,110,.2)',lw:0.7,
         depth:gDepth([[-sw,h,-sd],[sw,h,-sd],[sw,h,sd],[-sw,h,sd]])-50
       });
+      // 石垣4側面
       [
         {v:[[-sw-tp,0,-sd-tp],[sw+tp,0,-sd-tp],[sw,h,-sd],[-sw,h,-sd]],nx:0, nz:-1},
         {v:[[sw+tp,0,-sd-tp],[sw+tp,0,sd+tp],[sw,h,sd],[sw,h,-sd]],    nx:1, nz:0},
@@ -1776,6 +1781,8 @@ function drawView(dist,tAz,va){
           br=>{const b=Math.round(br*28);return `rgb(${b+3},${b+6},${b+18})`;},
           'rgba(200,169,110,.3)',0.8);
       });
+      // 石垣の底辺輪郭線（地面との接地線）- 見える面のみ輪郭を描く
+      gFaces.push({type:'base-edge', sw, sd, tp, depth: gDepth([[-sw,0,-sd],[sw,0,-sd],[sw,0,sd],[-sw,0,sd]])+100});
     }
 
     // 天守3層
@@ -1804,7 +1811,7 @@ function drawView(dist,tAz,va){
         gFaces.push({
           verts2d:[gp(-ew,y1+eh,-ed),gp(ew,y1+eh,-ed),gp(ew,y1+eh,ed),gp(-ew,y1+eh,ed)],
           fill:'rgba(140,120,60,.6)',stroke:'rgba(200,169,110,.35)',lw:0.6,
-          depth:gDepth([[-ew,y1+eh,-ed],[ew,y1+eh,-ed],[ew,y1+eh,ed],[-ew,y1+eh,ed]])-20
+          depth:gDepth([[-ew,y1+eh,-ed],[ew,y1+eh,-ed],[ew,y1+eh,ed],[-ew,y1+eh,ed]])
         });
         [
           {v:[[-ew,y1,-ed],[ew,y1,-ed],[ew,y1+eh,-ed],[-ew,y1+eh,-ed]],nx:0, nz:-1},
@@ -1839,6 +1846,32 @@ function drawView(dist,tAz,va){
     // Zソートして描画
     gFaces.sort((a,b)=>b.depth-a.depth);
     gFaces.forEach(f=>{
+      if(f.type==='base-edge'){
+        // 石垣底辺：見える辺のみ描画（法線が正の面の底辺）
+        const {sw,sd,tp}=f;
+        ctx.strokeStyle='rgba(200,169,110,.45)';ctx.lineWidth=0.9;
+        // 手前辺（z=-sd-tp側、nz=-1が見えるとき）
+        if(-gCosA > 0.02){
+          const p1=gp(-sw-tp,0,-sd-tp), p2=gp(sw+tp,0,-sd-tp);
+          ctx.beginPath();ctx.moveTo(p1[0],p1[1]);ctx.lineTo(p2[0],p2[1]);ctx.stroke();
+        }
+        // 右辺（x=+sw+tp側、nx=+1が見えるとき）
+        if(gSinA > 0.02){
+          const p1=gp(sw+tp,0,-sd-tp), p2=gp(sw+tp,0,sd+tp);
+          ctx.beginPath();ctx.moveTo(p1[0],p1[1]);ctx.lineTo(p2[0],p2[1]);ctx.stroke();
+        }
+        // 奥辺（z=+sd+tp側、nz=+1が見えるとき）
+        if(gCosA > 0.02){
+          const p1=gp(sw+tp,0,sd+tp), p2=gp(-sw-tp,0,sd+tp);
+          ctx.beginPath();ctx.moveTo(p1[0],p1[1]);ctx.lineTo(p2[0],p2[1]);ctx.stroke();
+        }
+        // 左辺（x=-sw-tp側、nx=-1が見えるとき）
+        if(-gSinA > 0.02){
+          const p1=gp(-sw-tp,0,sd+tp), p2=gp(-sw-tp,0,-sd-tp);
+          ctx.beginPath();ctx.moveTo(p1[0],p1[1]);ctx.lineTo(p2[0],p2[1]);ctx.stroke();
+        }
+        return;
+      }
       if(f.type==='ridge'){
         const p1=gp(f.p1[0],f.p1[1],f.p1[2]), p2=gp(f.p2[0],f.p2[1],f.p2[2]);
         ctx.beginPath();ctx.moveTo(p1[0],p1[1]);ctx.lineTo(p2[0],p2[1]);
