@@ -1515,6 +1515,13 @@ function drawView(dist,tAz,va){
   const gnoV=deg=>f_px_V*Math.tan(deg*r);  // 垂直方向
   const cx=W/2;
 
+  // カメラ視点オフセット：effTAz/effVaを基準にフレームをずらす
+  // pvAzOfs>0 → カメラを右に振る（対象が左に寄る）
+  // pvAltOfs>0 → カメラを上に振る（対象が下に寄る）
+  const effTAz = tAz + pvAzOfs;
+  const effVa  = va  + pvAltOfs;
+
+
   // 背景
   const sky=ctx.createLinearGradient(0,0,0,H);
   sky.addColorStop(0,'#02050c');sky.addColorStop(1,'#08111f');
@@ -1524,7 +1531,7 @@ function drawView(dist,tAz,va){
     ctx.beginPath();ctx.arc((i*137)%W,(i*79)%(H*.65),.5,0,6.28);ctx.fill();
   }
 
-  const vaTop=Math.max(va,0.01);
+  const vaTop=Math.max(effVa, 0.01);
 
   // 頂点位置の計算：地上線固定で頂点を求め、頂点がH*0.40より上なら頂点固定に切替
   // 岐阜城は城上に月がかかる構図のため地平線を低めに（城を画面下寄りに）
@@ -1576,9 +1583,9 @@ function drawView(dist,tAz,va){
 
   let moonX=cx,moonY=horizon-50;
   if(mAz!==null){
-    const dAz=azDiff(tAz,mAz) - pvAzOfs;
+    const dAz=azDiff(effTAz,mAz);
     moonX=cx+gnoH(dAz);
-    moonY=horizon-gnoV(mAlt + pvAltOfs);
+    moonY=horizon-gnoV(mAlt);
   }
 
   // 天体描画（月 or 太陽）
@@ -1745,11 +1752,9 @@ function drawView(dist,tAz,va){
         // 山の半幅：金華山の実幅約250m（片側）を距離から角度→px換算（望遠対応）
         const mHalfAngDeg = Math.atan2(250, dist * 1000) * 180 / Math.PI;
         const mHalfPx = Math.max(mHalfAngDeg * px, W * 0.18); // 最低でも画面幅18%
-        // 平らな山頂の幅：石垣底面の対角線半幅（どの角度でも城底がはみ出さない）+ 余裕10%
-        const sekW = G_BW * 1.10 + G_UNIT * 0.05;
-        const sekD = G_BD * 1.10 + G_UNIT * 0.05;
-        const sekDiag = Math.sqrt(sekW * sekW + sekD * sekD);
-        const flatHalfPx = Math.max(sekDiag * 1.10, 8);
+        // 平らな山頂の幅：G_UNITはまだ未定義のためthTrueから直接計算
+        // G_UNIT = thTrue*0.43, G_BW = G_UNIT, G_BD = G_UNIT*0.85 → diag ≈ G_UNIT*1.32
+        const flatHalfPx = Math.max(thTrue * 0.43 * 1.32 * 1.10, 8);
         ctx.save();
         ctx.beginPath();ctx.rect(0,0,W,H);ctx.clip();
         ctx.fillStyle='#1a3020';
@@ -1981,7 +1986,7 @@ function drawView(dist,tAz,va){
         if(m>1440)break;
         const dt=new Date(dayStart.getTime()+m*60000);
         const bp=sunsetMode?sunPos(dt,sLat,sLng):moonPos(dt,sLat,sLng);
-        dayPts.push({x:cx+gnoH(azDiff(tAz,bp.az) - pvAzOfs), y:horizon-gnoV(bp.alt + pvAltOfs), m, alt:bp.alt});
+        dayPts.push({x:cx+gnoH(azDiff(effTAz,bp.az)), y:horizon-gnoV(bp.alt), m, alt:bp.alt});
       }
 
       // グレー軌道線
@@ -2037,8 +2042,8 @@ function drawView(dist,tAz,va){
         const dtFwdB=new Date(dt0.getTime()+dayStep*2*60000);
         const bpA=sunsetMode?sunPos(dtFwdA,sLat,sLng):moonPos(dtFwdA,sLat,sLng);
         const bpB=sunsetMode?sunPos(dtFwdB,sLat,sLng):moonPos(dtFwdB,sLat,sLng);
-        const axA=cx+gnoH(azDiff(tAz,bpA.az) - pvAzOfs), ayA=horizon-gnoV(bpA.alt + pvAltOfs);
-        const axB=cx+gnoH(azDiff(tAz,bpB.az) - pvAzOfs), ayB=horizon-gnoV(bpB.alt + pvAltOfs);
+        const axA=cx+gnoH(azDiff(effTAz,bpA.az)), ayA=horizon-gnoV(bpA.alt);
+        const axB=cx+gnoH(azDiff(effTAz,bpB.az)), ayB=horizon-gnoV(bpB.alt);
         const ang=Math.atan2(ayB-ayA, axB-axA);
         const arrowDist=Math.max(mr,mrV)+22;
         const arrowX=moonX+Math.cos(ang)*arrowDist;
@@ -2103,7 +2108,7 @@ function drawView(dist,tAz,va){
   }
   // 月/太陽がFOV外
   if(bodyVisible&&mAz!==null){
-    const dAz=azDiff(tAz,mAz) - pvAzOfs;
+    const dAz=azDiff(effTAz,mAz);
     if(Math.abs(dAz)>fvH/2){
       const label=sunsetMode?'太陽':'月';
       ctx.fillStyle=sunsetMode?'#ffaa44':'#7eb8e8';
