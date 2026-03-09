@@ -2574,7 +2574,7 @@ function _mirrorValues(src, dst){
   });
   // テキスト表示系を同期（idで特定できるもの）
   ['i-d','i-e','i-a','i-v','t-sr','t-ss','t-mr','t-ms','p-age','p-name',
-   'i-dow','tripod-disp','fn','chance-list'].forEach(id=>{
+   'i-dow','tripod-disp','fn','chance-list','spot-list'].forEach(id=>{
     const s=src.querySelector('#'+id);
     const d=dst.querySelector('#'+id);
     if(s&&d) d.innerHTML=s.innerHTML;
