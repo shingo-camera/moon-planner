@@ -153,7 +153,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 .tbtn-time{font-family:'Space Mono',monospace;font-size:7px;color:var(--ac);
   writing-mode:vertical-rl;letter-spacing:.05em;padding:3px 0;flex-shrink:0;}
 
-#pv-cv-wrap{display:flex;flex-direction:column;flex-shrink:0;flex-grow:0;overflow:hidden;position:relative;}
+#pv-cv-wrap{display:flex;flex-direction:column;flex-shrink:0;flex-grow:0;overflow:hidden;position:relative;box-shadow:inset 0 0 0 1px rgba(200,169,110,0.25);}
 /* プレビューcanvasラップ */
 .pv-label{height:var(--lbl);display:flex;align-items:center;padding:0 6px;
   font-family:'Space Mono',monospace;font-size:7px;letter-spacing:.08em;
@@ -272,8 +272,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 #ofs-overlay.open{display:block;}
 #ofs-popup{
   position:fixed;
-  top:50%;left:50%;
-  transform:translate(-50%,-60%);
+  top:12px;left:50%;
+  transform:translateX(-50%);
   background:var(--sur);border:1px solid var(--bd);border-radius:10px;
   padding:14px 16px 12px;z-index:9810;
   display:flex;flex-direction:column;align-items:center;gap:8px;
@@ -585,12 +585,12 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
       <div id="fan-legend"></div>
       <div id="map-btns" style="display:none;position:absolute;bottom:24px;right:8px;z-index:1000;flex-direction:column;gap:4px;">
         <a id="map-btn-gmap" href="#" target="_blank"
-          style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;
-          background:#4285f4;border-radius:6px;text-decoration:none;font-size:18px;
+          style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;
+          background:#4285f4;border-radius:4px;text-decoration:none;font-size:16px;
           box-shadow:0 2px 6px rgba(0,0,0,.5);" title="Googleマップで開く">🗺</a>
         <a id="map-btn-sv" href="#" target="_blank"
-          style="display:flex;align-items:center;justify-content:center;width:36px;height:36px;
-          background:#34a853;border-radius:6px;text-decoration:none;font-size:18px;
+          style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;
+          background:#34a853;border-radius:4px;text-decoration:none;font-size:16px;
           box-shadow:0 2px 6px rgba(0,0,0,.5);" title="ストリートビューで開く">👁</a>
       </div>
     </div>
@@ -789,9 +789,19 @@ function layout(){
 
   if(isMobile){
     const hdrH=0, lblH=22;
-    // CSSの--mob-barに合わせた実際のボトムバー高さを取得
     const mobBarH=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--mob-bar'))||104;
-    const avH=H-hdrH-mobBarH;
+    // dvh対応：CSS 100dvhが使えれば使う（iOSアドレスバー伸縮を吸収）
+    const dvhH = (() => {
+      try {
+        const el = document.createElement('div');
+        el.style.cssText = 'position:fixed;top:0;left:0;height:100dvh;width:0;pointer-events:none;visibility:hidden;';
+        document.body.appendChild(el);
+        const h = el.offsetHeight;
+        document.body.removeChild(el);
+        return h > 0 ? h : H;
+      } catch(e){ return H; }
+    })();
+    const avH=dvhH-hdrH-mobBarH;
     const mapH=Math.round(avH*0.55);
     const pvH=avH-mapH;
 
@@ -924,7 +934,7 @@ function initMap(){
       const btn=L.DomUtil.create('button');
       btn.innerHTML='🛰';
       btn.title='衛星/地図切替';
-      btn.style.cssText='background:#1a2035;border:1px solid #3a4060;color:#e8eaf0;padding:4px 7px;border-radius:4px;cursor:pointer;font-size:14px;';
+      btn.style.cssText='width:32px;height:32px;background:#1a2035;border:1px solid #3a4060;color:#e8eaf0;border-radius:4px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;';
       let isSat=false;
       L.DomEvent.on(btn,'click',L.DomEvent.stopPropagation);
       L.DomEvent.on(btn,'click',()=>{
@@ -945,7 +955,7 @@ function initMap(){
     onAdd(){
       const btn=L.DomUtil.create('button','leaflet-bar');
       btn.title='現在地を撮影地点にセット';
-      btn.style.cssText='width:30px;height:30px;background:#111320;border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:#e8eaf0;';
+      btn.style.cssText='width:32px;height:32px;background:#111320;border:1px solid #3a4060;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:#e8eaf0;border-radius:4px;';
       btn.innerHTML='📍';
       L.DomEvent.on(btn,'click',L.DomEvent.stopPropagation);
       L.DomEvent.on(btn,'click',()=>{
@@ -977,7 +987,7 @@ function initMap(){
     onAdd(){
       const btn=L.DomUtil.create('button','leaflet-bar');
       btn.title='StreetView URLをクリップボードから読み取り';
-      btn.style.cssText='width:30px;height:30px;background:#111320;border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:#e8eaf0;';
+      btn.style.cssText='width:32px;height:32px;background:#111320;border:1px solid #3a4060;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:#e8eaf0;border-radius:4px;';
       btn.innerHTML='📋';
       L.DomEvent.on(btn,'click',L.DomEvent.stopPropagation);
       let _clipBusy=false;
@@ -2196,39 +2206,94 @@ function drawView(dist,tAz,va){
         ctx.restore();
       }
 
-      // ── 統合ラベル点：dayLabelInterval刻みで固定位置に表示、色は現在時刻基準 ──
+      // ── 統合ラベル点：dayLabelInterval刻みで固定位置に表示 ──
       ctx.save();
+      const isMobPv = W < 500; // スマホプレビュー判定
+      // スマホ：右端縦列にラベル、軌跡上には点のみ
+      // PC：従来通り軌跡の横にラベル
+      const labelItems = []; // {m, p, label, isPast, isNear}
       for(let m=0;m<=1440;m+=dayLabelInterval){
         const idx=Math.round(m/dayStep);
         const p=dayPts[idx];
-        if(!p||p.x<0||p.x>W||p.y<0||p.y>H||p.alt<0)continue;
+        if(!p||p.alt<0)continue;
         const diffMin=m-nowMinutes;
         const isPast=diffMin<0;
         const isNear=Math.abs(diffMin)<=maxMinutes;
-        // 点の色：前後maxMinutes以内→青/オレンジ（濃淡付き）、範囲外→グレー
-        let dotColor;
-        if(isNear){
-          const alpha=0.4+0.5*(1-Math.abs(diffMin)/maxMinutes);
-          dotColor=isPast?`rgba(126,184,232,${alpha})`:`rgba(200,169,110,${alpha})`;
-        } else {
-          dotColor='rgba(200,200,220,0.4)';
-        }
-        ctx.beginPath();ctx.arc(p.x,p.y,2.5,0,Math.PI*2);
-        ctx.fillStyle=dotColor;ctx.fill();
-        // ラベル文字色も同様
         const label=new Date(dayStart.getTime()+m*60000+9*3600000).toISOString().substr(11,5);
-        ctx.font=`9px 'Space Mono',monospace`;
-        ctx.textAlign=p.x<cx?'right':'left';
-        const lx=p.x+(p.x<cx?-5:5);
-        const lw=ctx.measureText(label).width;
-        const bx=p.x<cx?lx-lw-2:lx-2;
-        ctx.fillStyle='rgba(13,17,26,0.6)';ctx.fillRect(bx,p.y-14,lw+4,12);
-        if(isNear){
-          ctx.fillStyle=isPast?'rgba(160,210,255,0.95)':'rgba(240,200,120,0.95)';
-        } else {
-          ctx.fillStyle='rgba(200,200,220,0.6)';
+        // 軌跡上の点（画面内のみ）
+        if(p.x>=0&&p.x<=W&&p.y>=0&&p.y<=H){
+          const alpha=isNear?(0.5+0.4*(1-Math.abs(diffMin)/maxMinutes)):0.3;
+          const dotColor=isNear?(isPast?`rgba(126,184,232,${alpha})`:`rgba(200,169,110,${alpha})`):'rgba(200,200,220,0.3)';
+          ctx.beginPath();ctx.arc(p.x,p.y,isMobPv?3:2.5,0,Math.PI*2);
+          ctx.fillStyle=dotColor;ctx.fill();
         }
-        ctx.fillText(label,lx,p.y-4);
+        if(p.x>=0&&p.x<=W&&p.y>=0&&p.y<=H){
+          labelItems.push({m,p,label,isPast,isNear,diffMin});
+        }
+      }
+      if(isMobPv){
+        // スマホ：右端に縦列表示
+        // ラベルの高さをy座標でソートして表示（重ならないよう間引き）
+        labelItems.sort((a,b)=>a.p.y-b.p.y);
+        const colX = W - 4; // 右端
+        const lineH = 14;   // 1行の高さ
+        let lastY = -999;
+        // 現在時刻に近い順に優先（再ソート用スコア）
+        const prioritized = [...labelItems].sort((a,b)=>Math.abs(a.diffMin)-Math.abs(b.diffMin));
+        const shown = new Set();
+        // まず全点のy座標を収集
+        const usedY = new Map(); // label -> 確定y
+        for(const item of prioritized){
+          // y座標が既存ラベルと近すぎる場合スキップ
+          let yOk = true;
+          for(const [,uy] of usedY){
+            if(Math.abs(item.p.y - uy) < lineH){ yOk=false; break; }
+          }
+          if(yOk){
+            usedY.set(item.label, item.p.y);
+            shown.add(item.label);
+          }
+        }
+        // 表示：右端にラベル、軌跡上の点から水平線を引く
+        ctx.font=`bold 10px 'Space Mono',monospace`;
+        for(const item of labelItems){
+          if(!shown.has(item.label))continue;
+          const ly = item.p.y;
+          const isNear=item.isNear, isPast=item.isPast;
+          const textColor = isNear
+            ? (isPast?'rgba(160,210,255,0.95)':'rgba(240,200,120,0.95)')
+            : 'rgba(180,180,200,0.6)';
+          const lw = ctx.measureText(item.label).width;
+          const lx = colX - lw;
+          // 水平ガイドライン（軌跡点→右端）
+          ctx.beginPath();
+          ctx.moveTo(item.p.x+4, ly);
+          ctx.lineTo(lx-4, ly);
+          ctx.strokeStyle = isNear
+            ? (isPast?'rgba(126,184,232,0.25)':'rgba(200,169,110,0.25)')
+            : 'rgba(160,160,180,0.12)';
+          ctx.lineWidth=0.8;ctx.setLineDash([2,3]);ctx.stroke();ctx.setLineDash([]);
+          // 背景
+          ctx.fillStyle='rgba(6,8,16,0.78)';
+          ctx.fillRect(lx-2, ly-11, lw+4, 13);
+          // テキスト
+          ctx.fillStyle=textColor;
+          ctx.textAlign='left';
+          ctx.fillText(item.label, lx, ly);
+        }
+      } else {
+        // PC：従来通り軌跡横にラベル
+        ctx.font=`9px 'Space Mono',monospace`;
+        for(const item of labelItems){
+          if(!item.isNear && item.p.x<0||item.p.x>W||item.p.y<0||item.p.y>H)continue;
+          const lx=item.p.x+(item.p.x<cx?-5:5);
+          const lw=ctx.measureText(item.label).width;
+          const bx=item.p.x<cx?lx-lw-2:lx-2;
+          ctx.fillStyle='rgba(13,17,26,0.6)';ctx.fillRect(bx,item.p.y-14,lw+4,12);
+          ctx.fillStyle=item.isNear?(item.isPast?'rgba(160,210,255,0.95)':'rgba(240,200,120,0.95)'):'rgba(200,200,220,0.6)';
+          ctx.textAlign=item.p.x<cx?'right':'left';
+          ctx.fillText(item.label,lx,item.p.y-4);
+        }
       }
       ctx.restore();
 
