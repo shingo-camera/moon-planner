@@ -165,25 +165,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 /* ダイアグラム側 */
 #diag-wrap{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;}
 
-/* 8方向パッド */
-#pv-pad{
-  flex-shrink:0;width:86px;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;gap:0;
-  border-left:1px solid var(--bd);background:var(--bg);padding:4px;
-}
-.pad-row{display:flex;gap:2px;margin:1px 0;}
-.pad-btn{
-  width:24px;height:24px;display:flex;align-items:center;justify-content:center;
-  background:var(--sur2);border:1px solid var(--bd);border-radius:3px;
-  font-size:11px;color:var(--sub);cursor:pointer;user-select:none;
-  -webkit-tap-highlight-color:transparent;
-}
-.pad-btn:hover{border-color:var(--ac);color:var(--ac);}
-.pad-btn:active{background:var(--ac);color:var(--bg);}
-.pad-btn.rst{border-color:var(--ac);color:var(--ac);font-size:8px;font-family:'Space Mono',monospace;}
-.pad-btn.rst:hover{background:var(--ac);color:var(--bg);}
-@media(max-width:600px){#pv-pad{display:none;}}
-
 /* 扇形凡例 */
 #fan-legend{
   position:absolute;top:8px;left:8px;z-index:1000;
@@ -541,25 +522,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
           <canvas id="cv1"></canvas>
         </div>
       </div>
-      <!-- 8方向パッド -->
-      <div id="pv-pad">
-        <div class="pad-row">
-          <div class="pad-btn" onclick="shiftPvOfs(-1,+1)">↖</div>
-          <div class="pad-btn" onclick="shiftPvOfs( 0,+1)">↑</div>
-          <div class="pad-btn" onclick="shiftPvOfs(+1,+1)">↗</div>
-        </div>
-        <div class="pad-row">
-          <div class="pad-btn" onclick="shiftPvOfs(-1, 0)">←</div>
-          <div class="pad-btn rst" onclick="resetPvOfs()">RST</div>
-          <div class="pad-btn" onclick="shiftPvOfs(+1, 0)">→</div>
-        </div>
-        <div class="pad-row">
-          <div class="pad-btn" onclick="shiftPvOfs(-1,-1)">↙</div>
-          <div class="pad-btn" onclick="shiftPvOfs( 0,-1)">↓</div>
-          <div class="pad-btn" onclick="shiftPvOfs(+1,-1)">↘</div>
-        </div>
-        <div style="margin-top:4px;font-family:'Space Mono',monospace;font-size:7px;color:var(--sub);text-align:center;line-height:1.5;" id="pv-ofs-disp">AZ+0.0°<br>ALT+0.0°</div>
-      </div>
       <!-- ダイアグラム -->
       <div id="diag-wrap">
         <div class="pv-label">◎ 方角・仰角ダイアグラム</div>
@@ -641,7 +603,6 @@ let map, sMarker, tMarker, polyLine;
 let _layoutRAF=null;
 let fanLayers=[];
 let sunsetMode=false; // 夕日モード（PLのみ）
-let pvAzOfs=0, pvAltOfs=0; // プレビュー視点オフセット（度）
 let savedSpots=[]; // 保存した撮影地点 [{lat,lng,name,target,note}]
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1515,15 +1476,6 @@ function drawView(dist,tAz,va){
   const gnoV=deg=>f_px_V*Math.tan(deg*r);  // 垂直方向
   const cx=W/2;
 
-  // カメラ視点オフセット
-  // ox: 対象シルエット・地平線など「フレーム基準点」のX座標
-  //   pvAzOfs>0 → カメラ右に振る → 対象が画面左に寄る → ox が左に移動
-  // vaTop offset: effVa でシルエット高さ・地平線位置を変える
-  const ox = cx - gnoH(pvAzOfs);
-  const effTAz = tAz + pvAzOfs; // 月/太陽の方位角計算用（azDiff基準がoxに対応）
-  const effVa  = va  + pvAltOfs;
-
-
   // 背景
   const sky=ctx.createLinearGradient(0,0,0,H);
   sky.addColorStop(0,'#02050c');sky.addColorStop(1,'#08111f');
@@ -1533,11 +1485,10 @@ function drawView(dist,tAz,va){
     ctx.beginPath();ctx.arc((i*137)%W,(i*79)%(H*.65),.5,0,6.28);ctx.fill();
   }
 
-  const vaTop=Math.max(effVa, 0.01);
+  const vaTop=Math.max(va,0.01);
 
   // 頂点位置の計算：地上線固定で頂点を求め、頂点がH*0.40より上なら頂点固定に切替
-  // 岐阜城は城上に月がかかる構図のため地平線を低めに（城を画面下寄りに）
-  const horizonDefault = cur==='gifu' ? H * 0.60 : H * 0.72;
+  const horizonDefault = H * 0.72;
   const topFromHorizon = horizonDefault - gnoV(vaTop);
   let targetTopY, horizon;
   if(topFromHorizon >= H * 0.40){
@@ -1583,10 +1534,10 @@ function drawView(dist,tAz,va){
     }catch(e){}
   }
 
-  let moonX=ox,moonY=horizon-50;
+  let moonX=cx,moonY=horizon-50;
   if(mAz!==null){
-    const dAz=azDiff(effTAz,mAz);
-    moonX=ox+gnoH(dAz);
+    const dAz=azDiff(tAz,mAz);
+    moonX=cx+gnoH(dAz);
     moonY=horizon-gnoV(mAlt);
   }
 
@@ -1722,7 +1673,7 @@ function drawView(dist,tAz,va){
     ctx.lineWidth=1.2;
     ctx.beginPath();
     PL_PTS.forEach(([dx,dy],i)=>{
-      const plx=ox+dx*plH*PL_W_SCALE, ply=tY+dy*plH;
+      const plx=cx+dx*plH*PL_W_SCALE, ply=tY+dy*plH;
       i===0?ctx.moveTo(plx,ply):ctx.lineTo(plx,ply);
     });
     ctx.closePath();ctx.fill();ctx.stroke();
@@ -1731,13 +1682,13 @@ function drawView(dist,tAz,va){
     [1/3,2/3].forEach(ratio=>{
       const lineY=tY+plH*ratio;
       // その割合でのポリゴンの左右端を線形補間で求める
-      let lx=ox,rx=ox;
+      let lx=cx,rx=cx;
       for(let i=0;i<PL_PTS.length-1;i++){
         const [dx0,dy0]=PL_PTS[i],[dx1,dy1]=PL_PTS[i+1];
         const y0=tY+dy0*plH,y1=tY+dy1*plH;
         if((y0<=lineY&&lineY<=y1)||(y1<=lineY&&lineY<=y0)){
           const t2=(lineY-y0)/(y1-y0||1e-9);
-          const ix=ox+(dx0+(dx1-dx0)*t2)*plH*PL_W_SCALE;
+          const ix=cx+(dx0+(dx1-dx0)*t2)*plH*PL_W_SCALE;
           if(ix>rx)rx=ix; if(ix<lx)lx=ix;
         }
       }
@@ -1747,28 +1698,23 @@ function drawView(dist,tAz,va){
   }else{
     // ━━━ 金華山（先に描いて城を手前に重ねる）━━━
     {
-      // 山頂Y = 城の石垣根元（bY）に一致させる（平らな頂上に城が乗る）
-      const mTopY = bY;
-      const mBaseY = H; // 山の底辺は画面下端（地平線ではない）
+      // 山頂Y：城の底（石垣根元）= bY、山頂は城全体高さの約36%分上
+      const mTopY = bY - thTrue * 0.36;
+      const mBaseY = Math.min(horizon < H ? horizon : H, H);
       if(mTopY < mBaseY){
-        // 山の半幅：金華山の実幅約250m（片側）を距離から角度→px換算（望遠対応）
-        const mHalfAngDeg = Math.atan2(250, dist * 1000) * 180 / Math.PI;
-        const mHalfPx = Math.max(mHalfAngDeg * px, W * 0.18); // 最低でも画面幅18%
-        // 平らな山頂の幅：G_UNITはまだ未定義のためthTrueから直接計算
-        // G_UNIT = thTrue*0.43, G_BW = G_UNIT, G_BD = G_UNIT*0.85 → diag ≈ G_UNIT*1.32
-        const flatHalfPx = Math.max(thTrue * 0.43 * 1.32 * 1.10, 8);
+        const mLeft=W*0.55, mRight=W*0.55, flatW=W*0.12;
         ctx.save();
         ctx.beginPath();ctx.rect(0,0,W,H);ctx.clip();
         ctx.fillStyle='#1a3020';
-        ctx.strokeStyle='rgba(200,169,110,0.5)';
+        ctx.strokeStyle='rgba(200,169,110,0.55)';
         ctx.lineWidth=1.2;
         ctx.beginPath();
-        ctx.moveTo(ox - mHalfPx - W*0.1, mBaseY);
-        ctx.quadraticCurveTo(ox - mHalfPx * 0.5, mTopY * 0.6 + mBaseY * 0.4, ox - flatHalfPx, mTopY);
-        ctx.lineTo(ox + flatHalfPx, mTopY); // 平らな山頂
-        ctx.quadraticCurveTo(ox + mHalfPx * 0.5, mTopY * 0.6 + mBaseY * 0.4, ox + mHalfPx + W*0.1, mBaseY);
+        ctx.moveTo(0, mBaseY);
+        ctx.lineTo(cx-mLeft, mBaseY);
+        ctx.quadraticCurveTo(cx-mLeft*0.4, mTopY*0.7+mBaseY*0.3, cx-flatW/2, mTopY);
+        ctx.lineTo(cx+flatW/2, mTopY);
+        ctx.quadraticCurveTo(cx+mRight*0.4, mTopY*0.7+mBaseY*0.3, cx+mRight, mBaseY);
         ctx.lineTo(W, mBaseY);
-        ctx.lineTo(0, mBaseY);
         ctx.closePath();
         ctx.fill();ctx.stroke();
         ctx.restore();
@@ -1799,7 +1745,7 @@ function drawView(dist,tAz,va){
       const rx=x*gCosA - z*gSinA;
       const rz=x*gSinA + z*gCosA;
       const py=y*gCosVA + rz*gSinVA;
-      return [ox + rx, bY - py];
+      return [cx + rx, bY - py];
     };
     const gDepth=(verts)=>{let s=0;verts.forEach(v=>{s+=v[0]*gSinA+v[2]*gCosA;});return s/verts.length;};
 
@@ -1988,7 +1934,7 @@ function drawView(dist,tAz,va){
         if(m>1440)break;
         const dt=new Date(dayStart.getTime()+m*60000);
         const bp=sunsetMode?sunPos(dt,sLat,sLng):moonPos(dt,sLat,sLng);
-        dayPts.push({x:ox+gnoH(azDiff(effTAz,bp.az)), y:horizon-gnoV(bp.alt), m, alt:bp.alt});
+        dayPts.push({x:cx+gnoH(azDiff(tAz,bp.az)), y:horizon-gnoV(bp.alt), m, alt:bp.alt});
       }
 
       // グレー軌道線
@@ -2044,8 +1990,8 @@ function drawView(dist,tAz,va){
         const dtFwdB=new Date(dt0.getTime()+dayStep*2*60000);
         const bpA=sunsetMode?sunPos(dtFwdA,sLat,sLng):moonPos(dtFwdA,sLat,sLng);
         const bpB=sunsetMode?sunPos(dtFwdB,sLat,sLng):moonPos(dtFwdB,sLat,sLng);
-        const axA=ox+gnoH(azDiff(effTAz,bpA.az)), ayA=horizon-gnoV(bpA.alt);
-        const axB=ox+gnoH(azDiff(effTAz,bpB.az)), ayB=horizon-gnoV(bpB.alt);
+        const axA=cx+gnoH(azDiff(tAz,bpA.az)), ayA=horizon-gnoV(bpA.alt);
+        const axB=cx+gnoH(azDiff(tAz,bpB.az)), ayB=horizon-gnoV(bpB.alt);
         const ang=Math.atan2(ayB-ayA, axB-axA);
         const arrowDist=Math.max(mr,mrV)+22;
         const arrowX=moonX+Math.cos(ang)*arrowDist;
@@ -2110,19 +2056,19 @@ function drawView(dist,tAz,va){
   }
   // 月/太陽がFOV外
   if(bodyVisible&&mAz!==null){
-    const dAz=azDiff(effTAz,mAz);
+    const dAz=azDiff(tAz,mAz);
     if(Math.abs(dAz)>fvH/2){
       const label=sunsetMode?'太陽':'月';
       ctx.fillStyle=sunsetMode?'#ffaa44':'#7eb8e8';
       ctx.font=`10px 'Space Mono',monospace`;ctx.textAlign='center';
-      ctx.fillText(`${dAz>0?label+' →':'← '+label} (${Math.abs(dAz).toFixed(1)}° FOV外)`,ox,H*0.4);
+      ctx.fillText(`${dAz>0?label+' →':'← '+label} (${Math.abs(dAz).toFixed(1)}° FOV外)`,cx,H*0.4);
     }
   }
   if(!bodyVisible&&mAz!==null){
     const label=sunsetMode?'太陽は地平線以下':'月は地平線以下';
     ctx.fillStyle=sunsetMode?'rgba(255,150,50,.5)':'rgba(126,184,232,.5)';
     ctx.font=`9px 'Space Mono',monospace`;ctx.textAlign='center';
-    ctx.fillText(label,ox,horizon-20);
+    ctx.fillText(label,cx,horizon-20);
   }
   // 情報ラベル
   const bodyName=sunsetMode?'太陽':'月';
@@ -3023,43 +2969,6 @@ function setChance(ds,ts){
   syncMobileUI();
   itime.dispatchEvent(new Event('change'));
   updateDrawerIfOpen();
-}
-
-function shiftPvOfs(dAz, dAlt){
-  // 焦点距離に応じたステップ幅（望遠ほど細かく）
-  const fv = fovD(focal);
-  const step = fv < 2 ? 0.05 : fv < 5 ? 0.1 : fv < 15 ? 0.3 : fv < 40 ? 0.5 : 1.0;
-  pvAzOfs  = Math.round((pvAzOfs  + dAz  * step) * 100) / 100;
-  pvAltOfs = Math.round((pvAltOfs + dAlt * step) * 100) / 100;
-  updatePvOfsDisp();
-  triggerRedraw();
-}
-function resetPvOfs(){
-  pvAzOfs = 0; pvAltOfs = 0;
-  updatePvOfsDisp();
-  triggerRedraw();
-}
-function updatePvOfsDisp(){
-  const el = document.getElementById('pv-ofs-disp');
-  if(!el) return;
-  const azSign  = pvAzOfs  >= 0 ? '+' : '';
-  const altSign = pvAltOfs >= 0 ? '+' : '';
-  el.innerHTML = `AZ${azSign}${pvAzOfs.toFixed(1)}°<br>ALT${altSign}${pvAltOfs.toFixed(1)}°`;
-  // オフセットがある場合はRSTボタンを強調
-  const rst = document.querySelector('#pv-pad .rst');
-  if(rst) rst.style.background = (pvAzOfs !== 0 || pvAltOfs !== 0) ? 'rgba(200,169,110,0.25)' : '';
-}
-function triggerRedraw(){
-  if(sLat === null){
-    try{drawView(5,180,3.30);}catch(e){}
-    return;
-  }
-  const t = T[cur];
-  const dH = hav(sLat,sLng,t.lat,t.lng);
-  const dD = dist3D(sLat,sLng,sElev,t.lat,t.lng,t.elev);
-  const az = brng(sLat,sLng,t.lat,t.lng);
-  const va = elAng(dH,sElev,t.elev,t.h);
-  try{drawView(dD,az,va);}catch(e){}
 }
 
 function setF(v){
