@@ -165,6 +165,25 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 /* ダイアグラム側 */
 #diag-wrap{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;}
 
+/* 8方向パッド */
+#pv-pad{
+  flex-shrink:0;width:86px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:0;
+  border-left:1px solid var(--bd);background:var(--bg);padding:4px;
+}
+.pad-row{display:flex;gap:2px;margin:1px 0;}
+.pad-btn{
+  width:24px;height:24px;display:flex;align-items:center;justify-content:center;
+  background:var(--sur2);border:1px solid var(--bd);border-radius:3px;
+  font-size:11px;color:var(--sub);cursor:pointer;user-select:none;
+  -webkit-tap-highlight-color:transparent;
+}
+.pad-btn:hover{border-color:var(--ac);color:var(--ac);}
+.pad-btn:active{background:var(--ac);color:var(--bg);}
+.pad-btn.rst{border-color:var(--ac);color:var(--ac);font-size:8px;font-family:'Space Mono',monospace;}
+.pad-btn.rst:hover{background:var(--ac);color:var(--bg);}
+@media(max-width:600px){#pv-pad{display:none;}}
+
 /* 扇形凡例 */
 #fan-legend{
   position:absolute;top:8px;left:8px;z-index:1000;
@@ -522,6 +541,25 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
           <canvas id="cv1"></canvas>
         </div>
       </div>
+      <!-- 8方向パッド -->
+      <div id="pv-pad">
+        <div class="pad-row">
+          <div class="pad-btn" onclick="shiftPvOfs(-1,+1)">↖</div>
+          <div class="pad-btn" onclick="shiftPvOfs( 0,+1)">↑</div>
+          <div class="pad-btn" onclick="shiftPvOfs(+1,+1)">↗</div>
+        </div>
+        <div class="pad-row">
+          <div class="pad-btn" onclick="shiftPvOfs(-1, 0)">←</div>
+          <div class="pad-btn rst" onclick="resetPvOfs()">RST</div>
+          <div class="pad-btn" onclick="shiftPvOfs(+1, 0)">→</div>
+        </div>
+        <div class="pad-row">
+          <div class="pad-btn" onclick="shiftPvOfs(-1,-1)">↙</div>
+          <div class="pad-btn" onclick="shiftPvOfs( 0,-1)">↓</div>
+          <div class="pad-btn" onclick="shiftPvOfs(+1,-1)">↘</div>
+        </div>
+        <div style="margin-top:4px;font-family:'Space Mono',monospace;font-size:7px;color:var(--sub);text-align:center;line-height:1.5;" id="pv-ofs-disp">AZ+0.0°<br>ALT+0.0°</div>
+      </div>
       <!-- ダイアグラム -->
       <div id="diag-wrap">
         <div class="pv-label">◎ 方角・仰角ダイアグラム</div>
@@ -603,6 +641,7 @@ let map, sMarker, tMarker, polyLine;
 let _layoutRAF=null;
 let fanLayers=[];
 let sunsetMode=false; // 夕日モード（PLのみ）
+let pvAzOfs=0, pvAltOfs=0; // プレビュー視点オフセット（度）
 let savedSpots=[]; // 保存した撮影地点 [{lat,lng,name,target,note}]
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1488,7 +1527,8 @@ function drawView(dist,tAz,va){
   const vaTop=Math.max(va,0.01);
 
   // 頂点位置の計算：地上線固定で頂点を求め、頂点がH*0.40より上なら頂点固定に切替
-  const horizonDefault = H * 0.72;
+  // 岐阜城は城上に月がかかる構図のため地平線を低めに（城を画面下寄りに）
+  const horizonDefault = cur==='gifu' ? H * 0.60 : H * 0.72;
   const topFromHorizon = horizonDefault - gnoV(vaTop);
   let targetTopY, horizon;
   if(topFromHorizon >= H * 0.40){
@@ -1536,9 +1576,9 @@ function drawView(dist,tAz,va){
 
   let moonX=cx,moonY=horizon-50;
   if(mAz!==null){
-    const dAz=azDiff(tAz,mAz);
+    const dAz=azDiff(tAz,mAz) - pvAzOfs;
     moonX=cx+gnoH(dAz);
-    moonY=horizon-gnoV(mAlt);
+    moonY=horizon-gnoV(mAlt + pvAltOfs);
   }
 
   // 天体描画（月 or 太陽）
@@ -1698,23 +1738,30 @@ function drawView(dist,tAz,va){
   }else{
     // ━━━ 金華山（先に描いて城を手前に重ねる）━━━
     {
-      // 山頂Y：城の底（石垣根元）= bY、山頂は城全体高さの約36%分上
-      const mTopY = bY - thTrue * 0.36;
+      // 山頂Y = 城の石垣根元（bY）に一致させる（平らな頂上に城が乗る）
+      const mTopY = bY;
       const mBaseY = Math.min(horizon < H ? horizon : H, H);
       if(mTopY < mBaseY){
-        const mLeft=W*0.55, mRight=W*0.55, flatW=W*0.12;
+        // 山の半幅：金華山の実幅約250m（片側）を距離から角度→px換算（望遠対応）
+        const mHalfAngDeg = Math.atan2(250, dist * 1000) * 180 / Math.PI;
+        const mHalfPx = Math.max(mHalfAngDeg * px, W * 0.18); // 最低でも画面幅18%
+        // 平らな山頂の幅：石垣底面の対角線半幅（どの角度でも城底がはみ出さない）+ 余裕10%
+        const sekW = G_BW * 1.10 + G_UNIT * 0.05;
+        const sekD = G_BD * 1.10 + G_UNIT * 0.05;
+        const sekDiag = Math.sqrt(sekW * sekW + sekD * sekD);
+        const flatHalfPx = Math.max(sekDiag * 1.10, 8);
         ctx.save();
         ctx.beginPath();ctx.rect(0,0,W,H);ctx.clip();
         ctx.fillStyle='#1a3020';
-        ctx.strokeStyle='rgba(200,169,110,0.55)';
+        ctx.strokeStyle='rgba(200,169,110,0.5)';
         ctx.lineWidth=1.2;
         ctx.beginPath();
-        ctx.moveTo(0, mBaseY);
-        ctx.lineTo(cx-mLeft, mBaseY);
-        ctx.quadraticCurveTo(cx-mLeft*0.4, mTopY*0.7+mBaseY*0.3, cx-flatW/2, mTopY);
-        ctx.lineTo(cx+flatW/2, mTopY);
-        ctx.quadraticCurveTo(cx+mRight*0.4, mTopY*0.7+mBaseY*0.3, cx+mRight, mBaseY);
+        ctx.moveTo(cx - mHalfPx - W*0.1, mBaseY);
+        ctx.quadraticCurveTo(cx - mHalfPx * 0.5, mTopY * 0.6 + mBaseY * 0.4, cx - flatHalfPx, mTopY);
+        ctx.lineTo(cx + flatHalfPx, mTopY); // 平らな山頂
+        ctx.quadraticCurveTo(cx + mHalfPx * 0.5, mTopY * 0.6 + mBaseY * 0.4, cx + mHalfPx + W*0.1, mBaseY);
         ctx.lineTo(W, mBaseY);
+        ctx.lineTo(0, mBaseY);
         ctx.closePath();
         ctx.fill();ctx.stroke();
         ctx.restore();
@@ -1934,7 +1981,7 @@ function drawView(dist,tAz,va){
         if(m>1440)break;
         const dt=new Date(dayStart.getTime()+m*60000);
         const bp=sunsetMode?sunPos(dt,sLat,sLng):moonPos(dt,sLat,sLng);
-        dayPts.push({x:cx+gnoH(azDiff(tAz,bp.az)), y:horizon-gnoV(bp.alt), m, alt:bp.alt});
+        dayPts.push({x:cx+gnoH(azDiff(tAz,bp.az) - pvAzOfs), y:horizon-gnoV(bp.alt + pvAltOfs), m, alt:bp.alt});
       }
 
       // グレー軌道線
@@ -1990,8 +2037,8 @@ function drawView(dist,tAz,va){
         const dtFwdB=new Date(dt0.getTime()+dayStep*2*60000);
         const bpA=sunsetMode?sunPos(dtFwdA,sLat,sLng):moonPos(dtFwdA,sLat,sLng);
         const bpB=sunsetMode?sunPos(dtFwdB,sLat,sLng):moonPos(dtFwdB,sLat,sLng);
-        const axA=cx+gnoH(azDiff(tAz,bpA.az)), ayA=horizon-gnoV(bpA.alt);
-        const axB=cx+gnoH(azDiff(tAz,bpB.az)), ayB=horizon-gnoV(bpB.alt);
+        const axA=cx+gnoH(azDiff(tAz,bpA.az) - pvAzOfs), ayA=horizon-gnoV(bpA.alt + pvAltOfs);
+        const axB=cx+gnoH(azDiff(tAz,bpB.az) - pvAzOfs), ayB=horizon-gnoV(bpB.alt + pvAltOfs);
         const ang=Math.atan2(ayB-ayA, axB-axA);
         const arrowDist=Math.max(mr,mrV)+22;
         const arrowX=moonX+Math.cos(ang)*arrowDist;
@@ -2056,7 +2103,7 @@ function drawView(dist,tAz,va){
   }
   // 月/太陽がFOV外
   if(bodyVisible&&mAz!==null){
-    const dAz=azDiff(tAz,mAz);
+    const dAz=azDiff(tAz,mAz) - pvAzOfs;
     if(Math.abs(dAz)>fvH/2){
       const label=sunsetMode?'太陽':'月';
       ctx.fillStyle=sunsetMode?'#ffaa44':'#7eb8e8';
@@ -2969,6 +3016,43 @@ function setChance(ds,ts){
   syncMobileUI();
   itime.dispatchEvent(new Event('change'));
   updateDrawerIfOpen();
+}
+
+function shiftPvOfs(dAz, dAlt){
+  // 焦点距離に応じたステップ幅（望遠ほど細かく）
+  const fv = fovD(focal);
+  const step = fv < 2 ? 0.05 : fv < 5 ? 0.1 : fv < 15 ? 0.3 : fv < 40 ? 0.5 : 1.0;
+  pvAzOfs  = Math.round((pvAzOfs  + dAz  * step) * 100) / 100;
+  pvAltOfs = Math.round((pvAltOfs + dAlt * step) * 100) / 100;
+  updatePvOfsDisp();
+  triggerRedraw();
+}
+function resetPvOfs(){
+  pvAzOfs = 0; pvAltOfs = 0;
+  updatePvOfsDisp();
+  triggerRedraw();
+}
+function updatePvOfsDisp(){
+  const el = document.getElementById('pv-ofs-disp');
+  if(!el) return;
+  const azSign  = pvAzOfs  >= 0 ? '+' : '';
+  const altSign = pvAltOfs >= 0 ? '+' : '';
+  el.innerHTML = `AZ${azSign}${pvAzOfs.toFixed(1)}°<br>ALT${altSign}${pvAltOfs.toFixed(1)}°`;
+  // オフセットがある場合はRSTボタンを強調
+  const rst = document.querySelector('#pv-pad .rst');
+  if(rst) rst.style.background = (pvAzOfs !== 0 || pvAltOfs !== 0) ? 'rgba(200,169,110,0.25)' : '';
+}
+function triggerRedraw(){
+  if(sLat === null){
+    try{drawView(5,180,3.30);}catch(e){}
+    return;
+  }
+  const t = T[cur];
+  const dH = hav(sLat,sLng,t.lat,t.lng);
+  const dD = dist3D(sLat,sLng,sElev,t.lat,t.lng,t.elev);
+  const az = brng(sLat,sLng,t.lat,t.lng);
+  const va = elAng(dH,sElev,t.elev,t.h);
+  try{drawView(dD,az,va);}catch(e){}
 }
 
 function setF(v){
