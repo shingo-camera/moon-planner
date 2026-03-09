@@ -233,6 +233,57 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 #mob-drawer{display:none;}
 #mob-overlay{display:none;}
 
+/* ━━━ オフセットポップアップ（スマホ専用） ━━━ */
+#ofs-overlay{
+  display:none;position:fixed;inset:0;z-index:9800;
+  background:rgba(0,0,0,0.45);
+  -webkit-tap-highlight-color:transparent;
+}
+#ofs-overlay.open{display:block;}
+#ofs-popup{
+  position:fixed;
+  top:50%;left:50%;
+  transform:translate(-50%,-60%);
+  background:var(--sur);border:1px solid var(--bd);border-radius:10px;
+  padding:14px 16px 12px;z-index:9810;
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  box-shadow:0 8px 32px rgba(0,0,0,.6);
+  min-width:180px;
+}
+#ofs-popup .pad-row{display:flex;gap:8px;}
+#ofs-popup .pad-btn{
+  width:46px;height:46px;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--sur2);border:1px solid var(--bd);border-radius:6px;
+  font-size:20px;color:var(--sub);cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+#ofs-popup .pad-btn:active{background:var(--ac);color:var(--bg);}
+#ofs-popup .pad-btn.rst{
+  font-size:11px;font-family:'Space Mono',monospace;
+  color:var(--ac);border-color:var(--ac);
+}
+#ofs-popup .pad-btn.rst:active{background:var(--ac);color:var(--bg);}
+#ofs-disp{
+  font-family:'Space Mono',monospace;font-size:11px;
+  color:var(--sub);text-align:center;line-height:1.8;
+}
+/* 呼び出しボタン（スマホのみ表示） */
+#pv-ofs-btn{
+  display:none;
+  position:absolute;top:26px;right:4px;z-index:100;
+  width:26px;height:26px;
+  background:rgba(10,12,20,0.75);border:1px solid var(--bd);border-radius:4px;
+  font-size:14px;cursor:pointer;
+  align-items:center;justify-content:center;
+  -webkit-tap-highlight-color:transparent;
+  color:var(--sub);
+}
+#pv-ofs-btn.active{border-color:var(--ac);color:var(--ac);}
+@media(max-width:600px){
+  #pv-ofs-btn{display:flex;}
+}
+
 /* ━━━ スマホレイアウト ━━━ */
 @media (max-width:600px){
   :root{--hdr:0px;--mob-bar:104px;}
@@ -547,6 +598,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
             </span>
           </div>
           <canvas id="cv1"></canvas>
+          <!-- スマホ用オフセット呼び出しボタン -->
+          <div id="pv-ofs-btn" onclick="toggleOfsPopup()" title="視点オフセット">⊹</div>
           <!-- 8方向パッド（右上オーバーレイ） -->
           <div id="pv-pad">
             <div class="pad-row">
@@ -615,6 +668,28 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   </div>
 </div>
 
+<!-- スマホ用オフセットポップアップ -->
+<div id="ofs-overlay" onclick="closeOfsPopup()">
+  <div id="ofs-popup" onclick="event.stopPropagation()">
+    <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--ac);margin-bottom:2px;letter-spacing:.06em;">視点オフセット</div>
+    <div class="pad-row">
+      <div class="pad-btn" onclick="shiftPvOfs(-1,+1)">↖</div>
+      <div class="pad-btn" onclick="shiftPvOfs( 0,+1)">↑</div>
+      <div class="pad-btn" onclick="shiftPvOfs(+1,+1)">↗</div>
+    </div>
+    <div class="pad-row">
+      <div class="pad-btn" onclick="shiftPvOfs(-1, 0)">←</div>
+      <div class="pad-btn rst" onclick="resetPvOfsAndClose()">RST</div>
+      <div class="pad-btn" onclick="shiftPvOfs(+1, 0)">→</div>
+    </div>
+    <div class="pad-row">
+      <div class="pad-btn" onclick="shiftPvOfs(-1,-1)">↙</div>
+      <div class="pad-btn" onclick="shiftPvOfs( 0,-1)">↓</div>
+      <div class="pad-btn" onclick="shiftPvOfs(+1,-1)">↘</div>
+    </div>
+    <div id="ofs-disp">AZ +0.0°<br>ALT +0.0°</div>
+  </div>
+</div>
 <!-- スマホ用ドロワー -->
 <div id="mob-drawer">
   <div id="mob-drawer-header" style="display:flex;justify-content:space-between;align-items:center;
@@ -3045,11 +3120,43 @@ function resetPvOfs(){
   _updatePvOfsDisp();
   _triggerPvRedraw();
 }
+function resetPvOfsAndClose(){
+  pvAzOfs=0; pvAltOfs=0;
+  _updatePvOfsDisp();
+  _triggerPvRedraw();
+  closeOfsPopup();
+}
+function toggleOfsPopup(){
+  const ov=document.getElementById('ofs-overlay');
+  if(!ov) return;
+  if(ov.classList.contains('open')){
+    closeOfsPopup();
+  } else {
+    ov.classList.add('open');
+    const btn=document.getElementById('pv-ofs-btn');
+    if(btn) btn.classList.add('active');
+    _updatePvOfsDisp();
+  }
+}
+function closeOfsPopup(){
+  const ov=document.getElementById('ofs-overlay');
+  if(ov) ov.classList.remove('open');
+  const btn=document.getElementById('pv-ofs-btn');
+  if(btn) btn.classList.remove('active');
+}
 function _updatePvOfsDisp(){
+  const text=`AZ ${pvAzOfs>=0?'+':''}${pvAzOfs.toFixed(1)}°\nALT ${pvAltOfs>=0?'+':''}${pvAltOfs.toFixed(1)}°`;
+  // PC版
   const el=document.getElementById('pv-ofs-disp');
   if(el) el.innerHTML=`AZ${pvAzOfs>=0?'+':''}${pvAzOfs.toFixed(1)}°<br>ALT${pvAltOfs>=0?'+':''}${pvAltOfs.toFixed(1)}°`;
   const rst=document.getElementById('pv-rst');
   if(rst) rst.classList.toggle('active', pvAzOfs!==0||pvAltOfs!==0);
+  // スマホポップアップ版
+  const od=document.getElementById('ofs-disp');
+  if(od) od.innerHTML=`AZ ${pvAzOfs>=0?'+':''}${pvAzOfs.toFixed(1)}°<br>ALT ${pvAltOfs>=0?'+':''}${pvAltOfs.toFixed(1)}°`;
+  // 呼び出しボタンのハイライト
+  const btn=document.getElementById('pv-ofs-btn');
+  if(btn) btn.classList.toggle('active', pvAzOfs!==0||pvAltOfs!==0);
 }
 function _triggerPvRedraw(){
   if(sLat===null){
@@ -3096,22 +3203,6 @@ function setF(v){
 
 function setOrientation(o){
   if(o!=='land'&&o!=='port')return;
-
-  // 切替前のFOV中心（対象の見かけ位置）を保存してオフセットで補正
-  if(sLat!==null){
-    const t=T[cur];
-    const va=elAng(hav(sLat,sLng,t.lat,t.lng),sElev,t.elev,t.h);
-    // 現在の縦方向FOVと切替後のFOVの差分をpvAltOfsに反映
-    const fvOld = orientation==='land' ? fovV(focal) : fovD(focal);
-    const fvNew = o==='land' ? fovV(focal) : fovD(focal);
-    // 対象の現在の見かけ仰角オフセット量はそのまま。
-    // FOVが変わることで対象の画面内Y位置が変わるので、その差分を補正
-    // 補正量：(新FOV - 旧FOV) / 2 を pvAltOfs に加算して中心を維持
-    pvAltOfs += (fvNew - fvOld) / 2;
-    pvAltOfs = Math.round(pvAltOfs * 100) / 100;
-    _updatePvOfsDisp();
-  }
-
   orientation=o;
   const bl=document.getElementById('btn-land');
   const bp=document.getElementById('btn-port');
