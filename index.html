@@ -233,6 +233,36 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 #mob-drawer{display:none;}
 #mob-overlay{display:none;}
 
+/* ━━━ 焦点距離キーパッド ━━━ */
+#focal-overlay{
+  display:none;position:fixed;inset:0;z-index:9820;
+  background:rgba(0,0,0,0.5);
+  -webkit-tap-highlight-color:transparent;
+}
+#focal-overlay.open{display:block;}
+#focal-popup{
+  position:fixed;
+  top:50%;left:50%;
+  transform:translate(-50%,-52%);
+  background:var(--sur);border:1px solid var(--bd);border-radius:10px;
+  padding:14px 16px 14px;z-index:9830;
+  display:flex;flex-direction:column;align-items:center;
+  box-shadow:0 8px 32px rgba(0,0,0,.7);
+  width:200px;
+}
+.fk-btn{
+  height:44px;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--sur2);border:1px solid var(--bd);border-radius:6px;
+  font-family:'Space Mono',monospace;font-size:18px;font-weight:700;
+  color:var(--tx);cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.fk-btn:active{background:var(--bd);}
+.fk-del{color:var(--sub);font-size:20px;}
+.fk-del:active{background:var(--bd);}
+.fk-ok{background:var(--ac);color:var(--bg);border-color:var(--ac);}
+.fk-ok:active{filter:brightness(1.2);}
 /* ━━━ オフセットポップアップ（スマホ専用） ━━━ */
 #ofs-overlay{
   display:none;position:fixed;inset:0;z-index:9800;
@@ -443,7 +473,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
     </div>
     <div>
       <div class="sec">03 焦点距離</div>
-      <div class="fn" id="fn">400<span>mm</span></div>
+      <div class="fn" id="fn" onclick="promptFocal()" style="cursor:pointer;" title="タップで入力">400<span>mm</span></div>
       <input type="range" id="fslider" min="9" max="1600" value="400" oninput="setF(+this.value)">
       <div class="ps">
         <div class="pb" onclick="setF(9)">9</div>
@@ -668,6 +698,28 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   </div>
 </div>
 
+<!-- スマホ用焦点距離キーパッド -->
+<div id="focal-overlay" onclick="closeFocalPad()">
+  <div id="focal-popup" onclick="event.stopPropagation()">
+    <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--ac);margin-bottom:6px;letter-spacing:.06em;">焦点距離</div>
+    <div id="focal-input-disp" style="font-family:'Space Mono',monospace;font-size:26px;font-weight:700;color:var(--tx);min-width:110px;text-align:right;padding:4px 10px;background:var(--bg);border:1px solid var(--bd);border-radius:6px;margin-bottom:8px;letter-spacing:.04em;">—</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;width:100%;">
+      <div class="fk-btn" onclick="fkInput('7')">7</div>
+      <div class="fk-btn" onclick="fkInput('8')">8</div>
+      <div class="fk-btn" onclick="fkInput('9')">9</div>
+      <div class="fk-btn" onclick="fkInput('4')">4</div>
+      <div class="fk-btn" onclick="fkInput('5')">5</div>
+      <div class="fk-btn" onclick="fkInput('6')">6</div>
+      <div class="fk-btn" onclick="fkInput('1')">1</div>
+      <div class="fk-btn" onclick="fkInput('2')">2</div>
+      <div class="fk-btn" onclick="fkInput('3')">3</div>
+      <div class="fk-btn fk-del" onclick="fkInput('DEL')">⌫</div>
+      <div class="fk-btn" onclick="fkInput('0')">0</div>
+      <div class="fk-btn fk-ok" onclick="fkInput('OK')">OK</div>
+    </div>
+    <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--sub);margin-top:8px;">9 〜 1600 mm</div>
+  </div>
+</div>
 <!-- スマホ用オフセットポップアップ -->
 <div id="ofs-overlay" onclick="closeOfsPopup()">
   <div id="ofs-popup" onclick="event.stopPropagation()">
@@ -2799,10 +2851,14 @@ function showHint(msg, durationMs=5000){
 }
 
 function promptFocal(){
-  const v=prompt('焦点距離を入力（mm）', focal);
-  if(v===null)return;
-  const n=parseInt(v,10);
-  if(isFinite(n)&&n>=1)setF(n);
+  if(window.innerWidth<=600){
+    openFocalPad();
+  } else {
+    const v=prompt('焦点距離を入力（mm）', focal);
+    if(v===null)return;
+    const n=parseInt(v,10);
+    if(isFinite(n)&&n>=1)setF(n);
+  }
 }
 
 // ━━━ Google Maps URL共通パーサー ━━━
@@ -3120,6 +3176,42 @@ function resetPvOfs(){
   _updatePvOfsDisp();
   _triggerPvRedraw();
 }
+// ━━━ 焦点距離キーパッド ━━━
+let _fkBuf='';
+function openFocalPad(){
+  _fkBuf=String(focal);
+  _fkUpdateDisp();
+  document.getElementById('focal-overlay').classList.add('open');
+}
+function closeFocalPad(){
+  document.getElementById('focal-overlay').classList.remove('open');
+  _fkBuf='';
+}
+function fkInput(k){
+  if(k==='DEL'){
+    _fkBuf=_fkBuf.slice(0,-1);
+    _fkUpdateDisp();
+    return;
+  }
+  if(k==='OK'){
+    const n=parseInt(_fkBuf,10);
+    if(isFinite(n)&&n>=9&&n<=1600) setF(n);
+    closeFocalPad();
+    return;
+  }
+  // 数字
+  if(_fkBuf.length>=4) return; // 最大4桁
+  _fkBuf+=k;
+  _fkUpdateDisp();
+}
+function _fkUpdateDisp(){
+  const el=document.getElementById('focal-input-disp');
+  if(!el) return;
+  const n=parseInt(_fkBuf,10);
+  const valid=_fkBuf===''||(isFinite(n)&&n>=9&&n<=1600);
+  el.textContent=_fkBuf===''?'—':_fkBuf+'mm';
+  el.style.color=valid?'var(--tx)':'#ff6655';
+}
 function resetPvOfsAndClose(){
   pvAzOfs=0; pvAltOfs=0;
   _updatePvOfsDisp();
@@ -3305,7 +3397,20 @@ window.addEventListener('load',()=>{
   document.getElementById('idate').addEventListener('change',()=>{
     calcSunMoon();
     updatePvDateDisp();
-    if(sLat!==null)onPick();
+    if(sLat!==null){
+      // 地点変わらず標高再取得不要 → 直接再描画
+      const t=T[cur];
+      const dH=hav(sLat,sLng,t.lat,t.lng);
+      const dD=dist3D(sLat,sLng,sElev,t.lat,t.lng,t.elev);
+      const az=brng(sLat,sLng,t.lat,t.lng);
+      const va=elAng(dH,sElev,t.elev,t.h);
+      try{drawView(dD,az,va);}catch(e){}
+      try{drawCompass(az,va);}catch(e){}
+    } else {
+      // ピンなし：デモ描画
+      try{drawView(5,180,3.30);}catch(e){}
+      try{drawCompass(180,3.30);}catch(e){}
+    }
   });
 
   // 時刻変更
