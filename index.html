@@ -632,8 +632,9 @@ function layout(){
     ppanel.style.overflow='hidden';
 
     const cvH=pvH-lblH;
-    const maxCvW=Math.round(W*0.70);
+    // 3:2（横）または2:3（縦）のアスペクト比を優先。画面幅の最大65%まで
     const cvWbyAspect=Math.round(cvH*(orientation==='land'?3/2:2/3));
+    const maxCvW=Math.round(W*0.65);
     const cvW=Math.min(cvWbyAspect, maxCvW);
     const diagW=W-cvW;
     const diagH=cvH;
@@ -1501,8 +1502,6 @@ function drawView(dist,tAz,va){
   // horizonが画面外に出ることは仰角が大きい場合は許容する
   // （山・地平線の描画時のみ別途clampする）
 
-  // 地面・地平線は建物描画後に描く（後述）
-
   // 天体の位置計算（月 or 太陽）
   const ds=document.getElementById('idate').value;
   const ts=document.getElementById('itime').value;
@@ -1530,7 +1529,7 @@ function drawView(dist,tAz,va){
           Math.sin(bp.Hr),
           Math.tan(latr)*Math.cos(bp.dec)-Math.sin(bp.dec)*Math.cos(bp.Hr)
         );
-        moonTilt=chi-q; // 正=時計回り（canvas座標系）
+        moonTilt=q-chi; // canvas座標系（Y軸下向き）に合わせて q-chi
       }
     }catch(e){}
   }
@@ -1638,149 +1637,12 @@ function drawView(dist,tAz,va){
     }
   }
 
-  // 軌道描画
-  if(ds&&ts&&sLat!==null){
-    try{
-      const dt0=new Date(`${ds}T${ts}:00+09:00`);
-      const dayStart=new Date(`${ds}T00:00:00+09:00`);
 
-
-
-      // ── 1. その日の全軌道（グレー線）＋統合ラベル点 ──
-      // 視野角連動の刻み・ラベル間隔（望遠ほど細かく）
-      const dayStep = fvH<1?0.5 : fvH<2?1 : fvH<4?1 : fvH<8?2 : fvH<20?3 : fvH<60?5 : 10;
-      // ラベル間隔：fvH<8°(400mm以上)→1分、fvH<20°(100-200mm)→5分、fvH<60°→15分、それ以上→30分
-      const dayLabelInterval = fvH<8?1 : fvH<20?5 : fvH<60?15 : 30;
-      // 色分けの前後範囲（焦点距離連動）
-      const maxMinutes = fvH<1?10 : fvH<2?15 : fvH<4?20 : fvH<8?30 : fvH<20?45 : 60;
-      const nowMinutes = (dt0 - dayStart) / 60000; // 今日の0時からの経過分
-
-      const dayTotalSteps = Math.ceil(1440/dayStep);
-      const dayPts = [];
-      for(let i=0;i<=dayTotalSteps;i++){
-        const m=i*dayStep;
-        if(m>1440)break;
-        const dt=new Date(dayStart.getTime()+m*60000);
-        const bp=sunsetMode?sunPos(dt,sLat,sLng):moonPos(dt,sLat,sLng);
-        dayPts.push({x:cx+gnoH(azDiff(tAz,bp.az)), y:horizon-gnoV(bp.alt), m, alt:bp.alt});
-      }
-
-      // グレー軌道線
-      ctx.save();
-      ctx.strokeStyle='rgba(255,255,255,0.12)';
-      ctx.lineWidth=1;ctx.setLineDash([]);
-      let drawing=false;
-      for(let i=0;i<dayPts.length;i++){
-        const p=dayPts[i];
-        const inView=p.x>-100&&p.x<W+100&&p.y>-100&&p.y<H+100&&p.alt>-3;
-        if(inView){
-          if(!drawing){ctx.beginPath();ctx.moveTo(p.x,p.y);drawing=true;}
-          else ctx.lineTo(p.x,p.y);
-        }else{ if(drawing){ctx.stroke();drawing=false;} }
-      }
-      if(drawing)ctx.stroke();
-      ctx.restore();
-
-      // ── 2. 前後グラデーション線（青/オレンジ）dayPtsから切り出し ──
-      // nowMinutesに最も近いdayPtsのインデックスを探す
-      const nowIdx = dayPts.reduce((best,p,i)=>
-        Math.abs(p.m-nowMinutes)<Math.abs(dayPts[best].m-nowMinutes)?i:best, 0);
-      // 前後maxMinutes分の点を切り出し
-      const pastPts2  = dayPts.filter(p=>p.m<=nowMinutes&&p.m>=nowMinutes-maxMinutes);
-      const futurePts2= dayPts.filter(p=>p.m>=nowMinutes&&p.m<=nowMinutes+maxMinutes);
-      // 現在点を末尾/先頭に追加
-      const nowPt={x:moonX,y:moonY,m:nowMinutes};
-      const pastFull  =[...pastPts2,  nowPt];
-      const futureFull=[nowPt, ...futurePts2];
-
-      ctx.save();
-      for(let i=0;i<pastFull.length-1;i++){
-        const ratio0=i/(pastFull.length-1), ratio1=(i+1)/(pastFull.length-1);
-        const a0=0.1+ratio0*0.7, a1=0.1+ratio1*0.7;
-        const g=ctx.createLinearGradient(pastFull[i].x,pastFull[i].y,pastFull[i+1].x,pastFull[i+1].y);
-        g.addColorStop(0,`rgba(100,180,255,${a0})`);g.addColorStop(1,`rgba(100,180,255,${a1})`);
-        ctx.beginPath();ctx.moveTo(pastFull[i].x,pastFull[i].y);ctx.lineTo(pastFull[i+1].x,pastFull[i+1].y);
-        ctx.strokeStyle=g;ctx.lineWidth=1.8;ctx.stroke();
-      }
-      for(let i=0;i<futureFull.length-1;i++){
-        const ratio0=i/(futureFull.length-1), ratio1=(i+1)/(futureFull.length-1);
-        const a0=0.7-ratio0*0.55, a1=0.7-ratio1*0.55;
-        const g=ctx.createLinearGradient(futureFull[i].x,futureFull[i].y,futureFull[i+1].x,futureFull[i+1].y);
-        g.addColorStop(0,`rgba(220,160,60,${a0})`);g.addColorStop(1,`rgba(220,160,60,${a1})`);
-        ctx.beginPath();ctx.moveTo(futureFull[i].x,futureFull[i].y);ctx.lineTo(futureFull[i+1].x,futureFull[i+1].y);
-        ctx.strokeStyle=g;ctx.lineWidth=1.8;ctx.stroke();
-      }
-      ctx.restore();
-
-      // 矢頭：未来方向
-      {
-        const dtFwdA=new Date(dt0.getTime()+dayStep*60000);
-        const dtFwdB=new Date(dt0.getTime()+dayStep*2*60000);
-        const bpA=sunsetMode?sunPos(dtFwdA,sLat,sLng):moonPos(dtFwdA,sLat,sLng);
-        const bpB=sunsetMode?sunPos(dtFwdB,sLat,sLng):moonPos(dtFwdB,sLat,sLng);
-        const axA=cx+gnoH(azDiff(tAz,bpA.az)), ayA=horizon-gnoV(bpA.alt);
-        const axB=cx+gnoH(azDiff(tAz,bpB.az)), ayB=horizon-gnoV(bpB.alt);
-        const ang=Math.atan2(ayB-ayA, axB-axA);
-        const arrowDist=Math.max(mr,mrV)+22;
-        const arrowX=moonX+Math.cos(ang)*arrowDist;
-        const arrowY=moonY+Math.sin(ang)*arrowDist;
-        const hLen=10, hAngle=0.42;
-        ctx.save();
-        ctx.strokeStyle='rgba(255,200,80,0.9)';
-        ctx.lineWidth=2;ctx.lineCap='round';
-        ctx.beginPath();
-        ctx.moveTo(arrowX,arrowY);
-        ctx.lineTo(arrowX-hLen*Math.cos(ang-hAngle),arrowY-hLen*Math.sin(ang-hAngle));
-        ctx.moveTo(arrowX,arrowY);
-        ctx.lineTo(arrowX-hLen*Math.cos(ang+hAngle),arrowY-hLen*Math.sin(ang+hAngle));
-        ctx.stroke();
-        ctx.restore();
-      }
-
-      // ── 統合ラベル点：dayLabelInterval刻みで固定位置に表示、色は現在時刻基準 ──
-      ctx.save();
-      for(let m=0;m<=1440;m+=dayLabelInterval){
-        const idx=Math.round(m/dayStep);
-        const p=dayPts[idx];
-        if(!p||p.x<0||p.x>W||p.y<0||p.y>H||p.alt<0)continue;
-        const diffMin=m-nowMinutes;
-        const isPast=diffMin<0;
-        const isNear=Math.abs(diffMin)<=maxMinutes;
-        // 点の色：前後maxMinutes以内→青/オレンジ（濃淡付き）、範囲外→グレー
-        let dotColor;
-        if(isNear){
-          const alpha=0.4+0.5*(1-Math.abs(diffMin)/maxMinutes);
-          dotColor=isPast?`rgba(126,184,232,${alpha})`:`rgba(200,169,110,${alpha})`;
-        } else {
-          dotColor='rgba(200,200,220,0.4)';
-        }
-        ctx.beginPath();ctx.arc(p.x,p.y,2.5,0,Math.PI*2);
-        ctx.fillStyle=dotColor;ctx.fill();
-        // ラベル文字色も同様
-        const label=new Date(dayStart.getTime()+m*60000+9*3600000).toISOString().substr(11,5);
-        ctx.font=`9px 'Space Mono',monospace`;
-        ctx.textAlign=p.x<cx?'right':'left';
-        const lx=p.x+(p.x<cx?-5:5);
-        const lw=ctx.measureText(label).width;
-        const bx=p.x<cx?lx-lw-2:lx-2;
-        ctx.fillStyle='rgba(13,17,26,0.6)';ctx.fillRect(bx,p.y-14,lw+4,12);
-        if(isNear){
-          ctx.fillStyle=isPast?'rgba(160,210,255,0.95)':'rgba(240,200,120,0.95)';
-        } else {
-          ctx.fillStyle='rgba(200,200,220,0.6)';
-        }
-        ctx.fillText(label,lx,p.y-4);
-      }
-      ctx.restore();
-
-      // ── 3. 現在時刻マーカー（固定の◎）──
-      ctx.save();
-      ctx.beginPath();ctx.arc(moonX,moonY,Math.max(mr,mrV)+5,0,Math.PI*2);
-      ctx.strokeStyle='rgba(255,255,255,0.6)';ctx.lineWidth=1.5;
-      ctx.setLineDash([3,3]);ctx.stroke();ctx.setLineDash([]);
-      ctx.restore();
-
-    }catch(e){}
+  // 地面・地平線はシルエットの後ろに来るよう、シルエット描画前に描く
+  if(horizon < H){
+    ctx.fillStyle='rgba(12,18,32,.95)';ctx.fillRect(0,horizon,W,H-horizon);
+    ctx.strokeStyle='rgba(200,169,110,.4)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
+    ctx.beginPath();ctx.moveTo(0,horizon);ctx.lineTo(W,horizon);ctx.stroke();ctx.setLineDash([]);
   }
 
   // 対象シルエット
@@ -2015,14 +1877,150 @@ function drawView(dist,tAz,va){
 
   }
 
-  // 地面・地平線（描画用horizonをclamp）
-  // 地面・地平線：horizonが画面内にある場合のみ描画
-  if(horizon < H){
-    ctx.fillStyle='rgba(12,18,32,.95)';ctx.fillRect(0,horizon,W,H-horizon);
-    ctx.strokeStyle='rgba(200,169,110,.4)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
-    ctx.beginPath();ctx.moveTo(0,horizon);ctx.lineTo(W,horizon);ctx.stroke();ctx.setLineDash([]);
-  }
+  // 軌道描画
+  if(ds&&ts&&sLat!==null){
+    try{
+      const dt0=new Date(`${ds}T${ts}:00+09:00`);
+      const dayStart=new Date(`${ds}T00:00:00+09:00`);
 
+
+
+      // ── 1. その日の全軌道（グレー線）＋統合ラベル点 ──
+      // ラベル間隔：fvH<8°(300mm以上)→1分、fvH<20°(100-200mm)→5分、fvH<60°→15分、それ以上→30分
+      const dayLabelInterval = fvH<8?1 : fvH<20?5 : fvH<60?15 : 30;
+      // dayStep：軌道線の計算刻み。dayLabelInterval以下にしないとラベル点がdayPtsに存在しない
+      const dayStep = Math.min(dayLabelInterval, fvH<1?0.5 : fvH<2?1 : fvH<4?1 : fvH<8?1 : fvH<20?2 : fvH<60?5 : 10);
+      // 色分けの前後範囲（焦点距離連動）
+      const maxMinutes = fvH<1?10 : fvH<2?15 : fvH<4?20 : fvH<8?30 : fvH<20?45 : 60;
+      const nowMinutes = (dt0 - dayStart) / 60000; // 今日の0時からの経過分
+
+      const dayTotalSteps = Math.ceil(1440/dayStep);
+      const dayPts = [];
+      for(let i=0;i<=dayTotalSteps;i++){
+        const m=i*dayStep;
+        if(m>1440)break;
+        const dt=new Date(dayStart.getTime()+m*60000);
+        const bp=sunsetMode?sunPos(dt,sLat,sLng):moonPos(dt,sLat,sLng);
+        dayPts.push({x:cx+gnoH(azDiff(tAz,bp.az)), y:horizon-gnoV(bp.alt), m, alt:bp.alt});
+      }
+
+      // グレー軌道線
+      ctx.save();
+      ctx.strokeStyle='rgba(255,255,255,0.12)';
+      ctx.lineWidth=1;ctx.setLineDash([]);
+      let drawing=false;
+      for(let i=0;i<dayPts.length;i++){
+        const p=dayPts[i];
+        const inView=p.x>-100&&p.x<W+100&&p.y>-100&&p.y<H+100&&p.alt>-3;
+        if(inView){
+          if(!drawing){ctx.beginPath();ctx.moveTo(p.x,p.y);drawing=true;}
+          else ctx.lineTo(p.x,p.y);
+        }else{ if(drawing){ctx.stroke();drawing=false;} }
+      }
+      if(drawing)ctx.stroke();
+      ctx.restore();
+
+      // ── 2. 前後グラデーション線（青/オレンジ）dayPtsから切り出し ──
+      // nowMinutesに最も近いdayPtsのインデックスを探す
+      const nowIdx = dayPts.reduce((best,p,i)=>
+        Math.abs(p.m-nowMinutes)<Math.abs(dayPts[best].m-nowMinutes)?i:best, 0);
+      // 前後maxMinutes分の点を切り出し
+      const pastPts2  = dayPts.filter(p=>p.m<=nowMinutes&&p.m>=nowMinutes-maxMinutes);
+      const futurePts2= dayPts.filter(p=>p.m>=nowMinutes&&p.m<=nowMinutes+maxMinutes);
+      // 現在点を末尾/先頭に追加
+      const nowPt={x:moonX,y:moonY,m:nowMinutes};
+      const pastFull  =[...pastPts2,  nowPt];
+      const futureFull=[nowPt, ...futurePts2];
+
+      ctx.save();
+      for(let i=0;i<pastFull.length-1;i++){
+        const ratio0=i/(pastFull.length-1), ratio1=(i+1)/(pastFull.length-1);
+        const a0=0.1+ratio0*0.7, a1=0.1+ratio1*0.7;
+        const g=ctx.createLinearGradient(pastFull[i].x,pastFull[i].y,pastFull[i+1].x,pastFull[i+1].y);
+        g.addColorStop(0,`rgba(100,180,255,${a0})`);g.addColorStop(1,`rgba(100,180,255,${a1})`);
+        ctx.beginPath();ctx.moveTo(pastFull[i].x,pastFull[i].y);ctx.lineTo(pastFull[i+1].x,pastFull[i+1].y);
+        ctx.strokeStyle=g;ctx.lineWidth=1.8;ctx.stroke();
+      }
+      for(let i=0;i<futureFull.length-1;i++){
+        const ratio0=i/(futureFull.length-1), ratio1=(i+1)/(futureFull.length-1);
+        const a0=0.7-ratio0*0.55, a1=0.7-ratio1*0.55;
+        const g=ctx.createLinearGradient(futureFull[i].x,futureFull[i].y,futureFull[i+1].x,futureFull[i+1].y);
+        g.addColorStop(0,`rgba(220,160,60,${a0})`);g.addColorStop(1,`rgba(220,160,60,${a1})`);
+        ctx.beginPath();ctx.moveTo(futureFull[i].x,futureFull[i].y);ctx.lineTo(futureFull[i+1].x,futureFull[i+1].y);
+        ctx.strokeStyle=g;ctx.lineWidth=1.8;ctx.stroke();
+      }
+      ctx.restore();
+
+      // 矢頭：未来方向
+      {
+        const dtFwdA=new Date(dt0.getTime()+dayStep*60000);
+        const dtFwdB=new Date(dt0.getTime()+dayStep*2*60000);
+        const bpA=sunsetMode?sunPos(dtFwdA,sLat,sLng):moonPos(dtFwdA,sLat,sLng);
+        const bpB=sunsetMode?sunPos(dtFwdB,sLat,sLng):moonPos(dtFwdB,sLat,sLng);
+        const axA=cx+gnoH(azDiff(tAz,bpA.az)), ayA=horizon-gnoV(bpA.alt);
+        const axB=cx+gnoH(azDiff(tAz,bpB.az)), ayB=horizon-gnoV(bpB.alt);
+        const ang=Math.atan2(ayB-ayA, axB-axA);
+        const arrowDist=Math.max(mr,mrV)+22;
+        const arrowX=moonX+Math.cos(ang)*arrowDist;
+        const arrowY=moonY+Math.sin(ang)*arrowDist;
+        const hLen=10, hAngle=0.42;
+        ctx.save();
+        ctx.strokeStyle='rgba(255,200,80,0.9)';
+        ctx.lineWidth=2;ctx.lineCap='round';
+        ctx.beginPath();
+        ctx.moveTo(arrowX,arrowY);
+        ctx.lineTo(arrowX-hLen*Math.cos(ang-hAngle),arrowY-hLen*Math.sin(ang-hAngle));
+        ctx.moveTo(arrowX,arrowY);
+        ctx.lineTo(arrowX-hLen*Math.cos(ang+hAngle),arrowY-hLen*Math.sin(ang+hAngle));
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // ── 統合ラベル点：dayLabelInterval刻みで固定位置に表示、色は現在時刻基準 ──
+      ctx.save();
+      for(let m=0;m<=1440;m+=dayLabelInterval){
+        const idx=Math.round(m/dayStep);
+        const p=dayPts[idx];
+        if(!p||p.x<0||p.x>W||p.y<0||p.y>H||p.alt<0)continue;
+        const diffMin=m-nowMinutes;
+        const isPast=diffMin<0;
+        const isNear=Math.abs(diffMin)<=maxMinutes;
+        // 点の色：前後maxMinutes以内→青/オレンジ（濃淡付き）、範囲外→グレー
+        let dotColor;
+        if(isNear){
+          const alpha=0.4+0.5*(1-Math.abs(diffMin)/maxMinutes);
+          dotColor=isPast?`rgba(126,184,232,${alpha})`:`rgba(200,169,110,${alpha})`;
+        } else {
+          dotColor='rgba(200,200,220,0.4)';
+        }
+        ctx.beginPath();ctx.arc(p.x,p.y,2.5,0,Math.PI*2);
+        ctx.fillStyle=dotColor;ctx.fill();
+        // ラベル文字色も同様
+        const label=new Date(dayStart.getTime()+m*60000+9*3600000).toISOString().substr(11,5);
+        ctx.font=`9px 'Space Mono',monospace`;
+        ctx.textAlign=p.x<cx?'right':'left';
+        const lx=p.x+(p.x<cx?-5:5);
+        const lw=ctx.measureText(label).width;
+        const bx=p.x<cx?lx-lw-2:lx-2;
+        ctx.fillStyle='rgba(13,17,26,0.6)';ctx.fillRect(bx,p.y-14,lw+4,12);
+        if(isNear){
+          ctx.fillStyle=isPast?'rgba(160,210,255,0.95)':'rgba(240,200,120,0.95)';
+        } else {
+          ctx.fillStyle='rgba(200,200,220,0.6)';
+        }
+        ctx.fillText(label,lx,p.y-4);
+      }
+      ctx.restore();
+
+      // ── 3. 現在時刻マーカー（固定の◎）──
+      ctx.save();
+      ctx.beginPath();ctx.arc(moonX,moonY,Math.max(mr,mrV)+5,0,Math.PI*2);
+      ctx.strokeStyle='rgba(255,255,255,0.6)';ctx.lineWidth=1.5;
+      ctx.setLineDash([3,3]);ctx.stroke();ctx.setLineDash([]);
+      ctx.restore();
+
+    }catch(e){}
+  }
   // 月/太陽がFOV外
   if(bodyVisible&&mAz!==null){
     const dAz=azDiff(tAz,mAz);
