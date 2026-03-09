@@ -679,10 +679,13 @@ function layout(){
     ppanel.style.overflow='hidden';
 
     const cvH=pvH-lblH;
-    // 3:2（横）または2:3（縦）のアスペクト比を優先。画面幅の最大65%まで
+    // 3:2（横）または2:3（縦）のアスペクト比を高さから計算
+    // 画面幅の最大75%を上限とするが、比率優先
     const cvWbyAspect=Math.round(cvH*(orientation==='land'?3/2:2/3));
-    const maxCvW=Math.round(W*0.65);
+    const maxCvW=Math.round(W*0.75);
     const cvW=Math.min(cvWbyAspect, maxCvW);
+    // cvWが制限された場合はcvHも比率に合わせて縮小
+    const cvHfinal = cvW===cvWbyAspect ? cvH : Math.round(cvW*(orientation==='land'?2/3:3/2));
     const diagW=W-cvW;
     const diagH=cvH;
 
@@ -694,8 +697,8 @@ function layout(){
     pvWrap.style.height=pvH+'px';
 
     const cv1=document.getElementById('cv1');
-    cv1.width=cvW;cv1.height=cvH;
-    cv1.style.cssText=`width:${cvW}px!important;height:${cvH}px!important;display:block;background:#060810;`;
+    cv1.width=cvW;cv1.height=cvHfinal;
+    cv1.style.cssText=`width:${cvW}px!important;height:${cvHfinal}px!important;display:block;background:#060810;`;
 
     const cv2=document.getElementById('cv2');
     cv2.width=diagW;cv2.height=diagH;
@@ -3093,6 +3096,22 @@ function setF(v){
 
 function setOrientation(o){
   if(o!=='land'&&o!=='port')return;
+
+  // 切替前のFOV中心（対象の見かけ位置）を保存してオフセットで補正
+  if(sLat!==null){
+    const t=T[cur];
+    const va=elAng(hav(sLat,sLng,t.lat,t.lng),sElev,t.elev,t.h);
+    // 現在の縦方向FOVと切替後のFOVの差分をpvAltOfsに反映
+    const fvOld = orientation==='land' ? fovV(focal) : fovD(focal);
+    const fvNew = o==='land' ? fovV(focal) : fovD(focal);
+    // 対象の現在の見かけ仰角オフセット量はそのまま。
+    // FOVが変わることで対象の画面内Y位置が変わるので、その差分を補正
+    // 補正量：(新FOV - 旧FOV) / 2 を pvAltOfs に加算して中心を維持
+    pvAltOfs += (fvNew - fvOld) / 2;
+    pvAltOfs = Math.round(pvAltOfs * 100) / 100;
+    _updatePvOfsDisp();
+  }
+
   orientation=o;
   const bl=document.getElementById('btn-land');
   const bp=document.getElementById('btn-port');
