@@ -1545,7 +1545,7 @@ function drawView(dist,tAz,va){
   // 頂点位置の計算：地上線固定で頂点を求め、頂点が上限より上なら頂点固定に切替
   // 岐阜城は城上に月がかかる構図のため上限を緩めて城を下寄りに
   const horizonDefault = cur==='gifu' ? H * 0.75 : H * 0.72;
-  const topLimit = cur==='gifu' ? H * 0.25 : H * 0.40;
+  const topLimit = cur==='gifu' ? H * 0.40 : H * 0.40;
   const topFromHorizon = horizonDefault - gnoV(vaTop);
   let targetTopY, horizon;
   if(topFromHorizon >= topLimit){
