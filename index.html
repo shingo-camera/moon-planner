@@ -748,6 +748,7 @@ function initMap(){
       btn.title='衛星/地図切替';
       btn.style.cssText='background:#1a2035;border:1px solid #3a4060;color:#e8eaf0;padding:4px 7px;border-radius:4px;cursor:pointer;font-size:14px;';
       let isSat=false;
+      L.DomEvent.on(btn,'click',L.DomEvent.stopPropagation);
       L.DomEvent.on(btn,'click',()=>{
         isSat=!isSat;
         if(isSat){map.removeLayer(osmLayer);esriLayer.addTo(map);btn.style.background='#2a3a5a';}
@@ -2557,8 +2558,35 @@ function _syncDrawerContent(){
       dEl.addEventListener(evName,()=>{
         if(dEl.value===sEl.value)return; // 無限ループ防止
         sEl.value=dEl.value;
-        sEl.dispatchEvent(new Event(evName,{bubbles:true}));
+        // ヘッダー日時表示を更新
+        const dtEl=document.getElementById('mob-drawer-datetime');
+        const ds2=document.getElementById('idate').value;
+        const ts2=document.getElementById('itime').value;
+        if(dtEl) dtEl.textContent=(ds2&&ts2)?ds2+' '+ts2:'—';
         syncMobileUI();
+        if(id==='idate'){
+          // 日付変更：月の出入り・扇形・プレビュー全再描画
+          calcSunMoon();
+          if(sLat!==null) onPick();
+          else{ try{drawView(5,180,3.30);}catch(e){} try{drawCompass(180,3.30);}catch(e){} }
+        } else {
+          // 時刻変更：プレビュー再描画のみ
+          if(sLat!==null){
+            try{
+              const t=T[cur];
+              const dH=hav(sLat,sLng,t.lat,t.lng);
+              const dD=dist3D(sLat,sLng,sElev,t.lat,t.lng,t.elev);
+              const az=brng(sLat,sLng,t.lat,t.lng);
+              drawView(dD,az,elAng(dH,sElev,t.elev,t.h));
+              drawCompass(az,elAng(dH,sElev,t.elev,t.h));
+            }catch(e){}
+          } else {
+            try{drawView(5,180,3.30);}catch(e){}
+            try{drawCompass(180,3.30);}catch(e){}
+          }
+        }
+        // ドロワー表示を同期
+        updateDrawerIfOpen();
       });
     });
   });
@@ -2776,13 +2804,31 @@ function syncMobileUI(){
 
 function setNow(){
   const now=new Date();
+  // 日付をJSTでセット
+  const dateVal=now.toLocaleDateString('sv-SE',{timeZone:'Asia/Tokyo'});
   const jstTime=now.toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false});
   const timeVal=jstTime.slice(0,5);
+  const idate=document.getElementById('idate');
   const itime=document.getElementById('itime');
+  let dateChanged=false;
+  if(idate&&idate.value!==dateVal){
+    idate.value=dateVal;
+    dateChanged=true;
+  }
   if(itime){
     itime.value=timeVal;
+    const td=document.getElementById('tbtn-time-disp');
+    if(td)td.textContent=timeVal;
+    syncMobileUI();
+  }
+  // 日付が変わった場合はcalcSunMoon、そうでなければ時刻変更のchangeイベントのみ
+  if(dateChanged){
+    calcSunMoon();
+    if(sLat!==null)onPick();
+  } else if(itime){
     itime.dispatchEvent(new Event('change'));
   }
+  updateDrawerIfOpen();
 }
 
 function setTimeFromEl(id){
@@ -2959,6 +3005,25 @@ function shiftTime(minutes){
   // tbtn-time表示更新
   const td=document.getElementById('tbtn-time-disp');
   if(td)td.textContent=el.value;
+
+  // 日またぎ処理：totalが1440以上なら翌日、0未満なら前日
+  const dayShift=Math.floor(total/1440);
+  if(dayShift!==0){
+    const idate=document.getElementById('idate');
+    if(idate&&idate.value){
+      const d=new Date(idate.value+'T12:00:00+09:00');
+      d.setDate(d.getDate()+dayShift);
+      const newDate=d.toLocaleDateString('sv-SE',{timeZone:'Asia/Tokyo'});
+      idate.value=newDate;
+      // 日付が変わった場合：calcSunMoon＋全再描画を行い、以降のchangeイベントはスキップ
+      syncMobileUI();
+      calcSunMoon();
+      if(sLat!==null)onPick();
+      updateDrawerIfOpen();
+      return;
+    }
+  }
+
   syncMobileUI();
   el.dispatchEvent(new Event('input'));
   el.dispatchEvent(new Event('change'));
