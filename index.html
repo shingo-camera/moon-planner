@@ -153,7 +153,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 .tbtn-time{font-family:'Space Mono',monospace;font-size:7px;color:var(--ac);
   writing-mode:vertical-rl;letter-spacing:.05em;padding:3px 0;flex-shrink:0;}
 
-#pv-cv-wrap{display:flex;flex-direction:column;flex-shrink:0;flex-grow:0;overflow:hidden;}
+#pv-cv-wrap{display:flex;flex-direction:column;flex-shrink:0;flex-grow:0;overflow:hidden;position:relative;}
 /* プレビューcanvasラップ */
 .pv-label{height:var(--lbl);display:flex;align-items:center;padding:0 6px;
   font-family:'Space Mono',monospace;font-size:7px;letter-spacing:.08em;
@@ -164,6 +164,26 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 
 /* ダイアグラム側 */
 #diag-wrap{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;}
+
+/* 8方向パッド（プレビュー右上オーバーレイ） */
+#pv-pad{
+  position:absolute;top:26px;right:4px;z-index:100;
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  background:rgba(10,12,20,0.75);border:1px solid var(--bd);border-radius:5px;
+  padding:5px 4px;
+}
+.pad-row{display:flex;gap:2px;}
+.pad-btn{
+  width:20px;height:20px;display:flex;align-items:center;justify-content:center;
+  background:rgba(24,28,46,0.85);border:1px solid var(--bd);border-radius:3px;
+  font-size:11px;color:var(--sub);cursor:pointer;user-select:none;
+  -webkit-tap-highlight-color:transparent;
+}
+.pad-btn:hover{border-color:var(--ac);color:var(--ac);}
+.pad-btn:active{background:var(--ac);color:var(--bg);}
+.pad-btn.rst{font-size:7px;font-family:'Space Mono',monospace;color:var(--ac);border-color:var(--ac);}
+.pad-btn.rst.active{background:rgba(200,169,110,0.25);}
+@media(max-width:600px){#pv-pad{display:none;}}
 
 /* 扇形凡例 */
 #fan-legend{
@@ -518,8 +538,34 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
           </div>
         </div>
         <div id="pv-cv-wrap">
-          <div class="pv-label">◎ プレビュー（対象 + 月）</div>
+          <div class="pv-label" style="justify-content:space-between;">
+            <span>◎ プレビュー（対象 + 月）</span>
+            <span style="display:flex;align-items:center;gap:3px;margin-right:2px;">
+              <span class="tbtn" onclick="shiftDay(-1)" title="1日前">−1d</span>
+              <span id="pv-date-disp" style="font-family:'Space Mono',monospace;font-size:8px;color:var(--ac);min-width:58px;text-align:center;"></span>
+              <span class="tbtn" onclick="shiftDay(+1)" title="1日後">+1d</span>
+            </span>
+          </div>
           <canvas id="cv1"></canvas>
+          <!-- 8方向パッド（右上オーバーレイ） -->
+          <div id="pv-pad">
+            <div class="pad-row">
+              <div class="pad-btn" onclick="shiftPvOfs(-1,+1)">↖</div>
+              <div class="pad-btn" onclick="shiftPvOfs( 0,+1)">↑</div>
+              <div class="pad-btn" onclick="shiftPvOfs(+1,+1)">↗</div>
+            </div>
+            <div class="pad-row">
+              <div class="pad-btn" onclick="shiftPvOfs(-1, 0)">←</div>
+              <div class="pad-btn rst" id="pv-rst" onclick="resetPvOfs()">RST</div>
+              <div class="pad-btn" onclick="shiftPvOfs(+1, 0)">→</div>
+            </div>
+            <div class="pad-row">
+              <div class="pad-btn" onclick="shiftPvOfs(-1,-1)">↙</div>
+              <div class="pad-btn" onclick="shiftPvOfs( 0,-1)">↓</div>
+              <div class="pad-btn" onclick="shiftPvOfs(+1,-1)">↘</div>
+            </div>
+            <div id="pv-ofs-disp" style="margin-top:3px;font-family:'Space Mono',monospace;font-size:7px;color:var(--sub);text-align:center;line-height:1.6;">AZ+0.0°<br>ALT+0.0°</div>
+          </div>
         </div>
       </div>
       <!-- ダイアグラム -->
@@ -603,6 +649,7 @@ let map, sMarker, tMarker, polyLine;
 let _layoutRAF=null;
 let fanLayers=[];
 let sunsetMode=false; // 夕日モード（PLのみ）
+let pvAzOfs=0, pvAltOfs=0; // プレビュー視点オフセット（度）
 let savedSpots=[]; // 保存した撮影地点 [{lat,lng,name,target,note}]
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1476,7 +1523,7 @@ function drawView(dist,tAz,va){
   const gnoV=deg=>f_px_V*Math.tan(deg*r);  // 垂直方向
   const cx=W/2;
 
-  // 背景
+  // 背景（オフセット前に描画）
   const sky=ctx.createLinearGradient(0,0,0,H);
   sky.addColorStop(0,'#02050c');sky.addColorStop(1,'#08111f');
   ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
@@ -1485,10 +1532,18 @@ function drawView(dist,tAz,va){
     ctx.beginPath();ctx.arc((i*137)%W,(i*79)%(H*.65),.5,0,6.28);ctx.fill();
   }
 
+  // カメラ視点オフセット：以降の全描画をtranslateでずらす
+  // pvAzOfs>0 → カメラ右向き → 対象・地平線が左に移動
+  // pvAltOfs>0 → カメラ上向き → 対象・地平線が下に移動
+  const ofsDx = -gnoH(pvAzOfs);
+  const ofsDy =  gnoV(pvAltOfs);
+  ctx.save();
+  ctx.translate(ofsDx, ofsDy);
+
   const vaTop=Math.max(va,0.01);
 
   // 頂点位置の計算：地上線固定で頂点を求め、頂点がH*0.40より上なら頂点固定に切替
-  const horizonDefault = H * 0.72;
+  const horizonDefault = cur==='gifu' ? H * 0.60 : H * 0.72;
   const topFromHorizon = horizonDefault - gnoV(vaTop);
   let targetTopY, horizon;
   if(topFromHorizon >= H * 0.40){
@@ -2070,7 +2125,8 @@ function drawView(dist,tAz,va){
     ctx.font=`9px 'Space Mono',monospace`;ctx.textAlign='center';
     ctx.fillText(label,cx,horizon-20);
   }
-  // 情報ラベル
+  // 情報ラベル（オフセット外：canvas固定位置に表示）
+  ctx.restore();
   const bodyName=sunsetMode?'太陽':'月';
   const fovLabel=`FOV ${fvH.toFixed(1)}°  ${bodyName} ${bodyAngDiam.toFixed(3)}°  ${T[cur].name}頂 ${angS(T[cur].h,dist).toFixed(1)}°  仰角 ${vaTop.toFixed(2)}°`;
   ctx.font=`10px 'Space Mono',monospace`;ctx.textAlign='left';
@@ -2971,6 +3027,38 @@ function setChance(ds,ts){
   updateDrawerIfOpen();
 }
 
+function shiftPvOfs(dAz, dAlt){
+  const fv=fovD(focal);
+  const step = fv<2?0.05 : fv<5?0.1 : fv<15?0.3 : fv<40?0.5 : 1.0;
+  pvAzOfs  = Math.round((pvAzOfs  + dAz  * step)*100)/100;
+  pvAltOfs = Math.round((pvAltOfs + dAlt * step)*100)/100;
+  _updatePvOfsDisp();
+  _triggerPvRedraw();
+}
+function resetPvOfs(){
+  pvAzOfs=0; pvAltOfs=0;
+  _updatePvOfsDisp();
+  _triggerPvRedraw();
+}
+function _updatePvOfsDisp(){
+  const el=document.getElementById('pv-ofs-disp');
+  if(el) el.innerHTML=`AZ${pvAzOfs>=0?'+':''}${pvAzOfs.toFixed(1)}°<br>ALT${pvAltOfs>=0?'+':''}${pvAltOfs.toFixed(1)}°`;
+  const rst=document.getElementById('pv-rst');
+  if(rst) rst.classList.toggle('active', pvAzOfs!==0||pvAltOfs!==0);
+}
+function _triggerPvRedraw(){
+  if(sLat===null){
+    try{drawView(5,180,3.30);}catch(e){}
+    return;
+  }
+  const t=T[cur];
+  const dH=hav(sLat,sLng,t.lat,t.lng);
+  const dD=dist3D(sLat,sLng,sElev,t.lat,t.lng,t.elev);
+  const az=brng(sLat,sLng,t.lat,t.lng);
+  const va=elAng(dH,sElev,t.elev,t.h);
+  try{drawView(dD,az,va);}catch(e){}
+}
+
 function setF(v){
   v=+v;
   if(!isFinite(v)||v<1)return;
@@ -3011,6 +3099,27 @@ function setOrientation(o){
   syncMobileUI();
   scheduleLayout();
   updateDrawerIfOpen();
+}
+
+function shiftDay(days){
+  const el=document.getElementById('idate');
+  if(!el||!el.value)return;
+  const d=new Date(el.value+'T12:00:00+09:00');
+  d.setDate(d.getDate()+days);
+  el.value=d.toLocaleDateString('sv-SE',{timeZone:'Asia/Tokyo'});
+  el.dispatchEvent(new Event('change'));
+  updatePvDateDisp();
+}
+function updatePvDateDisp(){
+  const el=document.getElementById('idate');
+  const disp=document.getElementById('pv-date-disp');
+  if(!el||!disp)return;
+  if(!el.value){disp.textContent='';return;}
+  const d=new Date(el.value+'T12:00:00+09:00');
+  const dow=d.toLocaleDateString('ja-JP',{timeZone:'Asia/Tokyo',weekday:'short'});
+  const mmdd=el.value.slice(5); // MM-DD
+  const dowColor=dow.includes('日')?'#ff6655':dow.includes('土')?'#4488ff':'var(--ac)';
+  disp.innerHTML=`<span style="color:${dowColor}">${mmdd}(${dow})</span>`;
 }
 
 function shiftTime(minutes){
@@ -3065,6 +3174,7 @@ window.addEventListener('load',()=>{
   if(td)td.textContent=timeVal;
 
   calcSunMoon();
+  updatePvDateDisp();
   initMap();
   syncMobileUI();
 
@@ -3082,6 +3192,7 @@ window.addEventListener('load',()=>{
   // 日付変更
   document.getElementById('idate').addEventListener('change',()=>{
     calcSunMoon();
+    updatePvDateDisp();
     if(sLat!==null)onPick();
   });
 
