@@ -1757,6 +1757,7 @@ function drawView(dist,tAz,va){
         ctx.restore();
       }
 
+      // トレイル点（色分けドット）：ラベルなし・月位置基準で過去=青、未来=オレンジ
       for(const m of trailTimes){
         const dt=new Date(dt0.getTime()+m*60000);
         const bp=sunsetMode?sunPos(dt,sLat,sLng):moonPos(dt,sLat,sLng);
@@ -1768,17 +1769,6 @@ function drawView(dist,tAz,va){
         ctx.beginPath();ctx.arc(tx2,ty2,2.5,0,Math.PI*2);
         ctx.fillStyle=isPast?`rgba(126,184,232,${alpha})`:`rgba(200,169,110,${alpha})`;
         ctx.fill();
-        // 全点にラベル表示
-        const label=new Date(dt.getTime()+9*3600000).toISOString().substr(11,5);
-        ctx.font=`bold 10px 'Space Mono',monospace`;
-        const lx=tx2+(tx2<cx?-5:5);
-        const ly=ty2-6;
-        ctx.textAlign=tx2<cx?'right':'left';
-        const tw2=ctx.measureText(label).width;
-        const bx=tx2<cx?lx-tw2-2:lx-2;
-        ctx.fillStyle='rgba(13,17,26,0.72)';ctx.fillRect(bx,ly-8,tw2+4,11);
-        ctx.fillStyle=isPast?'rgba(160,210,255,0.95)':'rgba(240,200,120,0.95)';
-        ctx.fillText(label,lx,ly);
       }
       ctx.restore();
 
