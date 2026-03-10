@@ -1906,7 +1906,7 @@ function drawView(dist,tAz,va){
   const _vaT_tmp = elAng(dist, vaBaseElev, T[cur].elev, T[cur].h);
   const _vaB_tmp = elAng(dist, vaBaseElev, T[cur].elev, 0);
   const _thTmp = Math.max(gnoV(Math.max(_vaT_tmp,0.01)) - gnoV(_vaB_tmp), 0);
-  const topLimitGifu = Math.max(H * 0.15, H - _thTmp * 1.65);
+  const topLimitGifu = Math.min(H * 0.60, Math.max(H * 0.15, H - _thTmp * 1.65));
   const topLimit = cur==='gifu' ? topLimitGifu : H * 0.40;
   // 頂点Y = horizon - gnoV(vaTop)、根本Y = horizon - gnoV(vaBase)
   // horizonを固定して頂点を計算
@@ -2173,7 +2173,12 @@ function drawView(dist,tAz,va){
       const py=y*gCosVA + rz*gSinVA;
       return [cx + rx, bY - py];
     };
-    const gDepth=(verts)=>{let s=0;verts.forEach(v=>{s+=v[0]*gSinA+v[2]*gCosA;});return s/verts.length;};
+    // depth = zオフセット - yCenter（上の層ほど奥扱い＝先に描画される）
+    const gDepth=(verts)=>{
+      let sz=0,sy=0;
+      verts.forEach(v=>{sz+=v[0]*gSinA+v[2]*gCosA; sy+=v[1];});
+      return sz/verts.length - sy/verts.length;
+    };
 
     const gFaces=[];
     function gAddFace(verts3d,nx,nz,fillFn,stroke,lw=0.8){
