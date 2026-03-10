@@ -750,7 +750,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   </div>
 </div>
 <div id="mooncal-overlay" onclick="if(event.target===this)closeMoonCal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10100;"></div>
-<div id="mooncal-popup" onclick="event.stopPropagation()" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+<div id="mooncal-popup" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
   z-index:10200;background:var(--sur);border:1px solid var(--bd);border-radius:10px;
   padding:14px;width:min(96vw,480px);max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.6);">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
@@ -2691,9 +2691,9 @@ function drawView(dist,tAz,va){
   ctx.textAlign='left';
   {
     const fovW=ctx.measureText(fovLabel).width;
-    ctx.fillStyle='rgba(240,240,248,0.45)';ctx.fillRect(0,H-fovFs-3,fovW+6,fovFs+4);
+    ctx.fillStyle='rgba(240,240,248,0.30)';ctx.fillRect(4,H-fovFs-5,fovW+6,fovFs+4);
   }
-  ctx.fillStyle='rgba(20,20,50,0.75)';ctx.fillText(fovLabel,3,H-2);
+  ctx.fillStyle='rgba(20,20,50,0.95)';ctx.fillText(fovLabel,7,H-4);
 
   // 左上に設定日時を大きく表示（canvas幅に収まるようフォントサイズ自動調整）
   if(ds&&ts){
