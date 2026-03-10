@@ -389,10 +389,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
     flex-shrink:0;
     min-width:40px;height:26px;
     display:flex;align-items:center;justify-content:center;
-    background:var(--sur2);border:1px solid var(--ac);border-radius:4px;
-    font-family:'Space Mono',monospace;font-size:9px;color:var(--ac);
+    background:var(--sur2);border:1px solid var(--bd);border-radius:4px;
+    font-family:'Space Mono',monospace;font-size:9px;color:var(--sub);
     cursor:pointer;-webkit-tap-highlight-color:transparent;
   }
+  .mob-icon-btn.on{border-color:var(--ac);color:var(--ac);}
   .mob-icon-btn:active{background:var(--ac);color:var(--bg);}
 
   #mob-url-row{display:flex;align-items:center;}
@@ -783,8 +784,8 @@ let savedSpots=[]; // 保存した撮影地点 [{lat,lng,name,target,note}]
 // LAYOUT
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function layout(){
-  const W=window.innerWidth;
-  const H=window.innerHeight;
+  const W = window.visualViewport ? Math.round(window.visualViewport.width) : window.innerWidth;
+  const H = window.visualViewport ? Math.round(window.visualViewport.height) : window.innerHeight;
   const isMobile=W<=600;
 
   if(isMobile){
@@ -1033,7 +1034,7 @@ function addTargetPin(){
       html:t.e==='pl'
         ?`<div style="filter:drop-shadow(0 0 6px #3dffaa)">${plSVG}</div>`
         :`<div style="font-size:26px;line-height:1;filter:drop-shadow(0 0 4px gold)">${t.e}</div>`,
-      className:'',iconAnchor:[12,40]
+      className:'',iconAnchor:t.e==='pl'?[12,40]:[13,26]
     })
   }).addTo(map).bindPopup(`<b>${t.name}</b><br>高さ ${t.h}m`);
 }
@@ -1895,8 +1896,8 @@ function drawView(dist,tAz,va){
   }else{
     // ━━━ 金華山（先に描いて城を手前に重ねる）━━━
     {
-      // 山頂Y：城の底（石垣根元）= bY、山頂は城全体高さの約36%分上
-      const mTopY = bY - thTrue * 0.36;
+      // 山頂Y：石垣下側と重なるイメージ（城全体高さの約15%分上）
+      const mTopY = bY - thTrue * 0.15;
       const mBaseY = Math.min(horizon < H ? horizon : H, H);
       if(mTopY < mBaseY){
         const mLeft=W*0.55, mRight=W*0.55, flatW=W*0.12;
@@ -2116,7 +2117,9 @@ function drawView(dist,tAz,va){
 
 
       // ── 1. その日の全軌道（グレー線）＋統合ラベル点 ──
-      // ラベル間隔：fvH<8°(300mm以上)→1分、fvH<20°(100-200mm)→5分、fvH<60°→15分、それ以上→30分
+      const isMobCanvas = W < 500;
+      // ラベル間隔：fvH依存（スマホ・PCとも同じ刻み）
+      // 点がある位置には必ずラベルを付ける（スマホは2列表示で間引きなし）
       const dayLabelInterval = fvH<8?1 : fvH<20?5 : fvH<60?15 : 30;
       // dayStep：軌道線の計算刻み。dayLabelInterval以下にしないとラベル点がdayPtsに存在しない
       const dayStep = Math.min(dayLabelInterval, fvH<1?0.5 : fvH<2?1 : fvH<4?1 : fvH<8?1 : fvH<20?2 : fvH<60?5 : 10);
@@ -2208,7 +2211,7 @@ function drawView(dist,tAz,va){
 
       // ── 統合ラベル点：dayLabelInterval刻みで固定位置に表示 ──
       ctx.save();
-      const isMobPv = W < 500; // スマホプレビュー判定
+      const isMobPv = isMobCanvas; // スマホプレビュー判定（isMobCanvasと同義）
       // スマホ：右端縦列にラベル、軌跡上には点のみ
       // PC：従来通り軌跡の横にラベル
       const labelItems = []; // {m, p, label, isPast, isNear}
@@ -2232,53 +2235,45 @@ function drawView(dist,tAz,va){
         }
       }
       if(isMobPv){
-        // スマホ：右端に縦列表示
-        // ラベルの高さをy座標でソートして表示（重ならないよう間引き）
-        labelItems.sort((a,b)=>a.p.y-b.p.y);
-        const colX = W - 4; // 右端
-        const lineH = 14;   // 1行の高さ
-        let lastY = -999;
-        // 現在時刻に近い順に優先（再ソート用スコア）
-        const prioritized = [...labelItems].sort((a,b)=>Math.abs(a.diffMin)-Math.abs(b.diffMin));
-        const shown = new Set();
-        // まず全点のy座標を収集
-        const usedY = new Map(); // label -> 確定y
-        for(const item of prioritized){
-          // y座標が既存ラベルと近すぎる場合スキップ
-          let yOk = true;
-          for(const [,uy] of usedY){
-            if(Math.abs(item.p.y - uy) < lineH){ yOk=false; break; }
-          }
-          if(yOk){
-            usedY.set(item.label, item.p.y);
-            shown.add(item.label);
-          }
-        }
-        // 表示：右端にラベル、軌跡上の点から水平線を引く
+        // スマホ：奇数分→右端列、偶数分→右端から内側列の2列交互表示
         ctx.font=`bold 10px 'Space Mono',monospace`;
+        const labelW = ctx.measureText('00:00').width; // 固定幅(5文字)
+        const colPad = 4;   // 右端の余白
+        const colGap = 6;   // 2列間のギャップ
+        // 列X座標（右端基準）
+        // 偶数分：最右列、奇数分：その左隣
+        const colEven = W - colPad;             // 偶数分のラベル右端X
+        const colOdd  = W - colPad - labelW - colGap; // 奇数分のラベル右端X
+
         for(const item of labelItems){
-          if(!shown.has(item.label))continue;
           const ly = item.p.y;
-          const isNear=item.isNear, isPast=item.isPast;
+          const isNear = item.isNear, isPast = item.isPast;
+          // 分を取得（HH:MM の MM部分）
+          const minVal = parseInt(item.label.slice(3,5), 10);
+          const isOdd = minVal % 2 !== 0;
+          const lx = (isOdd ? colOdd : colEven) - labelW;
+
           const textColor = isNear
-            ? (isPast?'rgba(160,210,255,0.95)':'rgba(240,200,120,0.95)')
-            : 'rgba(180,180,200,0.6)';
-          const lw = ctx.measureText(item.label).width;
-          const lx = colX - lw;
-          // 水平ガイドライン（軌跡点→右端）
+            ? (isPast ? 'rgba(160,210,255,0.95)' : 'rgba(240,200,120,0.95)')
+            : 'rgba(180,180,200,0.55)';
+          const lineColor = isNear
+            ? (isPast ? 'rgba(126,184,232,0.22)' : 'rgba(200,169,110,0.22)')
+            : 'rgba(160,160,180,0.10)';
+
+          // 水平ガイドライン（軌跡点 → ラベル左端）
           ctx.beginPath();
-          ctx.moveTo(item.p.x+4, ly);
-          ctx.lineTo(lx-4, ly);
-          ctx.strokeStyle = isNear
-            ? (isPast?'rgba(126,184,232,0.25)':'rgba(200,169,110,0.25)')
-            : 'rgba(160,160,180,0.12)';
-          ctx.lineWidth=0.8;ctx.setLineDash([2,3]);ctx.stroke();ctx.setLineDash([]);
+          ctx.moveTo(item.p.x + 4, ly);
+          ctx.lineTo(lx - 3, ly);
+          ctx.strokeStyle = lineColor;
+          ctx.lineWidth = 0.8; ctx.setLineDash([2,3]); ctx.stroke(); ctx.setLineDash([]);
+
           // 背景
-          ctx.fillStyle='rgba(6,8,16,0.78)';
-          ctx.fillRect(lx-2, ly-11, lw+4, 13);
+          ctx.fillStyle = 'rgba(6,8,16,0.80)';
+          ctx.fillRect(lx - 2, ly - 11, labelW + 4, 13);
+
           // テキスト
-          ctx.fillStyle=textColor;
-          ctx.textAlign='left';
+          ctx.fillStyle = textColor;
+          ctx.textAlign = 'left';
           ctx.fillText(item.label, lx, ly);
         }
       } else {
@@ -2348,6 +2343,10 @@ function drawView(dist,tAz,va){
     ctx.fillStyle='rgba(240,230,200,0.95)';
     ctx.fillText(dtLabel,10,dtH-4);
   }
+  // canvas外周枠線（スマホでcanvasと余白の境界を明示）
+  ctx.strokeStyle='rgba(200,169,110,0.30)';
+  ctx.lineWidth=1;
+  ctx.strokeRect(0.5,0.5,W-1,H-1);
 }
 
 function drawCompass(tAz,va){
@@ -3365,6 +3364,11 @@ function setOrientation(o){
   const bp=document.getElementById('btn-port');
   if(bl)bl.classList.toggle('on',o==='land');
   if(bp)bp.classList.toggle('on',o==='port');
+  // スマホボタン
+  const mbl=document.getElementById('mob-btn-land');
+  const mbp=document.getElementById('mob-btn-port');
+  if(mbl)mbl.classList.toggle('on',o==='land');
+  if(mbp)mbp.classList.toggle('on',o==='port');
   syncMobileUI();
   scheduleLayout();
   updateDrawerIfOpen();
@@ -3446,6 +3450,8 @@ window.addEventListener('load',()=>{
   updatePvDateDisp();
   initMap();
   syncMobileUI();
+  // スマホ横/縦ボタンの初期on状態
+  setOrientation(orientation);
 
   // 保存地点を復元
   _loadFromLocalStorage();
