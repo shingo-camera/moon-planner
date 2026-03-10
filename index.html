@@ -943,76 +943,98 @@ function scheduleLayout(){
 // ブラウザのピンチズームを禁止した代わりにプレビュー内のみ拡大を可能にする
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 window.addEventListener('DOMContentLoaded',()=>{
-  // Safari は user-scalable=no を無視するため touchmove で防ぐ
-  // 地図コンテナ(#map)の中は Leaflet に任せる
+  // ━━ ピンチズーム完全ブロック ━━
+  // Safari は user-scalable=no を無視する。
+  // overflow:auto/scroll な要素はブラウザが touchmove を passive 扱いするため
+  // document レベルの preventDefault が無視される。
+  // 対策：#map 以外の全スクロール可能要素に直接 passive:false リスナーを登録する。
+  function blockPinch(e){ if(e.touches.length >= 2) e.preventDefault(); }
+  const pinchOpt = { passive: false };
+
+  // document フォールバック（#map 内は除外）
   document.addEventListener('touchmove', e => {
-    if(e.touches.length >= 2) {
-      let el = e.target;
-      while(el) {
-        if(el.id === 'map') return;
-        el = el.parentElement;
-      }
-      e.preventDefault();
-    }
-  }, { passive: false });
+    if(e.touches.length < 2) return;
+    let el = e.target;
+    while(el){ if(el.id === 'map') return; el = el.parentElement; }
+    e.preventDefault();
+  }, pinchOpt);
 
-  // #mob-bar は overflow-x:auto の子要素があるため document の preventDefault が
-  // ブラウザに無視される。直接リスナーを passive:false でアタッチしてブロックする。
-  const mobBar = document.getElementById('mob-bar');
-  if(mobBar){
-    mobBar.addEventListener('touchmove', e => {
-      if(e.touches.length >= 2) e.preventDefault();
-    }, { passive: false });
-  }
+  // overflow を持つ要素に直接登録（passive強制を上書き）
+  ['mob-bar','mob-focal-row','mob-drawer','mob-drawer-inner','pnl',
+   'preview-panel','pv-left','pv-cv-wrap','diag-wrap','right','wrap'
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.addEventListener('touchmove', blockPinch, pinchOpt);
+  });
+  // body にも念のため
+  document.body.addEventListener('touchmove', blockPinch, pinchOpt);
 
-  const wrap=document.getElementById('pv-cv-wrap');
-  if(!wrap)return;
+  // ━━ プレビューcanvas ピンチズーム＋スワイプパン ━━
+  // transform は #cv1 のみに適用。ラベル・オフセットボタンは固定のまま。
+  const pvWrap=document.getElementById('pv-cv-wrap');
+  if(!pvWrap)return;
 
   let pvScale=1, pvTx=0, pvTy=0;
-  let lastDist=null, lastMidX=0, lastMidY=0;
+  let lastDist=null;
+  let panStartX=0, panStartY=0, panBaseTx=0, panBaseTy=0;
+  let isPanning=false;
   let lastTap=0;
 
   function clampTranslate(s, tx, ty){
-    const el=document.getElementById('cv1');
-    if(!el)return{tx,ty};
-    const W=el.width, H=el.height;
+    const cv=document.getElementById('cv1');
+    if(!cv)return{tx,ty};
+    const W=cv.width, H=cv.height;
     const maxTx=(W*(s-1))/2, maxTy=(H*(s-1))/2;
     return{tx:Math.max(-maxTx,Math.min(maxTx,tx)), ty:Math.max(-maxTy,Math.min(maxTy,ty))};
   }
 
   function applyTransform(){
+    const cv=document.getElementById('cv1');
+    if(!cv)return;
     const {tx,ty}=clampTranslate(pvScale,pvTx,pvTy);
     pvTx=tx; pvTy=ty;
-    wrap.style.transformOrigin='center center';
-    wrap.style.transform=pvScale===1?'none':`translate(${tx}px,${ty}px) scale(${pvScale})`;
+    cv.style.transformOrigin='center center';
+    cv.style.transform=pvScale===1&&tx===0&&ty===0
+      ?'none':`translate(${tx}px,${ty}px) scale(${pvScale})`;
   }
 
   function getDist(t){return Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);}
 
-  wrap.addEventListener('touchstart',e=>{
+  pvWrap.addEventListener('touchstart',e=>{
     if(e.touches.length===2){
       e.preventDefault();
       lastDist=getDist(e.touches);
-      lastMidX=(e.touches[0].clientX+e.touches[1].clientX)/2;
-      lastMidY=(e.touches[0].clientY+e.touches[1].clientY)/2;
+      isPanning=false;
+    } else if(e.touches.length===1&&pvScale>1){
+      // 拡大中のみスワイプパンを受け付ける
+      isPanning=true;
+      panStartX=e.touches[0].clientX;
+      panStartY=e.touches[0].clientY;
+      panBaseTx=pvTx;
+      panBaseTy=pvTy;
     }
   },{passive:false});
 
-  wrap.addEventListener('touchmove',e=>{
+  pvWrap.addEventListener('touchmove',e=>{
     if(e.touches.length===2&&lastDist!==null){
       e.preventDefault();
       const d=getDist(e.touches);
-      const ratio=d/lastDist;
-      pvScale=Math.max(1,Math.min(5,pvScale*ratio));
+      pvScale=Math.max(1,Math.min(5,pvScale*(d/lastDist)));
       lastDist=d;
+      applyTransform();
+    } else if(e.touches.length===1&&isPanning){
+      e.preventDefault();
+      pvTx=panBaseTx+(e.touches[0].clientX-panStartX);
+      pvTy=panBaseTy+(e.touches[0].clientY-panStartY);
       applyTransform();
     }
   },{passive:false});
 
-  wrap.addEventListener('touchend',e=>{
+  pvWrap.addEventListener('touchend',e=>{
     if(e.touches.length<2) lastDist=null;
-    // ダブルタップでリセット
     if(e.touches.length===0){
+      isPanning=false;
+      // ダブルタップでリセット
       const now=Date.now();
       if(now-lastTap<300){
         pvScale=1; pvTx=0; pvTy=0;
@@ -2470,9 +2492,13 @@ function drawCompass(tAz,va){
   ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
 
   if(sLat===null){
-    ctx.fillStyle='rgba(122,130,160,.6)';ctx.font=`11px 'Space Mono',monospace`;
     ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText('地図をクリックしてください',W/2,H/2);
+    const msg='地図をクリックしてください';
+    let fs=11;
+    ctx.font=`${fs}px 'Space Mono',monospace`;
+    while(ctx.measureText(msg).width>W-12&&fs>6){fs--;ctx.font=`${fs}px 'Space Mono',monospace`;}
+    ctx.fillStyle='rgba(122,130,160,.6)';
+    ctx.fillText(msg,W/2,H/2);
     ctx.textBaseline='alphabetic';return;
   }
 
