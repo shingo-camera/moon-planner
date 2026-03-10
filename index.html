@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>月×建造物 撮影プランナー</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌕</text></svg>">
@@ -434,8 +434,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
     display:flex;
     align-items:center;justify-content:center;
     position:fixed;
-    bottom:calc(var(--mob-bar) + 6px);
-    right:6px;
+    bottom:8px;
+    right:8px;
     width:40px;height:40px;
     background:rgba(17,19,32,0.92);
     border:1px solid var(--ac);
@@ -449,8 +449,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   }
   #zoom-reset-btn:active{background:var(--ac);color:var(--bg);}
 }
-
-
+</style>
 </head>
 <body>
 
@@ -940,69 +939,6 @@ function scheduleLayout(){
   if(_layoutRAF) cancelAnimationFrame(_layoutRAF);
   _layoutRAF=requestAnimationFrame(()=>{_layoutRAF=null;layout();});
 }
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// プレビューcanvasのピンチズーム
-// ブラウザのピンチズームを禁止した代わりにcanvas単体を拡大できるようにする
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-(function initPreviewPinch(){
-  let pvScale=1, pvOriginX=0.5, pvOriginY=0.5;
-  let lastDist=null, lastMidX=0, lastMidY=0;
-
-  function getDist(t){ return Math.hypot(t[0].clientX-t[1].clientX, t[0].clientY-t[1].clientY); }
-  function getMid(t,rect){ return {x:(t[0].clientX+t[1].clientX)/2-rect.left, y:(t[0].clientY+t[1].clientY)/2-rect.top}; }
-  function applyTransform(el){
-    el.style.transformOrigin=`${pvOriginX*100}% ${pvOriginY*100}%`;
-    el.style.transform=pvScale===1?'':'scale('+pvScale+')';
-  }
-
-  window.addEventListener('DOMContentLoaded',()=>{
-    const wrap=document.getElementById('pv-cv-wrap');
-    if(!wrap)return;
-    // overflow:visibleにしてはみ出し表示（親でクリップ）
-    wrap.style.overflow='visible';
-    const parent=wrap.parentElement;
-    if(parent) parent.style.overflow='hidden';
-
-    // ダブルタップでリセット
-    let lastTap=0;
-    wrap.addEventListener('touchend',e=>{
-      if(e.touches.length!==0)return;
-      const now=Date.now();
-      if(now-lastTap<300){
-        pvScale=1;
-        applyTransform(wrap);
-        e.preventDefault();
-      }
-      lastTap=now;
-    },{passive:false});
-
-    wrap.addEventListener('touchstart',e=>{
-      if(e.touches.length===2){
-        lastDist=getDist(e.touches);
-        const rect=wrap.getBoundingClientRect();
-        const mid=getMid(e.touches,rect);
-        pvOriginX=mid.x/rect.width;
-        pvOriginY=mid.y/rect.height;
-        e.preventDefault();
-      }
-    },{passive:false});
-
-    wrap.addEventListener('touchmove',e=>{
-      if(e.touches.length===2&&lastDist!==null){
-        const d=getDist(e.touches);
-        pvScale=Math.max(1, Math.min(5, pvScale*(d/lastDist)));
-        lastDist=d;
-        applyTransform(wrap);
-        e.preventDefault();
-      }
-    },{passive:false});
-
-    wrap.addEventListener('touchend',e=>{
-      if(e.touches.length<2) lastDist=null;
-    },{passive:true});
-  });
-})();
 
 
 // MAP
