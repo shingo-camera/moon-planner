@@ -530,18 +530,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
         <div class="tbtn" onclick="shiftElevOffset(5)">+5</div>
         <span class="now-btn" onclick="shiftElevOffset(0,true)" title="オフセットをリセット" style="margin-left:2px;">Rst</span>
       </div>
-      <!-- 保存ボタン -->
-      <div style="display:flex;gap:3px;margin-top:5px;">
-        <button id="btn-save-spot" onclick="saveSpot()"
-          style="flex:1;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;
-          color:var(--ac);font-family:'Space Mono',monospace;font-size:9px;padding:4px;cursor:pointer;">
-          💾 この地点を保存
-        </button>
-        <button onclick="exportSpots()"
-          style="background:var(--sur2);border:1px solid var(--bd);border-radius:4px;
-          color:var(--sub);font-family:'Space Mono',monospace;font-size:9px;padding:4px 6px;cursor:pointer;"
-          title="保存地点をURLとしてコピー">🔗</button>
-      </div>
     </div>
     <div>
       <div class="sec">05 太陽・月</div>
@@ -2791,18 +2779,23 @@ function renderSpotPanel(){
       return`<div style="display:flex;align-items:center;gap:8px;padding:5px 4px;
         border-bottom:1px solid var(--bd);opacity:0.35;">
         ${numBadge}
-        <span style="font-size:10px;color:var(--sub);font-family:'Space Mono',monospace;">— 空き —</span>
+        <span style="font-size:10px;color:var(--sub);font-family:'Space Mono',monospace;flex:1;">— 空き —</span>
       </div>`;
     }
     const label=_spotLabel(spot);
-    return`<div style="display:flex;align-items:center;gap:8px;padding:6px 4px;
-      border-bottom:1px solid var(--bd);cursor:pointer;"
-      onclick="loadSpot(${i})" title="読み込む">
+    return`<div style="display:flex;align-items:center;gap:6px;padding:6px 4px;
+      border-bottom:1px solid var(--bd);">
       ${numBadge}
       <span style="flex:1;font-size:11px;color:var(--tx);min-width:0;
-        overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${label}</span>
-      <span onclick="event.stopPropagation();deleteSpot(${i})"
-        style="color:var(--sub);font-size:13px;padding:2px 4px;cursor:pointer;flex-shrink:0;"
+        overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;"
+        onclick="loadSpot(${i})" title="読み込む">${label}</span>
+      <span onclick="exportOneSpot(${i})"
+        style="color:var(--sub);font-size:13px;padding:2px 5px;cursor:pointer;flex-shrink:0;
+        border:1px solid var(--bd);border-radius:3px;"
+        title="このスロットのURLをコピー">🔗</span>
+      <span onclick="deleteSpot(${i})"
+        style="color:var(--sub);font-size:13px;padding:2px 5px;cursor:pointer;flex-shrink:0;
+        border:1px solid var(--bd);border-radius:3px;"
         title="削除">✕</span>
     </div>`;
   }).join('');
@@ -2849,24 +2842,23 @@ function closeSpotPanel(){
   document.getElementById('spot-overlay-bg').style.display='none';
 }
 
-function exportSpots(){
+function exportOneSpot(idx){
   _emptySlots();
-  const active=savedSpots.filter(s=>s!==null);
-  if(active.length===0){
-    showHint('保存された地点がありません。');
-    return;
-  }
+  const spot=savedSpots[idx];
+  if(!spot)return;
   try{
-    const data=JSON.stringify(savedSpots);
-    const encoded=btoa(encodeURIComponent(data));
+    // そのスロット1件だけを15スロット配列のidx位置に入れてエンコード
+    const single=new Array(SPOT_MAX).fill(null);
+    single[idx]=spot;
+    const encoded=btoa(encodeURIComponent(JSON.stringify(single)));
     const url=location.href.split('#')[0]+'#spots='+encoded;
     navigator.clipboard.writeText(url).then(()=>{
-      showHint(`${active.length}件の地点をURLにコピーしました。`);
+      showHint(`スロット${idx+1}のURLをコピーしました。`);
     }).catch(()=>{
-      prompt('このURLをコピーしてください：', url);
+      prompt('このURLをコピーしてください：',url);
     });
   }catch(e){
-    showHint('エクスポートに失敗しました。');
+    showHint('URLの生成に失敗しました。');
   }
 }
 
@@ -2891,15 +2883,44 @@ function _loadFromURLHash(){
   try{
     const hash=location.hash;
     const m=hash.match(/spots=([^&]+)/);
-    if(m){
-      const data=JSON.parse(decodeURIComponent(atob(m[1])));
-      if(Array.isArray(data)){
-        // URLハッシュ優先でマージ（nullでないスロットのみ上書き）
-        data.forEach((s,i)=>{ if(i<SPOT_MAX&&s!==null) savedSpots[i]=s; });
-        _emptySlots();
-        _saveToLocalStorage();
-      }
+    if(!m)return;
+    const data=JSON.parse(decodeURIComponent(atob(m[1])));
+    if(!Array.isArray(data))return;
+    // nullでない最初の1件を取り出して画面に反映するだけ
+    // savedSpots・LocalStorageには一切書き込まない
+    const spot=data.find(s=>s!==null);
+    if(!spot)return;
+    // 地点
+    if(spot.lat!=null&&spot.lng!=null){ sLat=spot.lat; sLng=spot.lng; }
+    if(spot.target&&T[spot.target]) selTarget(spot.target);
+    if(spot.focal) setF(spot.focal);
+    if(spot.orientation) setOrientation(spot.orientation);
+    if(spot.tripodH!=null){
+      tripodH=spot.tripodH;
+      const el=document.getElementById('tripod-disp');
+      if(el)el.innerHTML=`${tripodH}<span style="font-size:8px;color:var(--sub);">cm</span>`;
     }
+    if(spot.elevOffset!=null) elevOffset=spot.elevOffset;
+    if(spot.sunsetMode!=null) setSunsetMode(spot.sunsetMode);
+    if(spot.pvAzOfs!=null) pvAzOfs=spot.pvAzOfs;
+    if(spot.pvAltOfs!=null) pvAltOfs=spot.pvAltOfs;
+    if(spot.date){
+      document.getElementById('idate').value=spot.date;
+      document.getElementById('idate').dispatchEvent(new Event('change'));
+    }
+    if(spot.time){
+      document.getElementById('itime').value=spot.time;
+      const td=document.getElementById('tbtn-time-disp');
+      if(td)td.textContent=spot.time;
+    }
+    syncMobileUI();
+    // 地図・描画反映（地図準備後に実行）
+    setTimeout(()=>{
+      if(map&&sLat!==null) map.setView([sLat,sLng],15);
+      if(sLat!==null) onPick();
+    },600);
+    // URLハッシュをクリア（再読み込み時に再適用されないよう）
+    history.replaceState(null,'',location.href.split('#')[0]);
   }catch(e){}
 }
 
@@ -3844,15 +3865,16 @@ window.addEventListener('load',()=>{
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;
     border-bottom:1px solid var(--bd);padding-bottom:8px;">
     <span style="font-family:'Space Mono',monospace;font-size:11px;color:var(--ac);">🗂 保存地点（最大15件）</span>
-    <div style="display:flex;gap:6px;align-items:center;">
-      <button onclick="exportSpots()"
-        style="background:var(--sur2);border:1px solid var(--bd);border-radius:4px;
-        color:var(--sub);font-family:'Space Mono',monospace;font-size:9px;padding:3px 7px;cursor:pointer;"
-        title="URLとしてコピー">🔗 共有</button>
-      <div onclick="closeSpotPanel()"
-        style="cursor:pointer;font-size:18px;color:var(--sub);padding:2px 6px;line-height:1;">✕</div>
-    </div>
+    <div onclick="closeSpotPanel()"
+      style="cursor:pointer;font-size:18px;color:var(--sub);padding:2px 6px;line-height:1;">✕</div>
   </div>
+  <!-- 保存ボタン -->
+  <button onclick="saveSpot()"
+    style="width:100%;background:var(--sur2);border:1px solid var(--ac);border-radius:5px;
+    color:var(--ac);font-family:'Space Mono',monospace;font-size:11px;padding:7px;
+    cursor:pointer;margin-bottom:10px;">
+    💾 現在の地点・設定を保存
+  </button>
   <div id="spot-panel-list"></div>
 </div>
 </body>
