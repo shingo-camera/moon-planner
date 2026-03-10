@@ -2301,7 +2301,8 @@ function drawView(dist,tAz,va){
         if(m>1440)break;
         const dt=new Date(dayStart.getTime()+m*60000);
         const bp=sunsetMode?sunPos(dt,sLat,sLng):moonPos(dt,sLat,sLng);
-        dayPts.push({x:cx+gnoH(azDiff(tAz,bp.az)), y:horizon-gnoV(bp.alt), m, alt:bp.alt});
+        const daz=Math.abs(azDiff(tAz,bp.az));
+        dayPts.push({x:cx+gnoH(azDiff(tAz,bp.az)), y:horizon-gnoV(bp.alt), m, alt:bp.alt, daz});
       }
 
       // グレー軌道線
@@ -2311,7 +2312,8 @@ function drawView(dist,tAz,va){
       let drawing=false;
       for(let i=0;i<dayPts.length;i++){
         const p=dayPts[i];
-        const inView=p.x>-100&&p.x<W+100&&p.y>-100&&p.y<H+100&&p.alt>-3;
+        // daz<89でtan()の±180°折り返しを防ぐ
+        const inView=p.x>-100&&p.x<W+100&&p.y>-100&&p.y<H+100&&p.alt>-3&&p.daz<89;
         if(inView){
           if(!drawing){ctx.beginPath();ctx.moveTo(p.x,p.y);drawing=true;}
           else ctx.lineTo(p.x,p.y);
@@ -2325,8 +2327,8 @@ function drawView(dist,tAz,va){
       const nowIdx = dayPts.reduce((best,p,i)=>
         Math.abs(p.m-nowMinutes)<Math.abs(dayPts[best].m-nowMinutes)?i:best, 0);
       // 前後maxMinutes分の点を切り出し
-      const pastPts2  = dayPts.filter(p=>p.m<=nowMinutes&&p.m>=nowMinutes-maxMinutes);
-      const futurePts2= dayPts.filter(p=>p.m>=nowMinutes&&p.m<=nowMinutes+maxMinutes);
+      const pastPts2  = dayPts.filter(p=>p.m<=nowMinutes&&p.m>=nowMinutes-maxMinutes&&p.daz<89);
+      const futurePts2= dayPts.filter(p=>p.m>=nowMinutes&&p.m<=nowMinutes+maxMinutes&&p.daz<89);
       // 現在点を末尾/先頭に追加
       const nowPt={x:moonX,y:moonY,m:nowMinutes};
       const pastFull  =[...pastPts2,  nowPt];
@@ -2385,7 +2387,7 @@ function drawView(dist,tAz,va){
       for(let m=0;m<=1440;m+=dayLabelInterval){
         const idx=Math.round(m/dayStep);
         const p=dayPts[idx];
-        if(!p||p.alt<0)continue;
+        if(!p||p.alt<0||p.daz>=89)continue;
         const diffMin=m-nowMinutes;
         const isPast=diffMin<0;
         const isNear=Math.abs(diffMin)<=maxMinutes;
@@ -2650,7 +2652,8 @@ function drawCompass(tAz,va){
       ctx.fillStyle='rgba(10,15,28,0.65)';ctx.fillRect(infoX-3,ly-12,lw+8,14);
       ctx.fillStyle=line.color;ctx.fillText(line.text,infoX,ly);
     });
-    const ex=infoX,ey=H-20,ew=Math.min(W-infoX-8,R*1.2),eh=Math.min(H*0.45,R*1.1);
+    const availW=W-infoX-12;
+    const ex=infoX,ey=H-20,ew=Math.min(availW,R*0.85),eh=Math.min(H*0.38,ew*0.9);
     if(ew>20&&eh>20){
       ctx.strokeStyle='rgba(200,169,110,.3)';ctx.lineWidth=1;
       ctx.beginPath();ctx.moveTo(ex,ey-eh);ctx.lineTo(ex,ey);ctx.lineTo(ex+ew,ey);ctx.stroke();
@@ -2726,6 +2729,7 @@ function saveSpot(){
   savedSpots[idx]=spot;
   _saveToLocalStorage();
   renderSpotPins();
+  renderSpotPanel();
   showHint(`スロット${idx+1}に保存しました。`);
 }
 
@@ -2934,16 +2938,17 @@ function _loadFromURLHash(){
       if(td)td.textContent=spot.time;
     }
     syncMobileUI();
-    // 地図・描画反映（地図準備後に実行）
+    // 地図・描画反映（地図準備後に実行）→ 完了後にハッシュ消去
     setTimeout(()=>{
       if(map&&sLat!==null) map.setView([sLat,sLng],15);
       if(sLat!==null) onPick();
+      // onPick()の非同期（標高API）完了を待ってからハッシュ消去
+      setTimeout(()=>{
+        history.replaceState(null,'',location.href.split('#')[0]);
+      },2000);
     },600);
-    // URLハッシュをクリア（再読み込み時に再適用されないよう）
-    history.replaceState(null,'',location.href.split('#')[0]);
   }catch(e){}
 }
-
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function suggest(dist,tAz,va){
   const t=T[cur];
@@ -3872,6 +3877,14 @@ window.addEventListener('load',()=>{
     clearTimeout(_resizeTimer);
     _resizeTimer=setTimeout(scheduleLayout,60);
   });
+});
+
+// BFCache（iOS Safari の戻るキャッシュ）対策
+// メモ帳→Safari→別ページ→戻る、の場合にpageshowが発火するがloadは発火しない
+window.addEventListener('pageshow', e=>{
+  if(e.persisted && location.hash && location.hash.includes('spots=')){
+    _loadFromURLHash();
+  }
 });
 </script>
 <!-- 保存地点オーバーレイ -->
