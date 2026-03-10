@@ -1890,11 +1890,16 @@ function drawView(dist,tAz,va){
   ctx.translate(ofsDx, ofsDy);
 
   const vaTop=Math.max(va,0.01);
+  // 塔根本の仰角（負の値 = 地平線より下、俯瞰時）
+  const vaBase=elAng(dist, sElev, T[cur].elev, 0);
 
-  // 頂点位置の計算：地上線固定で頂点を求め、頂点が上限より上なら頂点固定に切替
-  // 岐阜城は城上に月がかかる構図のため上限を緩めて城を下寄りに
+  // 頂点位置の計算：
+  // 地平線（仰角0°）を基準に、頂点はgnoV(vaTop)上、根本はgnoV(vaBase)の位置
+  // horizonが画面内に収まるようclampしつつ、頂点が上限より上なら頂点固定に切替
   const horizonDefault = cur==='gifu' ? H * 0.75 : H * 0.72;
   const topLimit = cur==='gifu' ? H * 0.40 : H * 0.40;
+  // 頂点Y = horizon - gnoV(vaTop)、根本Y = horizon - gnoV(vaBase)
+  // horizonを固定して頂点を計算
   const topFromHorizon = horizonDefault - gnoV(vaTop);
   let targetTopY, horizon;
   if(topFromHorizon >= topLimit){
@@ -2057,16 +2062,14 @@ function drawView(dist,tAz,va){
   }
 
   // 対象シルエット
-  // gnomonic投影：atan(h/d) で角度を求め、f_px_V * tan(ang) でピクセル化
-  const tAngH=angS(T[cur].h, dist);          // 対象高さの角度（度）
-  const thTrue=gnoV(tAngH);                   // gnomonic投影後の高さ（px）
+  // tY（頂点）・bY（根本）: 仰角ベースのgnomonic投影
+  const tY=targetTopY;
+  // 根本Y：仰角vaBaseの位置（俯瞰時は地平線より下 = horizonより大きいY）
+  const bY=horizon - gnoV(vaBase);
+  const thTrue=bY-tY;                         // 実描画高さ（vaTop〜vaBase間のpx）
   const physW=cur==='pl'?62:180;
   const tAngW=angS(physW, dist);              // 対象幅の角度（度）
   const tw=Math.max(gnoH(tAngW), 2);          // gnomonic投影後の幅（px）
-
-  // 頂点Y：targetTopYを使う（clamp済み）
-  const tY=targetTopY;
-  const bY=tY+thTrue;
 
   ctx.fillStyle='#0e172a';ctx.strokeStyle='rgba(200,169,110,.35)';ctx.lineWidth=.8;
 
