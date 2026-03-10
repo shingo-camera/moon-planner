@@ -2622,7 +2622,8 @@ function drawCompass(tAz,va){
     });
     const elvTop=infoY0+infoLines.length*16+10;
     const ew=Math.min(W*0.55,H*0.28);
-    const eh=Math.min(H-elvTop-16,ew*0.8);
+    const phaseReserve=52; // 月齢情報のための予約高さ
+    const eh=Math.min(H-elvTop-16-phaseReserve,ew*0.8);
     const ex=W/2-ew*0.1,ey=elvTop+eh;
     if(ew>20&&eh>20){
       ctx.strokeStyle='rgba(200,169,110,.3)';ctx.lineWidth=1;
@@ -2932,7 +2933,8 @@ function exportOneSpot(idx){
     const single=new Array(SPOT_MAX).fill(null);
     single[idx]=spot;
     const encoded=btoa(encodeURIComponent(JSON.stringify(single)));
-    const url=location.href.split('#')[0]+'#spots='+encoded;
+    const base=location.href.split('#')[0].split('?')[0];
+    const url=base+'?spots='+encoded;
     navigator.clipboard.writeText(url).then(()=>{
       showHint(`スロット${idx+1}のURLをコピーしました。`);
     }).catch(()=>{
@@ -2962,14 +2964,17 @@ function _loadFromLocalStorage(){
 
 function _loadFromURLHash(){
   try{
+    // クエリパラメータ優先（?spots=）、なければハッシュ（#spots=）をフォールバック
+    const search=location.search;
     const hash=location.hash;
+    const src=search.includes('spots=')?(search.slice(1)):(hash.slice(1));
     // デバッグ：hashの内容を画面に一時表示
     const dbg=document.createElement('div');
     dbg.style.cssText='position:fixed;top:50px;left:0;right:0;z-index:99999;background:rgba(0,0,0,.92);color:#0f0;font-size:11px;font-family:monospace;padding:8px;word-break:break-all;';
-    dbg.textContent='[HASH DEBUG] '+(hash?hash.slice(0,80)+'...(len='+hash.length+')':'(empty)');
+    dbg.textContent='[HASH DEBUG] '+(src?src.slice(0,80)+'...(len='+src.length+')':'(empty)');
     document.body.appendChild(dbg);
     setTimeout(()=>dbg.remove(), 8000);
-    const m=hash.match(/spots=([^&]+)/);
+    const m=src.match(/spots=([^&]+)/);
     if(!m)return;
     const data=JSON.parse(decodeURIComponent(atob(m[1])));
     if(!Array.isArray(data))return;
@@ -3017,9 +3022,10 @@ function _loadFromURLHash(){
     setTimeout(()=>{
       if(map&&sLat!==null) map.setView([sLat,sLng],15);
       if(sLat!==null) onPick();
-      // onPick()の非同期（標高API）完了を待ってからハッシュ消去
+      // URLパラメータをクリア（再読み込み時に再適用されないよう）
       setTimeout(()=>{
-        history.replaceState(null,'',location.href.split('#')[0]);
+        const clean=location.href.split('?')[0].split('#')[0];
+        history.replaceState(null,'',clean);
       },2000);
     },600);
   }catch(e){}
@@ -3957,7 +3963,7 @@ window.addEventListener('load',()=>{
 // BFCache（iOS Safari の戻るキャッシュ）対策
 // メモ帳→Safari→別ページ→戻る、の場合にpageshowが発火するがloadは発火しない
 window.addEventListener('pageshow', e=>{
-  if(e.persisted && location.hash && location.hash.includes('spots=')){
+  if(e.persisted && (location.search.includes('spots=') || location.hash.includes('spots='))){
     _loadFromURLHash();
   }
 });
