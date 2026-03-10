@@ -613,7 +613,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
               <span class="tbtn" onclick="shiftDay(+1)" title="1日後">+1d</span>
             </span>
           </div>
+          <div id="cv1-clip" style="overflow:hidden;flex-shrink:0;flex-grow:0;position:relative;">
           <canvas id="cv1"></canvas>
+          </div>
           <!-- スマホ用オフセット呼び出しボタン -->
           <div id="pv-ofs-btn" onclick="toggleOfsPopup()" title="視点オフセット">⊹</div>
           <!-- 8方向パッド（右上オーバーレイ） -->
@@ -824,7 +826,15 @@ function layout(){
 
     const cv1 = document.getElementById('cv1');
     cv1.width = cvW; cv1.height = cvH;
-    cv1.style.cssText = `width:${cvW}px!important;height:${cvH}px!important;display:block;background:#060810;box-sizing:border-box;border:1.5px solid var(--ac);`;
+    cv1.style.cssText = `width:${cvW}px!important;height:${cvH}px!important;display:block;background:#060810;`;
+    const cv1clip = document.getElementById('cv1-clip');
+    if(cv1clip){
+      cv1clip.style.width=cvW+'px';
+      cv1clip.style.height=cvH+'px';
+      cv1clip.style.border='1.5px solid #c8a96e';
+      cv1clip.style.boxSizing='border-box';
+      cv1clip.style.overflow='hidden';
+    }
 
     const cv2 = document.getElementById('cv2');
     cv2.width = diagW; cv2.height = diagH;
@@ -890,7 +900,15 @@ function layout(){
   // cv1：常にstyleを強制セット
   const cv1=document.getElementById('cv1');
   cv1.width=cvW; cv1.height=cvH;
-  cv1.style.cssText=`width:${cvW}px!important;height:${cvH}px!important;display:block;background:#060810;flex-shrink:0;flex-grow:0;box-sizing:border-box;border:1.5px solid var(--ac);`;
+  cv1.style.cssText=`width:${cvW}px!important;height:${cvH}px!important;display:block;background:#060810;flex-shrink:0;flex-grow:0;`;
+  const cv1clip=document.getElementById('cv1-clip');
+  if(cv1clip){
+    cv1clip.style.width=cvW+'px';
+    cv1clip.style.height=cvH+'px';
+    cv1clip.style.border='1.5px solid #c8a96e';
+    cv1clip.style.boxSizing='border-box';
+    cv1clip.style.overflow='hidden';
+  }
 
   // cv2：常にstyleを強制セット
   const cv2=document.getElementById('cv2');
@@ -974,12 +992,12 @@ window.addEventListener('DOMContentLoaded',()=>{
   }
 
   function applyTransform(){
-    const cv=document.getElementById('cv1');
-    if(!cv)return;
+    const clip=document.getElementById('cv1-clip');
+    if(!clip)return;
     const {tx,ty}=clampTranslate(pvScale,pvTx,pvTy);
     pvTx=tx; pvTy=ty;
-    cv.style.transformOrigin='center center';
-    cv.style.transform=pvScale===1&&tx===0&&ty===0
+    clip.style.transformOrigin='center center';
+    clip.style.transform=pvScale===1&&tx===0&&ty===0
       ?'none':`translate(${tx}px,${ty}px) scale(${pvScale})`;
   }
 
@@ -2482,14 +2500,14 @@ function drawView(dist,tAz,va){
   // 左上に設定日時を大きく表示（canvas幅に収まるようフォントサイズ自動調整）
   if(ds&&ts){
     const dtLabel=`${ds} ${ts}`;
-    let dtFs=22;
+    let dtFs=14;
     ctx.font=`bold ${dtFs}px 'Space Mono',monospace`;
-    while(ctx.measureText(dtLabel).width>W*0.92&&dtFs>10){
+    while(ctx.measureText(dtLabel).width>W*0.92&&dtFs>9){
       dtFs--;
       ctx.font=`bold ${dtFs}px 'Space Mono',monospace`;
     }
     ctx.textAlign='left';
-    ctx.strokeStyle='rgba(4,6,14,0.95)';ctx.lineWidth=4;ctx.lineJoin='round';
+    ctx.strokeStyle='rgba(4,6,14,0.95)';ctx.lineWidth=3;ctx.lineJoin='round';
     ctx.strokeText(dtLabel,10,dtFs+6);
     ctx.fillStyle='rgba(240,230,200,0.95)';
     ctx.fillText(dtLabel,10,dtFs+6);
