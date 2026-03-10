@@ -1891,7 +1891,9 @@ function drawView(dist,tAz,va){
 
   const vaTop=Math.max(va,0.01);
   // 塔根本の仰角（負の値 = 地平線より下、俯瞰時）
-  const vaBase=elAng(dist, sElev, T[cur].elev, 0);
+  // ピン未選択時(sLat===null)はsElevが0のままなので城標高をデフォルトとして使う
+  const vaBaseElev = sLat!==null ? sElev : T[cur].elev;
+  const vaBase=elAng(dist, vaBaseElev, T[cur].elev, 0);
 
   // 頂点位置の計算：
   // 地平線（仰角0°）を基準に、頂点はgnoV(vaTop)上、根本はgnoV(vaBase)の位置
@@ -2065,7 +2067,9 @@ function drawView(dist,tAz,va){
   // tY（頂点）・bY（根本）: 仰角ベースのgnomonic投影
   const tY=targetTopY;
   // 根本Y：仰角vaBaseの位置（俯瞰時は地平線より下 = horizonより大きいY）
-  const bY=horizon - gnoV(vaBase);
+  // vaBaseがvaTopより大きい場合（撮影地点より城根本が高い地形等）はvaTopを根本として扱う
+  const bY_raw=horizon - gnoV(vaBase);
+  const bY=Math.max(bY_raw, tY);             // 根本は頂点より必ず下（逆転防止）
   const thTrue=bY-tY;                         // 実描画高さ（vaTop〜vaBase間のpx）
   const physW=cur==='pl'?62:180;
   const tAngW=angS(physW, dist);              // 対象幅の角度（度）
