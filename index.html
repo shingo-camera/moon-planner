@@ -3790,30 +3790,30 @@ function renderMoonCal(){
       padding:3px 1px;border-radius:5px;cursor:pointer;
       border:1px solid ${isSel?'var(--ac)':'var(--bd)'};
       background:${isSel?'rgba(200,169,110,0.12)':'var(--sur2)'};
-      min-width:0;
+      min-width:0;user-select:none;-webkit-user-select:none;
     `;
-    cell.onclick=()=>{ setDateFromCal(ds); };
+    cell.dataset.ds=ds;
 
     // 日付数字
     const dayEl=document.createElement('div');
     dayEl.style.cssText=`font-family:'Space Mono',monospace;font-size:10px;font-weight:700;
-      color:${dow===0?'#ff6655':dow===6?'#4488ff':'var(--tx)'};line-height:1.2;`;
+      color:${dow===0?'#ff6655':dow===6?'#4488ff':'var(--tx)'};line-height:1.2;pointer-events:none;`;
     dayEl.textContent=d;
 
     // 月相canvas（小）
     const cv=document.createElement('canvas');
     cv.width=24;cv.height=24;
-    cv.style.cssText='display:block;border-radius:50%;flex-shrink:0;';
+    cv.style.cssText='display:block;border-radius:50%;flex-shrink:0;pointer-events:none;';
     drawMoonPhaseSmall(cv,age);
 
     // 月齢
     const ageEl=document.createElement('div');
-    ageEl.style.cssText=`font-family:'Space Mono',monospace;font-size:8px;color:var(--ac);line-height:1.2;`;
+    ageEl.style.cssText=`font-family:'Space Mono',monospace;font-size:8px;color:var(--ac);line-height:1.2;pointer-events:none;`;
     ageEl.textContent=age.toFixed(1);
 
     // 月相名
     const nameEl=document.createElement('div');
-    nameEl.style.cssText=`font-size:7px;color:var(--sub);line-height:1.2;text-align:center;word-break:keep-all;`;
+    nameEl.style.cssText=`font-size:7px;color:var(--sub);line-height:1.2;text-align:center;word-break:keep-all;pointer-events:none;`;
     nameEl.textContent=phaseName;
 
     cell.appendChild(dayEl);
@@ -3822,6 +3822,12 @@ function renderMoonCal(){
     cell.appendChild(nameEl);
     grid.appendChild(cell);
   }
+
+  // イベント委譲：grid全体でclickを受けてdata-dsでセル特定
+  grid.onclick=(e)=>{
+    const cell=e.target.closest('[data-ds]');
+    if(cell) setDateFromCal(cell.dataset.ds);
+  };
 }
 
 function drawMoonPhaseSmall(cv,age){
@@ -3859,8 +3865,11 @@ function drawMoonPhaseSmall(cv,age){
 }
 
 function setDateFromCal(ds){
-  document.getElementById('idate').value=ds;
-  document.getElementById('idate').dispatchEvent(new Event('change'));
+  const realEl=document.getElementById('idate');
+  if(realEl) realEl.value=ds;
+  const drawerContent=document.getElementById('mob-drawer-content');
+  if(drawerContent){const cp=drawerContent.querySelector('#idate');if(cp)cp.value=ds;}
+  if(realEl) realEl.dispatchEvent(new Event('change'));
   closeMoonCal();
 }
 
