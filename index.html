@@ -2182,8 +2182,8 @@ function drawView(dist,tAz,va){
     // 石垣
     {
       const sw=G_BW*1.10, sd=G_BD*1.10, h=G_SEK, tp=G_UNIT*0.05;
-      // 石垣上面 - 俯瞰（仰角10°以上）のときのみ表示
-      if(vaTop > 10){
+      // 石垣上面 - 見下ろし（根本の仰角が負=カメラが石垣より高い）のときのみ表示
+      if(vaBase < 0){
         gFaces.push({
           verts2d:[gp(-sw,h,-sd),gp(sw,h,-sd),gp(sw,h,sd),gp(-sw,h,sd)],
           fill:'#1e2d42',stroke:'rgba(200,169,110,.2)',lw:0.7,
@@ -2228,8 +2228,8 @@ function drawView(dist,tAz,va){
       });
       if(hasEave){
         const ew=w+G_ROOF_OUT, ed=d+G_ROOF_OUT, eh=G_UNIT*0.025;
-        // 庇上面: 俯瞰（仰角10°以上）のときのみ表示
-        if(vaTop > 10){
+        // 庇上面: 見下ろし（根本の仰角が負=カメラが庇より高い）のときのみ表示
+        if(vaBase < 0){
           gFaces.push({
             verts2d:[gp(-ew,y1+eh,-ed),gp(ew,y1+eh,-ed),gp(ew,y1+eh,ed),gp(-ew,y1+eh,ed)],
             fill:'rgba(140,120,60,.6)',stroke:'rgba(200,169,110,.35)',lw:0.6,
