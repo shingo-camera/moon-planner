@@ -768,7 +768,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
     <div style="text-align:center;font-family:'Space Mono',monospace;font-size:9px;color:var(--sub);padding:2px;">金</div>
     <div style="text-align:center;font-family:'Space Mono',monospace;font-size:9px;color:#4488ff;padding:2px;">土</div>
   </div>
-  <div id="mooncal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;"></div>
+  <div id="mooncal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);grid-template-rows:repeat(6,1fr);gap:3px;"></div>
 </div>
 
 <div id="mob-overlay" onclick="toggleDrawer()"></div>
@@ -3865,6 +3865,13 @@ function renderMoonCal(){
 
     riseEls.push({ds, el:riseEl});
     setEls.push({ds, el:setEl});
+  }
+
+  // 6行×7列=42セルになるよう末尾を空白セルで埋める（グリッド高さ固定のため）
+  const totalCells=firstDay+daysInMonth;
+  const padCount=(42-totalCells%42)%42;
+  for(let i=0;i<padCount;i++){
+    grid.appendChild(document.createElement('div'));
   }
 
   // イベント委譲：grid全体でclickを受けてdata-dsでセル特定
