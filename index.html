@@ -1555,45 +1555,103 @@ function moonPhaseName(age){
   return'新月';
 }
 
+// 月相描画ヘルパー（ctx座標系に直接描く）
+// cx,cy: 中心, r: 半径, age: 月齢(日)
+// アルゴリズム:
+//   phase<0.5（新月→満月）: 右半円が光る
+//     境界楕円の右半分(-PI/2〜PI/2)を:
+//       ex<0 → 黒（右半円を削って三日月）
+//       ex>0 → 金色（光の面を左に拡張して凸月）
+//   phase>=0.5（満月→新月）: 左半円が光る
+//     境界楕円の左半分(PI/2〜-PI/2)を:
+//       ex<0 → 黒（左半円を削って三日月）
+//       ex>0 → 金色（光の面を右に拡張して凸月）
+function drawMoonIcon(ctx, cx, cy, r, age){
+  const phase=age/29.53058867;
+  const illum=(1-Math.cos(2*Math.PI*phase))/2;
+  const ex=r*(2*illum-1); // 楕円x半径：-r=全暗, 0=半月, +r=全明
+  const DARK='#060810';
+  const mg=ctx.createRadialGradient(cx-r*.3,cy-r*.3,1,cx,cy,r);
+  mg.addColorStop(0,'#fffde8');mg.addColorStop(0.6,'#e8d5a0');mg.addColorStop(1,'#b89840');
+
+  // 背景黒丸
+  ctx.fillStyle=DARK;
+  ctx.beginPath();ctx.arc(cx,cy,r+1,0,Math.PI*2);ctx.fill();
+
+  // clip内で完全描画（clip外に描画が漏れない）
+  ctx.save();
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.clip();
+
+  // 全体を黒でリセット
+  ctx.fillStyle=DARK;
+  ctx.fillRect(cx-r-1,cy-r-1,(r+1)*2,(r+1)*2);
+
+  ctx.fillStyle=mg;
+  const exAbs=Math.max(0.5,Math.abs(ex));
+
+  if(phase<0.5){
+    // ── 右が光る（新月→満月）──
+    // ①右半円を金色
+    ctx.beginPath();
+    ctx.moveTo(cx,cy);
+    ctx.arc(cx,cy,r,-Math.PI/2,Math.PI/2,false);
+    ctx.closePath();ctx.fill();
+    // ②境界楕円の右半分で調整
+    if(ex<0){
+      // 右半円を楕円で削る（三日月→半月）
+      ctx.fillStyle=DARK;
+      ctx.beginPath();
+      ctx.moveTo(cx,cy);
+      ctx.ellipse(cx,cy,exAbs,r,0,-Math.PI/2,Math.PI/2,false);
+      ctx.closePath();ctx.fill();
+    } else {
+      // 光の面を左に拡張（半月→満月）
+      ctx.fillStyle=mg;
+      ctx.beginPath();
+      ctx.moveTo(cx,cy);
+      ctx.ellipse(cx,cy,exAbs,r,0,Math.PI/2,-Math.PI/2,false);
+      ctx.closePath();ctx.fill();
+    }
+  } else {
+    // ── 左が光る（満月→新月）──
+    // ①左半円を金色
+    ctx.fillStyle=mg;
+    ctx.beginPath();
+    ctx.moveTo(cx,cy);
+    ctx.arc(cx,cy,r,Math.PI/2,-Math.PI/2,false);
+    ctx.closePath();ctx.fill();
+    // ②境界楕円の左半分で調整
+    if(ex<0){
+      // 左半円を楕円で削る（三日月→半月）
+      ctx.fillStyle=DARK;
+      ctx.beginPath();
+      ctx.moveTo(cx,cy);
+      ctx.ellipse(cx,cy,exAbs,r,0,Math.PI/2,-Math.PI/2,false);
+      ctx.closePath();ctx.fill();
+    } else {
+      // 光の面を右に拡張（半月→満月）
+      ctx.fillStyle=mg;
+      ctx.beginPath();
+      ctx.moveTo(cx,cy);
+      ctx.ellipse(cx,cy,exAbs,r,0,-Math.PI/2,Math.PI/2,false);
+      ctx.closePath();ctx.fill();
+    }
+  }
+
+  ctx.restore();
+  // 枠線
+  ctx.strokeStyle='rgba(200,169,110,.25)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
+}
+
 function drawMoonPhase(age){
   const cv=document.getElementById('cv-phase');
   if(!cv)return;
   const ctx=cv.getContext('2d');
-  const W=32,H=32,cx=16,cy=16,r=13;
+  const W=32,H=32,r=13;
   cv.width=W;cv.height=H;
   ctx.clearRect(0,0,W,H);
-  const phase=age/29.53058867;
-  ctx.fillStyle='#060810';
-  ctx.beginPath();ctx.arc(cx,cy,r+1,0,Math.PI*2);ctx.fill();
-  const moonGrad=ctx.createRadialGradient(cx-4,cy-4,2,cx,cy,r);
-  moonGrad.addColorStop(0,'#fffde8');moonGrad.addColorStop(0.6,'#e8d5a0');moonGrad.addColorStop(1,'#b89840');
-  ctx.fillStyle=moonGrad;
-  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();
-  ctx.save();
-  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.clip();
-  const illum=(1-Math.cos(2*Math.PI*phase))/2;
-  const ex=r*(2*illum-1);
-  ctx.fillStyle='#060810';
-  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();
-  const moonGrad2=ctx.createRadialGradient(cx-4,cy-4,2,cx,cy,r);
-  moonGrad2.addColorStop(0,'#fffde8');moonGrad2.addColorStop(0.6,'#e8d5a0');moonGrad2.addColorStop(1,'#b89840');
-  ctx.fillStyle=moonGrad2;
-  ctx.save();
-  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.clip();
-  if(phase<0.5){
-    // 右半分が光る（上弦方向）
-    ctx.beginPath();ctx.arc(cx,cy,r,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();
-    ctx.beginPath();ctx.ellipse(cx,cy,Math.abs(ex),r,0,0,Math.PI*2);
-    if(ex>0){ctx.fill();}else{ctx.fillStyle='#060810';ctx.fill();}
-  }else{
-    // 左半分が光る（下弦方向）
-    ctx.beginPath();ctx.arc(cx,cy,r,Math.PI/2,-Math.PI/2,true);ctx.closePath();ctx.fill();
-    ctx.beginPath();ctx.ellipse(cx,cy,Math.abs(ex),r,0,0,Math.PI*2);
-    if(ex>0){ctx.fill();}else{ctx.fillStyle='#060810';ctx.fill();}
-  }
-  ctx.restore();ctx.restore();
-  ctx.strokeStyle='rgba(200,169,110,.3)';ctx.lineWidth=1;
-  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
+  drawMoonIcon(ctx,16,16,r,age);
 }
 
 function calcSunMoon(){
@@ -1967,32 +2025,36 @@ function drawView(dist,tAz,va){
         mg.addColorStop(1,`rgb(${meR},${meG},${meB})`);
         return mg;
       };
-      // 月の外形を楕円で描画
-      ctx.beginPath();ctx.ellipse(0,0,mr,mrV,0,0,Math.PI*2);
-      ctx.fillStyle=moonGrad(-mr*.3,-mrV*.3);
-      ctx.shadowColor=`rgba(${mcR},${Math.round(mcG*0.8)},${Math.round(mcB*0.5)},.5)`;
-      ctx.shadowBlur=mr*0.6;ctx.fill();ctx.shadowBlur=0;
-      // 位相描画：楕円クリップ内で影を乗せる
+      // 位相描画：楕円クリップ内で完結
       ctx.save();
       ctx.beginPath();ctx.ellipse(0,0,mr,mrV,0,0,Math.PI*2);ctx.clip();
+      const DARK2='rgba(6,8,16,.99)';
+      // 全体を黒でリセット
+      ctx.fillStyle=DARK2;
+      ctx.fillRect(-mr-1,-mrV-1,mr*2+2,mrV*2+2);
       const illum2=(1-Math.cos(2*Math.PI*phase))/2;
-      // 位相の境界楕円：水平軸はmr*(2*illum-1)、垂直軸はmrV
       const ex2=mr*(2*illum2-1);
-      ctx.fillStyle='rgba(6,8,16,.92)';
-      ctx.beginPath();ctx.ellipse(0,0,mr,mrV,0,0,Math.PI*2);ctx.fill();
+      const ex2Abs=Math.max(0.5,Math.abs(ex2));
       ctx.fillStyle=moonGrad(-mr*.3,-mrV*.3);
       if(phase<0.5){
-        // 右半分（illuminated）+ 境界楕円
-        ctx.beginPath();ctx.ellipse(0,0,mr,mrV,0,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();
-        ctx.beginPath();ctx.ellipse(0,0,Math.abs(ex2),mrV,0,0,Math.PI*2);
-        if(ex2>0){ctx.fill();}else{ctx.fillStyle='rgba(6,8,16,.92)';ctx.fill();}
+        // 右半円を光らせる
+        ctx.beginPath();ctx.moveTo(0,0);ctx.ellipse(0,0,mr,mrV,0,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();
+        // 境界楕円の右半分で調整
+        if(ex2<0){ctx.fillStyle=DARK2;ctx.beginPath();ctx.moveTo(0,0);ctx.ellipse(0,0,ex2Abs,mrV,0,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();}
+        else{ctx.fillStyle=moonGrad(-mr*.3,-mrV*.3);ctx.beginPath();ctx.moveTo(0,0);ctx.ellipse(0,0,ex2Abs,mrV,0,Math.PI/2,-Math.PI/2,false);ctx.closePath();ctx.fill();}
       }else{
-        // 左半分（illuminated）+ 境界楕円
-        ctx.beginPath();ctx.ellipse(0,0,mr,mrV,0,Math.PI/2,-Math.PI/2,false);ctx.closePath();ctx.fill();
-        ctx.beginPath();ctx.ellipse(0,0,Math.abs(ex2),mrV,0,0,Math.PI*2);
-        if(ex2>0){ctx.fill();}else{ctx.fillStyle='rgba(6,8,16,.92)';ctx.fill();}
+        // 左半円を光らせる
+        ctx.beginPath();ctx.moveTo(0,0);ctx.ellipse(0,0,mr,mrV,0,Math.PI/2,-Math.PI/2,false);ctx.closePath();ctx.fill();
+        // 境界楕円の左半分で調整
+        if(ex2<0){ctx.fillStyle=DARK2;ctx.beginPath();ctx.moveTo(0,0);ctx.ellipse(0,0,ex2Abs,mrV,0,Math.PI/2,-Math.PI/2,false);ctx.closePath();ctx.fill();}
+        else{ctx.fillStyle=moonGrad(-mr*.3,-mrV*.3);ctx.beginPath();ctx.moveTo(0,0);ctx.ellipse(0,0,ex2Abs,mrV,0,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();}
       }
-      ctx.restore();ctx.restore();
+      ctx.restore();
+      // 外形グロー
+      ctx.beginPath();ctx.ellipse(0,0,mr,mrV,0,0,Math.PI*2);
+      ctx.shadowColor=`rgba(${mcR},${Math.round(mcG*0.8)},${Math.round(mcB*0.5)},.5)`;
+      ctx.shadowBlur=mr*0.6;ctx.strokeStyle='transparent';ctx.stroke();ctx.shadowBlur=0;
+      ctx.restore();
       // ラベル（月齢・角直径も表示）
       ctx.font=`bold 11px 'Space Mono',monospace`;ctx.textAlign='center';
       const mlabel=`月 ${mAlt.toFixed(1)}° / AZ${mAz.toFixed(0)}° / ø${bodyAngDiam.toFixed(2)}°`;
@@ -2544,9 +2606,13 @@ function drawCompass(tAz,va){
   // コンパス円：左寄せ
   // スマホ（canvas幅600未満）は縦レイアウト、PCは横レイアウト
   const isMobCanvas=W<600;
-  const R=isMobCanvas?Math.min(H*0.22,W*0.22):Math.min(H*0.38,W*0.22);
-  const cx=isMobCanvas?W/2:R+16;
-  const cy=isMobCanvas?R+14:H/2;
+  const isMobLand=isMobCanvas&&(W>H); // スマホ横向き
+  const isMobPort=isMobCanvas&&(W<=H); // スマホ縦向き
+  // 横向き：コンパス円を左上に小さく
+  // 縦向き：コンパス円を上部中央に
+  const R=isMobLand?Math.min(H*0.32,W*0.18):isMobPort?Math.min(H*0.20,W*0.22):Math.min(H*0.38,W*0.22);
+  const cx=isMobLand?R+10:isMobPort?W/2:R+16;
+  const cy=isMobLand?R+10:isMobPort?R+12:H/2;
 
   ctx.strokeStyle='rgba(200,169,110,.35)';ctx.lineWidth=1;
   ctx.beginPath();ctx.arc(cx,cy,R,0,6.28);ctx.stroke();
@@ -2610,91 +2676,99 @@ function drawCompass(tAz,va){
   ];
 
   if(isMobCanvas){
-    // スマホ：コンパス円（小さめ）→ AZ/ELEV テキスト → 仰角ダイアグラム → 月齢情報（縦積み）
-    const infoY0=cy+R+14;
-    ctx.textAlign='center';ctx.textBaseline='alphabetic';
-    infoLines.forEach((line,i)=>{
-      ctx.font=`${line.size} 'Space Mono',monospace`;
-      const lw=ctx.measureText(line.text).width;
-      const ly=infoY0+i*15;
-      ctx.fillStyle='rgba(10,15,28,0.65)';ctx.fillRect(cx-lw/2-3,ly-12,lw+6,14);
-      ctx.fillStyle=line.color;ctx.fillText(line.text,cx,ly);
-    });
-
-    // 仰角ダイアグラム：幅をcanvas幅の60%、月齢用に下部52px確保
-    const elvTop=infoY0+infoLines.length*15+10;
-    const phaseAreaH=52;
-    const ew=Math.min(W*0.60, H*0.25);
-    const eh=Math.min(H-elvTop-phaseAreaH-10, ew*0.75);
-    const ex=cx-ew*0.1, ey=elvTop+Math.max(eh,0);
-    if(ew>20&&eh>10){
-      ctx.strokeStyle='rgba(200,169,110,.3)';ctx.lineWidth=1;
-      ctx.beginPath();ctx.moveTo(ex,ey-eh);ctx.lineTo(ex,ey);ctx.lineTo(ex+ew,ey);ctx.stroke();
-      const ar=Math.max(0,va)*Math.PI/180;
-      ctx.strokeStyle='#c8a96e';ctx.lineWidth=2;ctx.shadowColor='#c8a96e';ctx.shadowBlur=4;
-      ctx.beginPath();ctx.moveTo(ex,ey);ctx.arc(ex,ey,ew*.65,0,-ar,true);ctx.stroke();ctx.shadowBlur=0;
-      const ll=ew*.70;
-      ctx.strokeStyle='rgba(200,169,110,.5)';ctx.lineWidth=1.5;
-      ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex+ll*Math.cos(-ar),ey+ll*Math.sin(-ar));ctx.stroke();
-      ctx.font='12px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillText(T[cur].e,ex+ll*Math.cos(-ar),ey+ll*Math.sin(-ar)-4);
-      const elvLabel=`${Math.max(0,va).toFixed(2)}°`;
-      ctx.font=`bold 10px 'Space Mono',monospace`;ctx.textAlign='left';ctx.textBaseline='alphabetic';
-      const elw=ctx.measureText(elvLabel).width;
-      ctx.fillStyle='rgba(10,15,28,0.65)';ctx.fillRect(ex+14,ey-18,elw+6,13);
-      ctx.fillStyle='rgba(200,220,160,0.95)';ctx.fillText(elvLabel,ex+16,ey-7);
-    }
-
-    // ── 月齢情報（下部phaseAreaH px内に縦中央揃えで表示）──
-    const phaseY0 = H - phaseAreaH + 4;
-    const ds2 = document.getElementById('idate').value;
-    if(ds2){
-      const age2 = moonAge(new Date(ds2+'T03:00:00Z'));
-      const phase2 = age2/29.53058867;
-      const pname = moonPhaseName(age2);
-      const pr = 16; // 固定サイズ
-      const pmy = phaseY0 + pr + 2;
-      const pmx = cx - 52; // 左寄せ（テキストと並ぶ）
-      // 背景黒丸
-      ctx.fillStyle='#060810';
-      ctx.beginPath();ctx.arc(pmx,pmy,pr+1,0,Math.PI*2);ctx.fill();
-      // 月本体グラデ
-      const mg=ctx.createRadialGradient(pmx-pr*.3,pmy-pr*.3,1,pmx,pmy,pr);
-      mg.addColorStop(0,'#fffde8');mg.addColorStop(0.6,'#e8d5a0');mg.addColorStop(1,'#b89840');
-      ctx.fillStyle=mg;
-      ctx.beginPath();ctx.arc(pmx,pmy,pr,0,Math.PI*2);ctx.fill();
-      // 位相（影）
-      ctx.save();
-      ctx.beginPath();ctx.arc(pmx,pmy,pr,0,Math.PI*2);ctx.clip();
-      const illum2=(1-Math.cos(2*Math.PI*phase2))/2;
-      const pex=pr*(2*illum2-1);
-      ctx.fillStyle='rgba(6,8,16,.92)';
-      ctx.beginPath();ctx.arc(pmx,pmy,pr,0,Math.PI*2);ctx.fill();
-      const mg2=ctx.createRadialGradient(pmx-pr*.3,pmy-pr*.3,1,pmx,pmy,pr);
-      mg2.addColorStop(0,'#fffde8');mg2.addColorStop(0.6,'#e8d5a0');mg2.addColorStop(1,'#b89840');
-      ctx.fillStyle=mg2;
-      if(phase2<0.5){
-        ctx.beginPath();ctx.arc(pmx,pmy,pr,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();
-        ctx.beginPath();ctx.ellipse(pmx,pmy,Math.abs(pex),pr,0,0,Math.PI*2);
-        if(pex>0){ctx.fill();}else{ctx.fillStyle='rgba(6,8,16,.92)';ctx.fill();}
-      }else{
-        ctx.beginPath();ctx.arc(pmx,pmy,pr,Math.PI/2,-Math.PI/2,false);ctx.closePath();ctx.fill();
-        ctx.beginPath();ctx.ellipse(pmx,pmy,Math.abs(pex),pr,0,0,Math.PI*2);
-        if(pex>0){ctx.fill();}else{ctx.fillStyle='rgba(6,8,16,.92)';ctx.fill();}
-      }
-      ctx.restore();
-      ctx.strokeStyle='rgba(200,169,110,.3)';ctx.lineWidth=1;
-      ctx.beginPath();ctx.arc(pmx,pmy,pr,0,Math.PI*2);ctx.stroke();
-      // テキスト：アイコンの右に縦積み
-      const tx2 = pmx + pr + 8;
+    if(isMobLand){
+      // ━━ スマホ横向き：左上にコンパス円、右側に縦積み（AZ/ELEV→仰角→月齢）━━
+      const rightX=cx+R+14;
       ctx.textAlign='left';ctx.textBaseline='alphabetic';
-      ctx.font=`bold 13px 'Space Mono',monospace`;
-      ctx.fillStyle='rgba(200,169,110,0.95)';
-      ctx.fillText(`${age2.toFixed(1)}日`, tx2, pmy-2);
-      ctx.font=`10px 'Noto Sans JP',sans-serif`;
-      ctx.fillStyle='rgba(200,200,220,0.85)';
-      ctx.fillText(pname, tx2, pmy+12);
+      infoLines.forEach((line,i)=>{
+        ctx.font=`${line.size} 'Space Mono',monospace`;
+        const lw=ctx.measureText(line.text).width;
+        const ly=14+i*16;
+        ctx.fillStyle='rgba(10,15,28,0.65)';ctx.fillRect(rightX-2,ly-12,lw+6,14);
+        ctx.fillStyle=line.color;ctx.fillText(line.text,rightX,ly);
+      });
+      const elvTop=14+infoLines.length*16+8;
+      const phaseAreaH=40;
+      const ew=Math.min(W-rightX-10, H*0.50);
+      const eh=Math.min(H-elvTop-phaseAreaH-8, ew*0.65);
+      const ex=rightX, ey=elvTop+Math.max(eh,0);
+      if(ew>20&&eh>8){
+        ctx.strokeStyle='rgba(200,169,110,.3)';ctx.lineWidth=1;
+        ctx.beginPath();ctx.moveTo(ex,ey-eh);ctx.lineTo(ex,ey);ctx.lineTo(ex+ew,ey);ctx.stroke();
+        const ar=Math.max(0,va)*Math.PI/180;
+        ctx.strokeStyle='#c8a96e';ctx.lineWidth=2;ctx.shadowColor='#c8a96e';ctx.shadowBlur=4;
+        ctx.beginPath();ctx.moveTo(ex,ey);ctx.arc(ex,ey,ew*.65,0,-ar,true);ctx.stroke();ctx.shadowBlur=0;
+        const ll=ew*.70;
+        ctx.strokeStyle='rgba(200,169,110,.5)';ctx.lineWidth=1.5;
+        ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex+ll*Math.cos(-ar),ey+ll*Math.sin(-ar));ctx.stroke();
+        ctx.font='11px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText(T[cur].e,ex+ll*Math.cos(-ar),ey+ll*Math.sin(-ar)-4);
+        const elvLabel=`${Math.max(0,va).toFixed(2)}°`;
+        ctx.font=`bold 9px 'Space Mono',monospace`;ctx.textAlign='left';ctx.textBaseline='alphabetic';
+        const elw=ctx.measureText(elvLabel).width;
+        ctx.fillStyle='rgba(10,15,28,0.65)';ctx.fillRect(ex+10,ey-16,elw+4,11);
+        ctx.fillStyle='rgba(200,220,160,0.95)';ctx.fillText(elvLabel,ex+11,ey-7);
+      }
+      const phaseY0=H-phaseAreaH+4;
+      const ds2=document.getElementById('idate').value;
+      if(ds2){
+        const age2=moonAge(new Date(ds2+'T03:00:00Z'));
+        const pname=moonPhaseName(age2);
+        const pr=Math.min(16,Math.floor(phaseAreaH*0.42));
+        const pmx=rightX+pr+2, pmy=phaseY0+pr;
+        drawMoonIcon(ctx,pmx,pmy,pr,age2);
+        const tx2=pmx+pr+6;
+        ctx.textAlign='left';ctx.textBaseline='alphabetic';
+        ctx.font=`bold 12px 'Space Mono',monospace`;ctx.fillStyle='rgba(200,169,110,0.95)';ctx.fillText(`${age2.toFixed(1)}日`,tx2,pmy+2);
+        ctx.font=`9px 'Noto Sans JP',sans-serif`;ctx.fillStyle='rgba(200,200,220,0.85)';ctx.fillText(pname,tx2,pmy+14);
+      }
+    } else {
+      // ━━ スマホ縦向き：上部中央コンパス → AZ/ELEV → 仰角（左端から）→ 月齢（下部固定）━━
+      const infoY0=cy+R+14;
+      ctx.textAlign='center';ctx.textBaseline='alphabetic';
+      infoLines.forEach((line,i)=>{
+        ctx.font=`${line.size} 'Space Mono',monospace`;
+        const lw=ctx.measureText(line.text).width;
+        const ly=infoY0+i*15;
+        ctx.fillStyle='rgba(10,15,28,0.65)';ctx.fillRect(cx-lw/2-3,ly-12,lw+6,14);
+        ctx.fillStyle=line.color;ctx.fillText(line.text,cx,ly);
+      });
+      const elvTop=infoY0+infoLines.length*15+10;
+      const phaseAreaH=52, margin=10;
+      const ew=Math.min(W-margin*2, H*0.30);
+      const eh=Math.min(H-elvTop-phaseAreaH-10, ew*0.70);
+      const ex=margin, ey=elvTop+Math.max(eh,0);
+      if(ew>20&&eh>10){
+        ctx.strokeStyle='rgba(200,169,110,.3)';ctx.lineWidth=1;
+        ctx.beginPath();ctx.moveTo(ex,ey-eh);ctx.lineTo(ex,ey);ctx.lineTo(ex+ew,ey);ctx.stroke();
+        const ar=Math.max(0,va)*Math.PI/180;
+        ctx.strokeStyle='#c8a96e';ctx.lineWidth=2;ctx.shadowColor='#c8a96e';ctx.shadowBlur=4;
+        ctx.beginPath();ctx.moveTo(ex,ey);ctx.arc(ex,ey,ew*.65,0,-ar,true);ctx.stroke();ctx.shadowBlur=0;
+        const ll=ew*.70;
+        ctx.strokeStyle='rgba(200,169,110,.5)';ctx.lineWidth=1.5;
+        ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex+ll*Math.cos(-ar),ey+ll*Math.sin(-ar));ctx.stroke();
+        ctx.font='12px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText(T[cur].e,ex+ll*Math.cos(-ar),ey+ll*Math.sin(-ar)-4);
+        const elvLabel=`${Math.max(0,va).toFixed(2)}°`;
+        ctx.font=`bold 10px 'Space Mono',monospace`;ctx.textAlign='left';ctx.textBaseline='alphabetic';
+        const elw=ctx.measureText(elvLabel).width;
+        ctx.fillStyle='rgba(10,15,28,0.65)';ctx.fillRect(ex+14,ey-18,elw+6,13);
+        ctx.fillStyle='rgba(200,220,160,0.95)';ctx.fillText(elvLabel,ex+16,ey-7);
+      }
+      const phaseY0=H-phaseAreaH+4;
+      const ds2=document.getElementById('idate').value;
+      if(ds2){
+        const age2=moonAge(new Date(ds2+'T03:00:00Z'));
+        const pname=moonPhaseName(age2);
+        const pr=16, pmx=margin+pr+2, pmy=phaseY0+pr+2;
+        drawMoonIcon(ctx,pmx,pmy,pr,age2);
+        const tx2=pmx+pr+7;
+        ctx.textAlign='left';ctx.textBaseline='alphabetic';
+        ctx.font=`bold 13px 'Space Mono',monospace`;ctx.fillStyle='rgba(200,169,110,0.95)';ctx.fillText(`${age2.toFixed(1)}日`,tx2,pmy-2);
+        ctx.font=`10px 'Noto Sans JP',sans-serif`;ctx.fillStyle='rgba(200,200,220,0.85)';ctx.fillText(pname,tx2,pmy+12);
+      }
     }
+
   } else {
     // PC：右側に情報テキスト＋仰角ダイアグラム（元のレイアウト）
     const infoX=cx+R+22;
