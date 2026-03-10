@@ -1947,24 +1947,16 @@ function drawView(dist,tAz,va){
   // isPast/isFuture/isNear/isNeutral の4種を返す
   const lblBrightAdj = skyBrightness>0.5 ? 0.75 : 1.0;
   function lblColor(type){
-    if(skyBrightness<0.25){
-      // 夜〜薄暮：従来の明色
+    if(skyBrightness<0.65){
+      // 夜〜ゴールデン〜薄明（太陽+6°相当まで）：明色（縁取りで視認性確保）
       if(type==='past')    return 'rgba(160,210,255,0.95)';
       if(type==='future')  return 'rgba(240,200,120,0.95)';
-      if(type==='neutral') return 'rgba(200,200,220,0.6)';
+      if(type==='neutral') return 'rgba(200,200,220,0.75)';
       if(type==='moon')    return 'rgba(180,220,255,0.95)';
       if(type==='fov')     return 'rgba(200,169,110,0.9)';
       if(type==='dt')      return 'rgba(240,230,200,0.95)';
-    } else if(skyBrightness<0.55){
-      // 薄明〜ゴールデン：中間（やや暗め）
-      if(type==='past')    return 'rgba(20,80,160,0.95)';
-      if(type==='future')  return 'rgba(140,80,10,0.95)';
-      if(type==='neutral') return 'rgba(40,40,80,0.75)';
-      if(type==='moon')    return 'rgba(20,80,160,0.95)';
-      if(type==='fov')     return 'rgba(80,60,10,0.95)';
-      if(type==='dt')      return 'rgba(30,30,60,0.95)';
     } else {
-      // 昼間：濃い暗色
+      // 昼間（太陽+10°以上相当）：濃い暗色
       if(type==='past')    return 'rgba(10,40,120,0.95)';
       if(type==='future')  return 'rgba(120,50,5,0.95)';
       if(type==='neutral') return 'rgba(20,20,50,0.85)';
@@ -2152,7 +2144,7 @@ function drawView(dist,tAz,va){
       ctx.font=`bold 11px 'Space Mono',monospace`;ctx.textAlign='center';
       const mlabel=`月 ${mAlt.toFixed(1)}° / AZ${mAz.toFixed(0)}° / ø${bodyAngDiam.toFixed(2)}°`;
       const mlw=ctx.measureText(mlabel).width;
-      ctx.fillStyle=`rgba(${skyBrightness>0.4?220:10},${skyBrightness>0.4?220:15},${skyBrightness>0.4?255:28},0.7)`;ctx.fillRect(moonX-mlw/2-4,moonY-mrV-18,mlw+8,14);
+      ctx.fillStyle=`rgba(${skyBrightness>0.65?220:10},${skyBrightness>0.65?220:15},${skyBrightness>0.65?255:28},0.75)`;ctx.fillRect(moonX-mlw/2-4,moonY-mrV-18,mlw+8,14);
       ctx.strokeStyle=lblStroke;ctx.lineWidth=2;ctx.lineJoin='round';ctx.strokeText(mlabel,moonX,moonY-mrV-7);
       ctx.fillStyle=lblColor('moon');ctx.fillText(mlabel,moonX,moonY-mrV-7);
     }
@@ -2665,6 +2657,11 @@ function drawView(dist,tAz,va){
   ctx.font=`${fovFs}px 'Space Mono',monospace`;
   while(ctx.measureText(fovLabel).width>W-10&&fovFs>6){ fovFs--; ctx.font=`${fovFs}px 'Space Mono',monospace`; }
   ctx.textAlign='left';
+  {
+    const fovW=ctx.measureText(fovLabel).width;
+    const bgC=skyBrightness>0.65?'rgba(230,230,240,0.80)':'rgba(4,8,20,0.80)';
+    ctx.fillStyle=bgC;ctx.fillRect(0,H-fovFs-8,fovW+10,fovFs+8);
+  }
   ctx.strokeStyle=lblStroke;ctx.lineWidth=3;ctx.lineJoin='round';
   ctx.strokeText(fovLabel,5,H-5);
   ctx.fillStyle=lblColor('fov');ctx.fillText(fovLabel,5,H-5);
@@ -2679,6 +2676,11 @@ function drawView(dist,tAz,va){
       ctx.font=`bold ${dtFs}px 'Space Mono',monospace`;
     }
     ctx.textAlign='left';
+    {
+      const dtW=ctx.measureText(dtLabel).width;
+      const bgC=skyBrightness>0.65?'rgba(230,230,240,0.80)':'rgba(4,8,20,0.80)';
+      ctx.fillStyle=bgC;ctx.fillRect(6,4,dtW+8,dtFs+8);
+    }
     ctx.strokeStyle=lblStroke;ctx.lineWidth=3;ctx.lineJoin='round';
     ctx.strokeText(dtLabel,10,dtFs+6);
     ctx.fillStyle=lblColor('dt');
