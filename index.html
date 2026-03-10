@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>月×建造物 撮影プランナー</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌕</text></svg>">
@@ -425,34 +425,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   #mob-drawer-inner input[type=time]{font-size:16px;padding:6px;}
   #mob-drawer-inner .tbtn{width:36px;height:28px;font-size:9px;}
 }
-/* ズームリセットボタン（スマホ専用・固定位置） */
-#zoom-reset-btn{
-  display:none;
-}
-@media (max-width:600px){
-  #zoom-reset-btn{
-    display:flex;
-    align-items:center;justify-content:center;
-    position:fixed;
-    bottom:calc(var(--mob-bar) + 8px);
-    right:8px;
-    width:40px;height:40px;
-    background:rgba(17,19,32,0.92);
-    border:1px solid var(--ac);
-    border-radius:6px;
-    font-size:18px;
-    color:var(--ac);
-    z-index:9999999;
-    cursor:pointer;
-    -webkit-tap-highlight-color:transparent;
-    box-shadow:0 2px 8px rgba(0,0,0,0.5);
-    -webkit-transform:translateZ(0);
-    transform:translateZ(0);
-    will-change:transform;
-    touch-action:manipulation;
-  }
-  #zoom-reset-btn:active{background:var(--ac);color:var(--bg);}
-}
 </style>
 </head>
 <body>
@@ -648,7 +620,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
         </div>
         <div id="pv-cv-wrap">
           <div class="pv-label" style="justify-content:space-between;">
-            <span>◎ プレビュー（対象 + 月）</span>
+            <span id="pv-label-text">◎ プレビュー（対象 + 月）</span>
             <span style="display:flex;align-items:center;gap:3px;margin-right:2px;">
               <span class="tbtn" onclick="shiftDay(-1)" title="1日前">−1d</span>
               <span id="pv-date-disp" style="font-family:'Space Mono',monospace;font-size:8px;color:var(--ac);min-width:58px;text-align:center;"></span>
@@ -786,8 +758,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 </div>
 <div id="mob-overlay" onclick="toggleDrawer()"></div>
 
-<div id="zoom-reset-btn" onclick="resetZoom()" title="ズームをリセット">⊙</div>
-
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -835,25 +805,39 @@ function layout(){
     const mapH=Math.round(avH*0.55);
     const pvH=avH-mapH;
 
-    document.getElementById('mapbox').style.height=mapH+'px';
     document.getElementById('mapbox').style.flex='none';
 
     // プレビューとダイアグラムを横並び（元のレイアウト）
     const ppanel=document.getElementById('preview-panel');
     ppanel.style.flexDirection='row';
-    ppanel.style.height=pvH+'px';
-    ppanel.style.flex='none';
     ppanel.style.overflow='hidden';
 
-    const cvH=pvH-lblH;
-    // 3:2（横）または2:3（縦）のアスペクト比を高さから計算
-    // 画面幅の最大75%を上限とするが、比率優先
-    const cvWbyAspect=Math.round(cvH*(orientation==='land'?3/2:2/3));
-    const maxCvW=Math.round(W*0.75);
-    const cvW=Math.min(cvWbyAspect, maxCvW);
-    const cvHfinal = cvW===cvWbyAspect ? cvH : Math.round(cvW*(orientation==='land'?2/3:3/2));
-    const diagW=W-cvW;
-    const diagH=cvH;
+    // ── canvas サイズ計算（縦横で px/deg を統一）──
+    // 横構図: 幅を avH*45%-lbl の高さから 3:2 比率で決定（幅上限 W*0.75）
+    // 縦構図: 横構図の canvas を 90度回転（W↔H）→ pvH が変わる → mapH が連動
+    const pvH_land = Math.round(avH * 0.45);
+    const cvH_land = pvH_land - lblH;
+    const cvWbyAspect_land = Math.round(cvH_land * 3/2);
+    const maxCvW = Math.round(W * 0.75);
+    const cvW_land = Math.min(cvWbyAspect_land, maxCvW);
+    const cvHfinal_land = cvW_land === cvWbyAspect_land ? cvH_land : Math.round(cvW_land * 2/3);
+
+    // 縦構図: 横構図の canvas を 90度回転
+    const cvW_port = cvHfinal_land;   // 元の高さ → 縦構図の幅
+    const cvH_port = cvW_land;        // 元の幅   → 縦構図の高さ
+
+    const isPort = orientation === 'port';
+    const cvW    = isPort ? cvW_port    : cvW_land;
+    const cvH    = isPort ? cvH_port    : cvHfinal_land;
+    const pvH    = isPort ? cvH_port + lblH : pvH_land;
+    const curMapH= avH - pvH;  // 縦構図では地図が伸びる
+
+    document.getElementById('mapbox').style.height = curMapH + 'px';
+    ppanel.style.height = pvH + 'px';
+    ppanel.style.flex = 'none';
+
+    const diagW = W - cvW;
+    const diagH = cvH;
 
     document.getElementById('pv-left').style.width=cvW+'px';
     document.getElementById('pv-left').style.flexDirection='row';
@@ -863,8 +847,8 @@ function layout(){
     pvWrap.style.height=pvH+'px';
 
     const cv1=document.getElementById('cv1');
-    cv1.width=cvW;cv1.height=cvHfinal;
-    cv1.style.cssText=`width:${cvW}px!important;height:${cvHfinal}px!important;display:block;background:#060810;`;
+    cv1.width=cvW;cv1.height=cvH;
+    cv1.style.cssText=`width:${cvW}px!important;height:${cvH}px!important;display:block;background:#060810;`;
 
     const cv2=document.getElementById('cv2');
     cv2.width=diagW;cv2.height=diagH;
@@ -873,6 +857,10 @@ function layout(){
     diagWrap.style.width=diagW+'px';
     diagWrap.style.height=pvH+'px';
     diagWrap.style.flex='none';
+
+    // ±1d ボタン: 縦構図で幅が狭い時はラベルテキストを隠す
+    const pvLabelText = document.getElementById('pv-label-text');
+    if(pvLabelText) pvLabelText.style.display = isPort ? 'none' : '';
 
     if(map) map.invalidateSize();
     if(sLat!==null){
@@ -892,20 +880,26 @@ function layout(){
   const avH=H-hdrH;
   const rightW=W-pnlW;
 
-  // プレビューパネル高さ = 利用可能高さの30%
-  const pvPanelH=Math.round(avH*0.45);
-  const cvH_port=pvPanelH-lblH;              // 縦構図canvas高さ
-  const cvW_port=Math.round(cvH_port*2/3);   // 縦構図canvas幅
-  const cvH_land=cvH_port;                   // 横構図canvas高さ（パネルいっぱい）
-  const cvW_land=Math.round(cvH_port*3/2);   // 横構図canvas幅（3:2）
+  // ── canvas サイズ計算（縦横で px/deg を統一）──
+  // 横構図を基準とし、縦構図は横構図の canvas を 90度回転
+  const pvPanelH_land = Math.round(avH * 0.45);
+  const cvH_land = pvPanelH_land - lblH;
+  const cvW_land = Math.round(cvH_land * 3/2);
 
-  const cvW = orientation==='land' ? cvW_land : cvW_port;
-  const cvH = orientation==='land' ? cvH_land : cvH_port;
+  // 縦構図: 90度回転 → W↔H 入れ替え
+  const cvW_port = cvH_land;   // 元の高さ → 縦構図の幅
+  const cvH_port = cvW_land;   // 元の幅   → 縦構図の高さ
+
+  const isPort = orientation === 'port';
+  const cvW = isPort ? cvW_port : cvW_land;
+  const cvH = isPort ? cvH_port : cvH_land;
+  const pvPanelH = isPort ? cvH_port + lblH : pvPanelH_land;
+
   const pvTotalW = cvW + btnW;
   const diagW = Math.max(80, rightW - pvTotalW);
   const diagH = pvPanelH - lblH;
 
-  // プレビューパネル高さ
+  // プレビューパネル高さ（縦構図時は拡張）
   document.getElementById('preview-panel').style.height = pvPanelH+'px';
   // pv-left幅
   document.getElementById('pv-left').style.width = pvTotalW+'px';
@@ -943,6 +937,70 @@ function scheduleLayout(){
   if(_layoutRAF) cancelAnimationFrame(_layoutRAF);
   _layoutRAF=requestAnimationFrame(()=>{_layoutRAF=null;layout();});
 }
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// プレビューのピンチズーム（スマホ用）
+// ブラウザのピンチズームを禁止した代わりにプレビュー内のみ拡大を可能にする
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+window.addEventListener('DOMContentLoaded',()=>{
+  const wrap=document.getElementById('pv-cv-wrap');
+  if(!wrap)return;
+
+  let pvScale=1, pvTx=0, pvTy=0;
+  let lastDist=null, lastMidX=0, lastMidY=0;
+  let lastTap=0;
+
+  function clampTranslate(s, tx, ty){
+    const el=document.getElementById('cv1');
+    if(!el)return{tx,ty};
+    const W=el.width, H=el.height;
+    const maxTx=(W*(s-1))/2, maxTy=(H*(s-1))/2;
+    return{tx:Math.max(-maxTx,Math.min(maxTx,tx)), ty:Math.max(-maxTy,Math.min(maxTy,ty))};
+  }
+
+  function applyTransform(){
+    const {tx,ty}=clampTranslate(pvScale,pvTx,pvTy);
+    pvTx=tx; pvTy=ty;
+    wrap.style.transformOrigin='center center';
+    wrap.style.transform=pvScale===1?'none':`translate(${tx}px,${ty}px) scale(${pvScale})`;
+  }
+
+  function getDist(t){return Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);}
+
+  wrap.addEventListener('touchstart',e=>{
+    if(e.touches.length===2){
+      e.preventDefault();
+      lastDist=getDist(e.touches);
+      lastMidX=(e.touches[0].clientX+e.touches[1].clientX)/2;
+      lastMidY=(e.touches[0].clientY+e.touches[1].clientY)/2;
+    }
+  },{passive:false});
+
+  wrap.addEventListener('touchmove',e=>{
+    if(e.touches.length===2&&lastDist!==null){
+      e.preventDefault();
+      const d=getDist(e.touches);
+      const ratio=d/lastDist;
+      pvScale=Math.max(1,Math.min(5,pvScale*ratio));
+      lastDist=d;
+      applyTransform();
+    }
+  },{passive:false});
+
+  wrap.addEventListener('touchend',e=>{
+    if(e.touches.length<2) lastDist=null;
+    // ダブルタップでリセット
+    if(e.touches.length===0){
+      const now=Date.now();
+      if(now-lastTap<300){
+        pvScale=1; pvTx=0; pvTy=0;
+        applyTransform();
+        e.preventDefault();
+      }
+      lastTap=now;
+    }
+  },{passive:false});
+});
 
 
 // MAP
@@ -3108,14 +3166,6 @@ function syncMobileUI(){
     const v=parseInt(b.textContent);
     b.classList.toggle('on',v===focal);
   });
-}
-
-function resetZoom(){
-  const meta=document.querySelector('meta[name=viewport]');
-  if(!meta)return;
-  const orig=meta.getAttribute('content');
-  meta.setAttribute('content','width=device-width,initial-scale=1,maximum-scale=1');
-  setTimeout(()=>{ meta.setAttribute('content', orig); }, 300);
 }
 
 function setNow(){
