@@ -3579,6 +3579,7 @@ function setTimeFromEl(id){
 function calcChances(){
   if(sLat===null){
     document.getElementById('chance-list').textContent='先に撮影地点を選択してください。';
+    updateDrawerIfOpen();
     return;
   }
   const btn=document.getElementById('btn-chance');
@@ -3685,6 +3686,7 @@ function calcChances(){
 function calcFullMoonChances(){
   if(sLat===null){
     document.getElementById('fullmoon-list').textContent='先に撮影地点を選択してください。';
+    updateDrawerIfOpen();
     return;
   }
   const btn=document.getElementById('btn-fullmoon');
@@ -3739,6 +3741,7 @@ function calcFullMoonChances(){
 
     if(results.length===0){
       list.innerHTML='<div style="color:var(--sub);padding:4px 0;">今後1年間に条件を満たす満月チャンスはありません。<br>（方位角±'+AZ_THR+'°、仰角0°〜'+topAlt.toFixed(1)+'°）</div>';
+      updateDrawerIfOpen();
       return;
     }
 
@@ -3760,6 +3763,7 @@ function calcFullMoonChances(){
           <span style="color:var(--sub)">${ageMark}${r.age.toFixed(1)}日 ±${r.azDiff.toFixed(1)}° 高${altPct}%</span>
         </div>`;
       }).join('');
+    updateDrawerIfOpen();
   },20);
 }
 
