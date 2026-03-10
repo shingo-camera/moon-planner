@@ -616,7 +616,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
             </span>
           </div>
           <div id="cv1-clip" style="overflow:hidden;flex-shrink:0;flex-grow:0;position:relative;">
+          <div id="cv1-inner" style="width:100%;height:100%;transform-origin:center center;">
           <canvas id="cv1"></canvas>
+          </div>
           </div>
           <!-- スマホ用オフセット呼び出しボタン -->
           <div id="pv-ofs-btn" onclick="toggleOfsPopup()" title="視点オフセット">⊹</div>
@@ -838,6 +840,8 @@ function layout(){
       cv1clip.style.boxSizing='border-box';
       cv1clip.style.overflow='hidden';
     }
+    const cv1inner = document.getElementById('cv1-inner');
+    if(cv1inner){ cv1inner.style.width=cvW+'px'; cv1inner.style.height=cvH+'px'; }
 
     const cv2 = document.getElementById('cv2');
     cv2.width = diagW; cv2.height = diagH;
@@ -912,6 +916,8 @@ function layout(){
     cv1clip.style.boxSizing='border-box';
     cv1clip.style.overflow='hidden';
   }
+  const cv1inner=document.getElementById('cv1-inner');
+  if(cv1inner){ cv1inner.style.width=cvW+'px'; cv1inner.style.height=cvH+'px'; }
 
   // cv2：常にstyleを強制セット
   const cv2=document.getElementById('cv2');
@@ -995,12 +1001,11 @@ window.addEventListener('DOMContentLoaded',()=>{
   }
 
   function applyTransform(){
-    const clip=document.getElementById('cv1-clip');
-    if(!clip)return;
+    const inner=document.getElementById('cv1-inner');
+    if(!inner)return;
     const {tx,ty}=clampTranslate(pvScale,pvTx,pvTy);
     pvTx=tx; pvTy=ty;
-    clip.style.transformOrigin='center center';
-    clip.style.transform=pvScale===1&&tx===0&&ty===0
+    inner.style.transform=pvScale===1&&tx===0&&ty===0
       ?'none':`translate(${tx}px,${ty}px) scale(${pvScale})`;
   }
 
