@@ -1899,9 +1899,14 @@ function drawView(dist,tAz,va){
   // 地平線（仰角0°）を基準に、頂点はgnoV(vaTop)上、根本はgnoV(vaBase)の位置
   // horizonが画面内に収まるようclampしつつ、頂点が上限より上なら頂点固定に切替
   const horizonDefault = cur==='gifu' ? H * 0.75 : H * 0.72;
-  // 岐阜城は月が城の上に来る構図のため、頂点を下寄りに固定（上から65〜70%）
-  // 広角(fvH大)→上から70%(下30%), 望遠(fvH小)→上から65%(下35%)で焦点距離連動
-  const topLimitGifu = H * (0.65 + 0.05 * Math.min(1, Math.max(0, (fvH - 1) / 13)));
+  // 岐阜城は月が城の上に来る構図のため、城の見かけ高さ(thTrue)基準で頂点位置を決める
+  // targetTopY = H - thTrue*k （城の高さのk倍分を下から確保）
+  // k=1.65: 400mm/1.59kmで頂点が上から50%になるよう調整
+  // thTrueはまだ未計算のためここでは暫定計算、最小H*0.15でクランプ
+  const _vaT_tmp = elAng(dist, vaBaseElev, T[cur].elev, T[cur].h);
+  const _vaB_tmp = elAng(dist, vaBaseElev, T[cur].elev, 0);
+  const _thTmp = Math.max(gnoV(Math.max(_vaT_tmp,0.01)) - gnoV(_vaB_tmp), 0);
+  const topLimitGifu = Math.max(H * 0.15, H - _thTmp * 1.65);
   const topLimit = cur==='gifu' ? topLimitGifu : H * 0.40;
   // 頂点Y = horizon - gnoV(vaTop)、根本Y = horizon - gnoV(vaBase)
   // horizonを固定して頂点を計算
