@@ -784,15 +784,8 @@ let savedSpots=[]; // 保存した撮影地点 [{lat,lng,name,target,note}]
 // LAYOUT
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function layout(){
-  // W: レイアウト計算用（CSSと一致するinnerWidth）
-  // cssW: canvasのstyle.widthに使う（ピンチズーム考慮）
-  // drawW: canvasの実描画px（innerWidth = scale * vvWidth）
   const W = window.innerWidth;
-  const vv = window.visualViewport;
-  const scale = vv ? vv.scale : 1;
-  // cssW: ズーム中はvvの幅をCSSに使う（ズーム状態に合わせて表示幅を縮める）
-  const cssW = vv ? Math.round(vv.width) : W;
-  const H = vv ? Math.round(vv.height) : window.innerHeight;
+  const H = window.visualViewport ? Math.round(window.visualViewport.height) : window.innerHeight;
   const isMobile=W<=600;
 
   if(isMobile){
@@ -827,16 +820,11 @@ function layout(){
     // 3:2（横）または2:3（縦）のアスペクト比を高さから計算
     // 画面幅の最大75%を上限とするが、比率優先
     const cvWbyAspect=Math.round(cvH*(orientation==='land'?3/2:2/3));
-    const maxCvW=Math.round(cssW*0.75);
+    const maxCvW=Math.round(W*0.75);
     const cvW=Math.min(cvWbyAspect, maxCvW);
     const cvHfinal = cvW===cvWbyAspect ? cvH : Math.round(cvW*(orientation==='land'?2/3:3/2));
-    const diagW=cssW-cvW;
+    const diagW=W-cvW;
     const diagH=cvH;
-    // 描画px（innerWidthベース）: ズーム時は高解像度で描画してCSSで縮小表示
-    const drawCvW  = Math.round(cvW  * scale);
-    const drawCvH  = Math.round(cvHfinal * scale);
-    const drawDiagW= Math.round(diagW * scale);
-    const drawDiagH= Math.round(diagH * scale);
 
     document.getElementById('pv-left').style.width=cvW+'px';
     document.getElementById('pv-left').style.flexDirection='row';
@@ -846,11 +834,11 @@ function layout(){
     pvWrap.style.height=pvH+'px';
 
     const cv1=document.getElementById('cv1');
-    cv1.width=drawCvW;cv1.height=drawCvH;
+    cv1.width=cvW;cv1.height=cvHfinal;
     cv1.style.cssText=`width:${cvW}px!important;height:${cvHfinal}px!important;display:block;background:#060810;`;
 
     const cv2=document.getElementById('cv2');
-    cv2.width=drawDiagW;cv2.height=drawDiagH;
+    cv2.width=diagW;cv2.height=diagH;
     cv2.style.cssText=`width:${diagW}px!important;height:${diagH}px!important;display:block;background:#060810;`;
     const diagWrap=document.getElementById('diag-wrap');
     diagWrap.style.width=diagW+'px';
@@ -3536,13 +3524,6 @@ window.addEventListener('load',()=>{
     clearTimeout(_resizeTimer);
     _resizeTimer=setTimeout(scheduleLayout,60);
   });
-  // visualViewport resize: ピンチズーム変化時（ズームアウト含む）にlayoutを再実行
-  if(window.visualViewport){
-    window.visualViewport.addEventListener('resize',()=>{
-      clearTimeout(_resizeTimer);
-      _resizeTimer=setTimeout(scheduleLayout,60);
-    });
-  }
 });
 </script>
 </body>
