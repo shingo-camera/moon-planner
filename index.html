@@ -1890,16 +1890,16 @@ function drawView(dist,tAz,va){
     // 空の色テーブル [仰角下限, 上空[r,g,b], 地平線[r,g,b]]
     const SKY_TABLE=[
       [-99, [1,2,8],    [2,5,12]   ],  // 夜
-      [-12, [1,3,8],    [8,15,40]  ],  // 天文薄明
-      [-9,  [1,4,10],   [16,25,64] ],  // 薄暮
-      [-6,  [2,6,16],   [24,40,96] ],  // ブルーアワーピーク
-      [-3,  [3,8,22],   [32,56,112]],  // ブルーアワー開始
-      [-1,  [4,10,24],  [192,64,16]],  // 日没ライン
-      [0,   [4,10,24],  [208,96,32]],  // ゴールデンピーク
-      [3,   [5,13,32],  [176,80,32]],  // ゴールデン開始
-      [6,   [7,18,48],  [26,48,96] ],  // 薄明（昼側）
-      [10,  [10,30,72], [26,58,112]],  // 昼（薄め）
-      [18,  [13,42,90], [26,74,140]],  // 昼（青空）
+      [-12, [1,3,8],     [8,15,40]   ],  // 天文薄明
+      [-9,  [1,4,10],    [16,25,64]  ],  // 薄暮
+      [-6,  [2,6,16],    [24,40,96]  ],  // ブルーアワーピーク
+      [-3,  [3,8,22],    [32,56,112] ],  // ブルーアワー開始
+      [-1,  [4,10,24],   [192,64,16] ],  // 日没ライン
+      [0,   [4,10,24],   [208,96,32] ],  // ゴールデンピーク
+      [3,   [5,13,32],   [176,80,32] ],  // ゴールデン開始
+      [6,   [20,60,140], [80,140,220]],  // 薄明（昼側）
+      [10,  [50,110,200],[100,170,255]],  // 昼（薄め）
+      [18,  [70,140,230],[130,195,255]],  // 昼（青空）
     ];
     function getSkyColors(alt){
       const T=SKY_TABLE;
@@ -1943,8 +1943,37 @@ function drawView(dist,tAz,va){
     : skyBrightness<0.6
       ? 'rgba(8,12,28,0.92)'
       : 'rgba(240,240,255,0.88)';
-  // ラベル文字色補正：明るい空では少し暗めに
+  // 明るさに応じた文字色生成（暗い空=明色、明るい空=暗色）
+  // isPast/isFuture/isNear/isNeutral の4種を返す
   const lblBrightAdj = skyBrightness>0.5 ? 0.75 : 1.0;
+  function lblColor(type){
+    if(skyBrightness<0.25){
+      // 夜〜薄暮：従来の明色
+      if(type==='past')    return 'rgba(160,210,255,0.95)';
+      if(type==='future')  return 'rgba(240,200,120,0.95)';
+      if(type==='neutral') return 'rgba(200,200,220,0.6)';
+      if(type==='moon')    return 'rgba(180,220,255,0.95)';
+      if(type==='fov')     return 'rgba(200,169,110,0.9)';
+      if(type==='dt')      return 'rgba(240,230,200,0.95)';
+    } else if(skyBrightness<0.55){
+      // 薄明〜ゴールデン：中間（やや暗め）
+      if(type==='past')    return 'rgba(20,80,160,0.95)';
+      if(type==='future')  return 'rgba(140,80,10,0.95)';
+      if(type==='neutral') return 'rgba(40,40,80,0.75)';
+      if(type==='moon')    return 'rgba(20,80,160,0.95)';
+      if(type==='fov')     return 'rgba(80,60,10,0.95)';
+      if(type==='dt')      return 'rgba(30,30,60,0.95)';
+    } else {
+      // 昼間：濃い暗色
+      if(type==='past')    return 'rgba(10,40,120,0.95)';
+      if(type==='future')  return 'rgba(120,50,5,0.95)';
+      if(type==='neutral') return 'rgba(20,20,50,0.85)';
+      if(type==='moon')    return 'rgba(10,40,120,0.95)';
+      if(type==='fov')     return 'rgba(40,30,5,0.95)';
+      if(type==='dt')      return 'rgba(10,10,30,0.95)';
+    }
+    return 'rgba(20,20,40,0.95)';
+  }
 
   // カメラ視点オフセット：以降の全描画をtranslateでずらす
   // pvAzOfs>0 → カメラ右向き → 対象・地平線が左に移動
@@ -2125,7 +2154,7 @@ function drawView(dist,tAz,va){
       const mlw=ctx.measureText(mlabel).width;
       ctx.fillStyle=`rgba(${skyBrightness>0.4?220:10},${skyBrightness>0.4?220:15},${skyBrightness>0.4?255:28},0.7)`;ctx.fillRect(moonX-mlw/2-4,moonY-mrV-18,mlw+8,14);
       ctx.strokeStyle=lblStroke;ctx.lineWidth=2;ctx.lineJoin='round';ctx.strokeText(mlabel,moonX,moonY-mrV-7);
-      ctx.fillStyle=`rgba(${Math.round(180*lblBrightAdj)},${Math.round(220*lblBrightAdj)},255,0.95)`;ctx.fillText(mlabel,moonX,moonY-mrV-7);
+      ctx.fillStyle=lblColor('moon');ctx.fillText(mlabel,moonX,moonY-mrV-7);
     }
   }
 
@@ -2564,8 +2593,8 @@ function drawView(dist,tAz,va){
           const lx = (isOdd ? colOdd : colEven) - labelW;
 
           const textColor = isNear
-            ? (isPast ? 'rgba(160,210,255,0.95)' : 'rgba(240,200,120,0.95)')
-            : 'rgba(180,180,200,0.55)';
+            ? (isPast ? lblColor('past') : lblColor('future'))
+            : lblColor('neutral');
           const lineColor = isNear
             ? (isPast ? 'rgba(126,184,232,0.22)' : 'rgba(200,169,110,0.22)')
             : 'rgba(160,160,180,0.10)';
@@ -2593,7 +2622,7 @@ function drawView(dist,tAz,va){
           if(!item.isNear && item.p.x<0||item.p.x>W||item.p.y<0||item.p.y>H)continue;
           const lx=item.p.x+(item.p.x<cx?-5:5);
           ctx.textAlign=item.p.x<cx?'right':'left';
-          const col=item.isNear?(item.isPast?'rgba(160,210,255,0.95)':'rgba(240,200,120,0.95)'):'rgba(200,200,220,0.6)';
+          const col=item.isNear?(item.isPast?lblColor('past'):lblColor('future')):lblColor('neutral');
           ctx.strokeStyle=lblStroke;ctx.lineWidth=3;ctx.lineJoin='round';
           ctx.strokeText(item.label,lx,item.p.y-4);
           ctx.fillStyle=col;
@@ -2638,7 +2667,7 @@ function drawView(dist,tAz,va){
   ctx.textAlign='left';
   ctx.strokeStyle=lblStroke;ctx.lineWidth=3;ctx.lineJoin='round';
   ctx.strokeText(fovLabel,5,H-5);
-  ctx.fillStyle='rgba(200,169,110,.9)';ctx.fillText(fovLabel,5,H-5);
+  ctx.fillStyle=lblColor('fov');ctx.fillText(fovLabel,5,H-5);
 
   // 左上に設定日時を大きく表示（canvas幅に収まるようフォントサイズ自動調整）
   if(ds&&ts){
@@ -2652,7 +2681,7 @@ function drawView(dist,tAz,va){
     ctx.textAlign='left';
     ctx.strokeStyle=lblStroke;ctx.lineWidth=3;ctx.lineJoin='round';
     ctx.strokeText(dtLabel,10,dtFs+6);
-    ctx.fillStyle='rgba(240,230,200,0.95)';
+    ctx.fillStyle=lblColor('dt');
     ctx.fillText(dtLabel,10,dtFs+6);
   }
   // canvas外周枠線（スマホでcanvasと余白の境界を明示）
