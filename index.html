@@ -1664,17 +1664,6 @@ function drawOneFan(tLat,tLng,azStart,azEnd,color,opacity,label,distMax){
   fanLayers.push(ls,le);
 
   // 時刻ラベル（外弧の中間点）
-  const midAz=shootAzStart+(shootAzEnd-shootAzStart)*0.5;
-  const labelPt=destPoint(tLat,tLng,midAz,distMax*0.88);
-  const lbl=L.marker(labelPt,{
-    icon:L.divIcon({
-      html:`<div style="font-family:'Space Mono',monospace;font-size:10px;color:${color};
-        background:rgba(10,12,20,.75);padding:1px 4px;border-radius:3px;white-space:nowrap;
-        border:1px solid ${color}40;">${label}</div>`,
-      className:'',iconAnchor:[20,8]
-    }),interactive:false
-  }).addTo(map);
-  fanLayers.push(lbl);
 }
 
 function updateFanLegend(items){
@@ -1715,15 +1704,15 @@ function drawFans(ds, moon){
     const c=L.polyline([...pts,pts[0]],{
       color:'#7a82a0',weight:0.8,opacity:0.3,dashArray:'2,6'
     }).addTo(map);
-    // ラベル：地図の右方向に配置、背景付きで視認性UP
-    const lp=destPoint(t.lat,t.lng,95,km);
+    // ラベル：弧の真上（北側）に乗せる
+    const lp=destPoint(t.lat,t.lng,355,km);
     const labelText=km>=1?`${km}km`:km>=0.1?`${Math.round(km*1000)}m`:`${Math.round(km*1000*10)/10}m`;
     const cl=L.marker(lp,{
       icon:L.divIcon({
         html:`<div style="font-size:9px;color:#c8c8d8;font-family:'Space Mono',monospace;
           background:rgba(13,17,26,0.72);padding:1px 4px;border-radius:2px;
-          white-space:nowrap;line-height:1.4;">${labelText}</div>`,
-        className:'',iconAnchor:[-2,8]
+          white-space:nowrap;line-height:1.4;transform:translateX(-50%);">${labelText}</div>`,
+        className:'',iconAnchor:[0,14]
       }),interactive:false
     }).addTo(map);
     fanLayers.push(c,cl);
