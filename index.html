@@ -2173,11 +2173,11 @@ function drawView(dist,tAz,va){
       const py=y*gCosVA + rz*gSinVA;
       return [cx + rx, bY - py];
     };
-    // depth = zオフセット - yCenter（上の層ほど奥扱い＝先に描画される）
+    // depth = zオフセット + yCenter（上の層ほどdepth大=先に描画=奥扱い）
     const gDepth=(verts)=>{
       let sz=0,sy=0;
       verts.forEach(v=>{sz+=v[0]*gSinA+v[2]*gCosA; sy+=v[1];});
-      return sz/verts.length - sy/verts.length;
+      return sz/verts.length + sy/verts.length;
     };
 
     const gFaces=[];
