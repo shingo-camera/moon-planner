@@ -551,6 +551,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
       <div class="sec">06 チャンス一覧</div>
       <button id="btn-chance" onclick="calcChances()" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;margin-bottom:4px;">📅 選択日から30日を検索</button>
       <div id="chance-list" style="font-size:9px;color:var(--tx);"></div>
+      <button id="btn-fullmoon" onclick="calcFullMoonChances()" style="width:100%;background:var(--sur2);border:1px solid rgba(200,169,110,.5);border-radius:4px;color:#e8c87a;font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;margin-top:6px;margin-bottom:4px;">🌕 満月チャンス（1年）を検索</button>
+      <div id="fullmoon-list" style="font-size:9px;color:var(--tx);"></div>
     </div>
     <!--
     <div>
@@ -3138,6 +3140,11 @@ function setSunsetMode(v){
   if(pvLabel)pvLabel.textContent=v?'◎ プレビュー（対象 + 太陽）':'◎ プレビュー（対象 + 月）';
   const btnChance=document.getElementById('btn-chance');
   if(btnChance)btnChance.textContent=v?'📅 選択日から30日を検索（夕日）':'📅 選択日から30日を検索';
+  // 満月ボタン：夕日モード時は非表示、リストもクリア
+  const btnFM=document.getElementById('btn-fullmoon');
+  const fmList=document.getElementById('fullmoon-list');
+  if(btnFM)btnFM.style.display=v?'none':'';
+  if(fmList&&v)fmList.innerHTML='';
   calcSunMoon();
   if(sLat!==null){
     const t=T[cur];
@@ -3717,6 +3724,87 @@ function calcChances(){
       </div>`;
     }).join('');
     updateDrawerIfOpen();
+  },20);
+}
+
+function calcFullMoonChances(){
+  if(sLat===null){
+    document.getElementById('fullmoon-list').textContent='先に撮影地点を選択してください。';
+    return;
+  }
+  const btn=document.getElementById('btn-fullmoon');
+  const list=document.getElementById('fullmoon-list');
+  btn.textContent='⏳ 計算中…';
+  list.innerHTML='';
+
+  setTimeout(()=>{
+    const t=T[cur];
+    const tAz=brng(sLat,sLng,t.lat,t.lng);
+    const distH=hav(sLat,sLng,t.lat,t.lng);
+    const topAlt=elAng(distH,sElev,t.elev,t.h);
+    const AZ_THR=2.5;
+    const STEP=10*60*1000; // 10分刻み
+
+    // 選択日から1年間の満月日を列挙（月齢13〜16日の日）
+    const today=new Date(document.getElementById('idate').value+'T00:00:00+09:00');
+    const fullMoonDays=[];
+    for(let d=0;d<366;d++){
+      const base=new Date(today.getTime()+d*86400000);
+      const ds=base.toLocaleDateString('sv-SE',{timeZone:'Asia/Tokyo'});
+      const age=moonAge(new Date(ds+'T12:00:00+09:00'));
+      // 満月前後±1.5日（月齢13〜16.5日）に絞る
+      if(age>=13.0&&age<=16.5) fullMoonDays.push(ds);
+    }
+
+    const results=[];
+    for(const ds of fullMoonDays){
+      const dayStart=new Date(ds+'T00:00:00+09:00');
+      let found=null;
+      for(let i=0;i<144;i++){
+        const dt=new Date(dayStart.getTime()+i*STEP);
+        const mp=moonPos(dt,sLat,sLng);
+        const azD=Math.abs(((mp.az-tAz+180)%360)-180);
+        if(azD<=AZ_THR&&mp.alt>=0&&mp.alt<=topAlt){
+          if(!found) found={dt,az:mp.az,alt:mp.alt,azDiff:azD};
+        } else {
+          if(found){
+            const age=moonAge(new Date(ds+'T03:00:00Z'));
+            results.push({date:ds,time:jst(found.dt),azDiff:found.azDiff,alt:found.alt,topAlt,age,ts:found.dt});
+            found=null;
+          }
+        }
+      }
+      if(found){
+        const age=moonAge(new Date(ds+'T03:00:00Z'));
+        results.push({date:ds,time:jst(found.dt),azDiff:found.azDiff,alt:found.alt,topAlt,age,ts:found.dt});
+      }
+    }
+
+    btn.textContent='🌕 満月チャンス（1年）を検索';
+
+    if(results.length===0){
+      list.innerHTML='<div style="color:var(--sub);padding:4px 0;">今後1年間に条件を満たす満月チャンスはありません。<br>（方位角±'+AZ_THR+'°、仰角0°〜'+topAlt.toFixed(1)+'°）</div>';
+      return;
+    }
+
+    // 満月に近い順でソート（月齢15に近い順）
+    results.sort((a,b)=>Math.abs(a.age-14.76)-Math.abs(b.age-14.76));
+
+    list.innerHTML='<div style="color:var(--sub);font-family:monospace;font-size:8px;margin-bottom:4px;">満月±1.5日 / '+results.length+'件</div>'+
+      results.map(r=>{
+        const dow=new Date(r.date+'T12:00:00+09:00').toLocaleDateString('ja-JP',{weekday:'short'});
+        const dowColor=dow.includes('日')?'#ff6655':dow.includes('土')?'#4488ff':'var(--sub)';
+        const star=r.azDiff<=1?'★★★':r.azDiff<=2?'★★☆':'★☆☆';
+        const altPct=Math.round(r.alt/r.topAlt*100);
+        const ageDiff=Math.abs(r.age-14.76);
+        const ageMark=ageDiff<0.5?'🌕':ageDiff<1.0?'🌖':'🌗';
+        return `<div class="chance-item" onclick="setChance('${r.date}','${r.time}')" title="クリックで日時をセット">
+          <span style="color:${dowColor}">${r.date}(${dow})</span>
+          <span class="chance-time">${r.time}</span>
+          <span style="color:var(--ac)">${star}</span>
+          <span style="color:var(--sub)">${ageMark}${r.age.toFixed(1)}日 ±${r.azDiff.toFixed(1)}° 高${altPct}%</span>
+        </div>`;
+      }).join('');
   },20);
 }
 
