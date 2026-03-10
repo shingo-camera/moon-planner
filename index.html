@@ -1877,14 +1877,74 @@ function drawView(dist,tAz,va){
     sky.addColorStop(1,`rgb(${Math.round(180-bt*80)},${Math.round(60+bt*80)},${Math.round(20+bt*120)})`);
     ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
   } else {
-    const sky=ctx.createLinearGradient(0,0,0,H);
-    sky.addColorStop(0,'#02050c');sky.addColorStop(1,'#08111f');
-    ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
-    ctx.fillStyle='rgba(255,255,255,.32)';
-    for(let i=0;i<55;i++){
-      ctx.beginPath();ctx.arc((i*137)%W,(i*79)%(H*.65),.5,0,6.28);ctx.fill();
+    // 月モード：太陽仰角に応じた空の色
+    let _sunAlt=-18;
+    const _ds2=document.getElementById('idate').value;
+    const _ts2=document.getElementById('itime').value;
+    if(_ds2&&_ts2&&sLat!==null){
+      try{_sunAlt=sunPos(new Date(`${_ds2}T${_ts2}:00+09:00`),sLat,sLng).alt;}catch(e){}
     }
+    // skyBrightness: 0=夜(-18°以下) 〜 1=昼(+18°以上)
+    const skyBrightness=Math.max(0,Math.min(1,(_sunAlt+18)/36));
+
+    // 空の色テーブル [仰角下限, 上空[r,g,b], 地平線[r,g,b]]
+    const SKY_TABLE=[
+      [-99, [1,2,8],    [2,5,12]   ],  // 夜
+      [-12, [1,3,8],    [8,15,40]  ],  // 天文薄明
+      [-9,  [1,4,10],   [16,25,64] ],  // 薄暮
+      [-6,  [2,6,16],   [24,40,96] ],  // ブルーアワーピーク
+      [-3,  [3,8,22],   [32,56,112]],  // ブルーアワー開始
+      [-1,  [4,10,24],  [192,64,16]],  // 日没ライン
+      [0,   [4,10,24],  [208,96,32]],  // ゴールデンピーク
+      [3,   [5,13,32],  [176,80,32]],  // ゴールデン開始
+      [6,   [7,18,48],  [26,48,96] ],  // 薄明（昼側）
+      [10,  [10,30,72], [26,58,112]],  // 昼（薄め）
+      [18,  [13,42,90], [26,74,140]],  // 昼（青空）
+    ];
+    function getSkyColors(alt){
+      const T=SKY_TABLE;
+      let lo=T[0],hi=T[0];
+      for(let i=0;i<T.length-1;i++){
+        if(alt>=T[i][0]&&alt<T[i+1][0]){lo=T[i];hi=T[i+1];break;}
+        if(alt>=T[T.length-1][0]){lo=hi=T[T.length-1];break;}
+      }
+      const t=lo===hi?1:Math.max(0,Math.min(1,(alt-lo[0])/(hi[0]-lo[0])));
+      const lp=(a,b)=>Math.round(a+(b-a)*t);
+      return{
+        top:  [lp(lo[1][0],hi[1][0]),lp(lo[1][1],hi[1][1]),lp(lo[1][2],hi[1][2])],
+        hor:  [lp(lo[2][0],hi[2][0]),lp(lo[2][1],hi[2][1]),lp(lo[2][2],hi[2][2])]
+      };
+    }
+    const sc=getSkyColors(_sunAlt);
+    const sky=ctx.createLinearGradient(0,0,0,H);
+    const mid=[Math.round((sc.top[0]+sc.hor[0])/2),Math.round((sc.top[1]+sc.hor[1])/2),Math.round((sc.top[2]+sc.hor[2])/2)];
+    sky.addColorStop(0,  `rgb(${sc.top[0]},${sc.top[1]},${sc.top[2]})`);
+    sky.addColorStop(0.7,`rgb(${mid[0]},${mid[1]},${mid[2]})`);
+    sky.addColorStop(1,  `rgb(${sc.hor[0]},${sc.hor[1]},${sc.hor[2]})`);
+    ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+
+    // 星：夜〜薄暮は表示、昼に向かって消える
+    const starAlpha=Math.max(0,Math.min(0.55,(1-skyBrightness*3)*0.55));
+    if(starAlpha>0.01){
+      ctx.fillStyle=`rgba(255,255,255,${starAlpha.toFixed(2)})`;
+      for(let i=0;i<55;i++){
+        ctx.beginPath();ctx.arc((i*137)%W,(i*79)%(H*.65),.5,0,6.28);ctx.fill();
+      }
+    }
+    // 明るさ情報をctxに付与してラベル描画で参照
+    ctx._skyBrightness=skyBrightness;
+    ctx._sunAltForSky=_sunAlt;
   }
+  // 月モードの明るさレベル（sunsetModeは常に夜想定、月モードのみ変化）
+  const skyBrightness = sunsetMode ? 0 : (ctx._skyBrightness||0);
+  // ラベル縁取り色：暗い空→黒縁、明るい空→白縁
+  const lblStroke = skyBrightness<0.3
+    ? 'rgba(4,6,14,0.95)'
+    : skyBrightness<0.6
+      ? 'rgba(8,12,28,0.92)'
+      : 'rgba(240,240,255,0.88)';
+  // ラベル文字色補正：明るい空では少し暗めに
+  const lblBrightAdj = skyBrightness>0.5 ? 0.75 : 1.0;
 
   // カメラ視点オフセット：以降の全描画をtranslateでずらす
   // pvAzOfs>0 → カメラ右向き → 対象・地平線が左に移動
@@ -2063,15 +2123,16 @@ function drawView(dist,tAz,va){
       ctx.font=`bold 11px 'Space Mono',monospace`;ctx.textAlign='center';
       const mlabel=`月 ${mAlt.toFixed(1)}° / AZ${mAz.toFixed(0)}° / ø${bodyAngDiam.toFixed(2)}°`;
       const mlw=ctx.measureText(mlabel).width;
-      ctx.fillStyle='rgba(10,15,28,0.7)';ctx.fillRect(moonX-mlw/2-4,moonY-mrV-18,mlw+8,14);
-      ctx.fillStyle='rgba(180,220,255,0.95)';ctx.fillText(mlabel,moonX,moonY-mrV-7);
+      ctx.fillStyle=`rgba(${skyBrightness>0.4?220:10},${skyBrightness>0.4?220:15},${skyBrightness>0.4?255:28},0.7)`;ctx.fillRect(moonX-mlw/2-4,moonY-mrV-18,mlw+8,14);
+      ctx.strokeStyle=lblStroke;ctx.lineWidth=2;ctx.lineJoin='round';ctx.strokeText(mlabel,moonX,moonY-mrV-7);
+      ctx.fillStyle=`rgba(${Math.round(180*lblBrightAdj)},${Math.round(220*lblBrightAdj)},255,0.95)`;ctx.fillText(mlabel,moonX,moonY-mrV-7);
     }
   }
 
 
   // 地面・地平線はシルエットの後ろに来るよう、シルエット描画前に描く
   if(horizon < H){
-    ctx.fillStyle='rgba(12,18,32,.95)';ctx.fillRect(0,horizon,W,H-horizon);
+    {const gr=Math.round(12+skyBrightness*30),gg=Math.round(18+skyBrightness*50),gb=Math.round(32+skyBrightness*20);ctx.fillStyle=`rgba(${gr},${gg},${gb},.95)`;ctx.fillRect(0,horizon,W,H-horizon);}
     ctx.strokeStyle='rgba(200,169,110,.4)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
     ctx.beginPath();ctx.moveTo(0,horizon);ctx.lineTo(W,horizon);ctx.stroke();ctx.setLineDash([]);
   }
@@ -2517,7 +2578,7 @@ function drawView(dist,tAz,va){
           ctx.lineWidth = 0.8; ctx.setLineDash([2,3]); ctx.stroke(); ctx.setLineDash([]);
 
           // テキスト（縁取りで視認性確保、背景矩形なし）
-          ctx.strokeStyle = 'rgba(4,6,14,0.95)';
+          ctx.strokeStyle = lblStroke;
           ctx.lineWidth = 3;
           ctx.lineJoin = 'round';
           ctx.textAlign = 'left';
@@ -2533,7 +2594,7 @@ function drawView(dist,tAz,va){
           const lx=item.p.x+(item.p.x<cx?-5:5);
           ctx.textAlign=item.p.x<cx?'right':'left';
           const col=item.isNear?(item.isPast?'rgba(160,210,255,0.95)':'rgba(240,200,120,0.95)'):'rgba(200,200,220,0.6)';
-          ctx.strokeStyle='rgba(4,6,14,0.95)';ctx.lineWidth=3;ctx.lineJoin='round';
+          ctx.strokeStyle=lblStroke;ctx.lineWidth=3;ctx.lineJoin='round';
           ctx.strokeText(item.label,lx,item.p.y-4);
           ctx.fillStyle=col;
           ctx.fillText(item.label,lx,item.p.y-4);
@@ -2575,7 +2636,7 @@ function drawView(dist,tAz,va){
   ctx.font=`${fovFs}px 'Space Mono',monospace`;
   while(ctx.measureText(fovLabel).width>W-10&&fovFs>6){ fovFs--; ctx.font=`${fovFs}px 'Space Mono',monospace`; }
   ctx.textAlign='left';
-  ctx.strokeStyle='rgba(4,6,14,0.95)';ctx.lineWidth=3;ctx.lineJoin='round';
+  ctx.strokeStyle=lblStroke;ctx.lineWidth=3;ctx.lineJoin='round';
   ctx.strokeText(fovLabel,5,H-5);
   ctx.fillStyle='rgba(200,169,110,.9)';ctx.fillText(fovLabel,5,H-5);
 
@@ -2589,7 +2650,7 @@ function drawView(dist,tAz,va){
       ctx.font=`bold ${dtFs}px 'Space Mono',monospace`;
     }
     ctx.textAlign='left';
-    ctx.strokeStyle='rgba(4,6,14,0.95)';ctx.lineWidth=3;ctx.lineJoin='round';
+    ctx.strokeStyle=lblStroke;ctx.lineWidth=3;ctx.lineJoin='round';
     ctx.strokeText(dtLabel,10,dtFs+6);
     ctx.fillStyle='rgba(240,230,200,0.95)';
     ctx.fillText(dtLabel,10,dtFs+6);
