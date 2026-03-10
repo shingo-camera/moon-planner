@@ -2598,24 +2598,32 @@ function drawView(dist,tAz,va){
           ctx.strokeStyle = lineColor;
           ctx.lineWidth = 0.8; ctx.setLineDash([2,3]); ctx.stroke(); ctx.setLineDash([]);
 
-          // テキスト（縁取りで視認性確保、背景矩形なし）
-          ctx.strokeStyle = lblStroke;
-          ctx.lineWidth = 3;
-          ctx.lineJoin = 'round';
+          // テキスト（背景矩形＋縁取りで視認性確保）
+          const bgRect = skyBrightness>0.65?'rgba(230,230,240,0.82)':'rgba(4,8,20,0.82)';
           ctx.textAlign = 'left';
+          const _tw = ctx.measureText(item.label).width;
+          ctx.fillStyle = bgRect;
+          ctx.fillRect(lx-2, ly-10, _tw+4, 12);
+          ctx.strokeStyle = lblStroke;
+          ctx.lineWidth = 2;
+          ctx.lineJoin = 'round';
           ctx.strokeText(item.label, lx, ly);
           ctx.fillStyle = textColor;
           ctx.fillText(item.label, lx, ly);
         }
       } else {
-        // PC：従来通り軌跡横にラベル
+        // PC：軌跡横にラベル（背景矩形付き）
         ctx.font=`9px 'Space Mono',monospace`;
+        const _pcBg = skyBrightness>0.65?'rgba(230,230,240,0.82)':'rgba(4,8,20,0.82)';
         for(const item of labelItems){
           if(!item.isNear && item.p.x<0||item.p.x>W||item.p.y<0||item.p.y>H)continue;
           const lx=item.p.x+(item.p.x<cx?-5:5);
           ctx.textAlign=item.p.x<cx?'right':'left';
           const col=item.isNear?(item.isPast?lblColor('past'):lblColor('future')):lblColor('neutral');
-          ctx.strokeStyle=lblStroke;ctx.lineWidth=3;ctx.lineJoin='round';
+          const _tw2=ctx.measureText(item.label).width;
+          const _bx=item.p.x<cx?lx-_tw2-2:lx-2;
+          ctx.fillStyle=_pcBg; ctx.fillRect(_bx,item.p.y-13,_tw2+4,12);
+          ctx.strokeStyle=lblStroke;ctx.lineWidth=2;ctx.lineJoin='round';
           ctx.strokeText(item.label,lx,item.p.y-4);
           ctx.fillStyle=col;
           ctx.fillText(item.label,lx,item.p.y-4);
