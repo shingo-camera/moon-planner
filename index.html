@@ -2641,6 +2641,63 @@ function drawCompass(tAz,va){
       ctx.fillStyle='rgba(10,15,28,0.65)';ctx.fillRect(ex+18,ey-20,elw+6,13);
       ctx.fillStyle='rgba(200,220,160,0.95)';ctx.fillText(elvLabel,ex+20,ey-9);
     }
+
+    // ── 月齢情報（仰角ダイアグラムの下の余白）──
+    const phaseY0 = ey + 14;
+    const phaseRemain = H - phaseY0 - 4;
+    if(phaseRemain > 28){
+      const ds2 = document.getElementById('idate').value;
+      if(ds2){
+        const age2 = moonAge(new Date(ds2+'T03:00:00Z'));
+        const phase2 = age2/29.53058867;
+        const pname = moonPhaseName(age2);
+        const pr = Math.min(14, Math.floor(phaseRemain*0.42));
+        const pmx = ex + pr + 4;
+        const pmy = phaseY0 + pr + 2;
+        // 背景黒丸
+        ctx.fillStyle='#060810';
+        ctx.beginPath();ctx.arc(pmx,pmy,pr+1,0,Math.PI*2);ctx.fill();
+        // 月本体グラデ
+        const mg=ctx.createRadialGradient(pmx-pr*.3,pmy-pr*.3,1,pmx,pmy,pr);
+        mg.addColorStop(0,'#fffde8');mg.addColorStop(0.6,'#e8d5a0');mg.addColorStop(1,'#b89840');
+        ctx.fillStyle=mg;
+        ctx.beginPath();ctx.arc(pmx,pmy,pr,0,Math.PI*2);ctx.fill();
+        // 位相（影）
+        ctx.save();
+        ctx.beginPath();ctx.arc(pmx,pmy,pr,0,Math.PI*2);ctx.clip();
+        const illum2=(1-Math.cos(2*Math.PI*phase2))/2;
+        const pex=pr*(2*illum2-1);
+        ctx.fillStyle='rgba(6,8,16,.92)';
+        ctx.beginPath();ctx.arc(pmx,pmy,pr,0,Math.PI*2);ctx.fill();
+        const mg2=ctx.createRadialGradient(pmx-pr*.3,pmy-pr*.3,1,pmx,pmy,pr);
+        mg2.addColorStop(0,'#fffde8');mg2.addColorStop(0.6,'#e8d5a0');mg2.addColorStop(1,'#b89840');
+        ctx.fillStyle=mg2;
+        if(phase2<0.5){
+          ctx.beginPath();ctx.arc(pmx,pmy,pr,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();
+          ctx.beginPath();ctx.ellipse(pmx,pmy,Math.abs(pex),pr,0,0,Math.PI*2);
+          if(pex>0){ctx.fill();}else{ctx.fillStyle='rgba(6,8,16,.92)';ctx.fill();}
+        }else{
+          ctx.beginPath();ctx.arc(pmx,pmy,pr,Math.PI/2,-Math.PI/2,false);ctx.closePath();ctx.fill();
+          ctx.beginPath();ctx.ellipse(pmx,pmy,Math.abs(pex),pr,0,0,Math.PI*2);
+          if(pex>0){ctx.fill();}else{ctx.fillStyle='rgba(6,8,16,.92)';ctx.fill();}
+        }
+        ctx.restore();
+        ctx.strokeStyle='rgba(200,169,110,.3)';ctx.lineWidth=1;
+        ctx.beginPath();ctx.arc(pmx,pmy,pr,0,Math.PI*2);ctx.stroke();
+        // 月齢・月相名テキスト
+        const tx2 = pmx + pr + 7;
+        ctx.textAlign='left';ctx.textBaseline='alphabetic';
+        ctx.font=`bold 12px 'Space Mono',monospace`;
+        const ageLabel=`${age2.toFixed(1)}日`;
+        const ageLW=ctx.measureText(ageLabel).width;
+        ctx.fillStyle='rgba(10,15,28,0.65)';ctx.fillRect(tx2-2,pmy-pr-1,ageLW+6,13);
+        ctx.fillStyle='rgba(200,169,110,0.95)';ctx.fillText(ageLabel,tx2,pmy-pr+10);
+        ctx.font=`10px 'Noto Sans JP',sans-serif`;
+        const nameLW=ctx.measureText(pname).width;
+        ctx.fillStyle='rgba(10,15,28,0.65)';ctx.fillRect(tx2-2,pmy-pr+13,nameLW+6,13);
+        ctx.fillStyle='rgba(200,200,220,0.85)';ctx.fillText(pname,tx2,pmy-pr+23);
+      }
+    }
   } else {
     // PC：右側に情報テキスト＋仰角ダイアグラム（元のレイアウト）
     const infoX=cx+R+22;
@@ -2906,6 +2963,7 @@ function _loadFromLocalStorage(){
 function _loadFromURLHash(){
   try{
     const hash=location.hash;
+    console.log('[hash] location.hash=', hash ? hash.slice(0,60)+'...' : '(empty)');
     const m=hash.match(/spots=([^&]+)/);
     if(!m)return;
     const data=JSON.parse(decodeURIComponent(atob(m[1])));
@@ -2913,7 +2971,8 @@ function _loadFromURLHash(){
     // nullでない最初の1件を取り出して画面に反映するだけ
     // savedSpots・LocalStorageには一切書き込まない
     const spot=data.find(s=>s!==null);
-    if(!spot)return;
+    if(!spot){ console.log('[hash] no valid spot found'); return; }
+    console.log('[hash] applying spot lat=', spot.lat, 'lng=', spot.lng);
     // 地点
     if(spot.lat!=null&&spot.lng!=null){ sLat=spot.lat; sLng=spot.lng; }
     if(spot.target&&T[spot.target]) selTarget(spot.target);
