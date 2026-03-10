@@ -434,7 +434,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
     display:flex;
     align-items:center;justify-content:center;
     position:fixed;
-    bottom:8px;
+    bottom:calc(var(--mob-bar) + 8px);
     right:8px;
     width:40px;height:40px;
     background:rgba(17,19,32,0.92);
@@ -442,10 +442,14 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
     border-radius:6px;
     font-size:18px;
     color:var(--ac);
-    z-index:99999;
+    z-index:9999999;
     cursor:pointer;
     -webkit-tap-highlight-color:transparent;
     box-shadow:0 2px 8px rgba(0,0,0,0.5);
+    -webkit-transform:translateZ(0);
+    transform:translateZ(0);
+    will-change:transform;
+    touch-action:manipulation;
   }
   #zoom-reset-btn:active{background:var(--ac);color:var(--bg);}
 }
@@ -3107,14 +3111,11 @@ function syncMobileUI(){
 }
 
 function resetZoom(){
-  // metaタグを一瞬maximum-scale=1にしてブラウザズームを強制リセット
   const meta=document.querySelector('meta[name=viewport]');
   if(!meta)return;
   const orig=meta.getAttribute('content');
   meta.setAttribute('content','width=device-width,initial-scale=1,maximum-scale=1');
-  requestAnimationFrame(()=>{
-    meta.setAttribute('content', orig);
-  });
+  setTimeout(()=>{ meta.setAttribute('content', orig); }, 300);
 }
 
 function setNow(){
