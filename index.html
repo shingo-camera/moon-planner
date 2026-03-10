@@ -784,8 +784,15 @@ let savedSpots=[]; // 保存した撮影地点 [{lat,lng,name,target,note}]
 // LAYOUT
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function layout(){
-  const W = window.visualViewport ? Math.round(window.visualViewport.width) : window.innerWidth;
-  const H = window.visualViewport ? Math.round(window.visualViewport.height) : window.innerHeight;
+  // W: レイアウト計算用（CSSと一致するinnerWidth）
+  // cssW: canvasのstyle.widthに使う（ピンチズーム考慮）
+  // drawW: canvasの実描画px（innerWidth = scale * vvWidth）
+  const W = window.innerWidth;
+  const vv = window.visualViewport;
+  const scale = vv ? vv.scale : 1;
+  // cssW: ズーム中はvvの幅をCSSに使う（ズーム状態に合わせて表示幅を縮める）
+  const cssW = vv ? Math.round(vv.width) : W;
+  const H = vv ? Math.round(vv.height) : window.innerHeight;
   const isMobile=W<=600;
 
   if(isMobile){
@@ -820,12 +827,16 @@ function layout(){
     // 3:2（横）または2:3（縦）のアスペクト比を高さから計算
     // 画面幅の最大75%を上限とするが、比率優先
     const cvWbyAspect=Math.round(cvH*(orientation==='land'?3/2:2/3));
-    const maxCvW=Math.round(W*0.75);
+    const maxCvW=Math.round(cssW*0.75);
     const cvW=Math.min(cvWbyAspect, maxCvW);
-    // cvWが制限された場合はcvHも比率に合わせて縮小
     const cvHfinal = cvW===cvWbyAspect ? cvH : Math.round(cvW*(orientation==='land'?2/3:3/2));
-    const diagW=W-cvW;
+    const diagW=cssW-cvW;
     const diagH=cvH;
+    // 描画px（innerWidthベース）: ズーム時は高解像度で描画してCSSで縮小表示
+    const drawCvW  = Math.round(cvW  * scale);
+    const drawCvH  = Math.round(cvHfinal * scale);
+    const drawDiagW= Math.round(diagW * scale);
+    const drawDiagH= Math.round(diagH * scale);
 
     document.getElementById('pv-left').style.width=cvW+'px';
     document.getElementById('pv-left').style.flexDirection='row';
@@ -835,12 +846,16 @@ function layout(){
     pvWrap.style.height=pvH+'px';
 
     const cv1=document.getElementById('cv1');
-    cv1.width=cvW;cv1.height=cvHfinal;
+    cv1.width=drawCvW;cv1.height=drawCvH;
     cv1.style.cssText=`width:${cvW}px!important;height:${cvHfinal}px!important;display:block;background:#060810;`;
 
     const cv2=document.getElementById('cv2');
-    cv2.width=diagW;cv2.height=diagH;
+    cv2.width=drawDiagW;cv2.height=drawDiagH;
     cv2.style.cssText=`width:${diagW}px!important;height:${diagH}px!important;display:block;background:#060810;`;
+    const diagWrap=document.getElementById('diag-wrap');
+    diagWrap.style.width=diagW+'px';
+    diagWrap.style.height=pvH+'px';
+    diagWrap.style.flex='none';
 
     if(map) map.invalidateSize();
     if(sLat!==null){
@@ -2267,13 +2282,13 @@ function drawView(dist,tAz,va){
           ctx.strokeStyle = lineColor;
           ctx.lineWidth = 0.8; ctx.setLineDash([2,3]); ctx.stroke(); ctx.setLineDash([]);
 
-          // 背景
-          ctx.fillStyle = 'rgba(6,8,16,0.80)';
-          ctx.fillRect(lx - 2, ly - 11, labelW + 4, 13);
-
-          // テキスト
-          ctx.fillStyle = textColor;
+          // テキスト（縁取りで視認性確保、背景矩形なし）
+          ctx.strokeStyle = 'rgba(4,6,14,0.95)';
+          ctx.lineWidth = 3;
+          ctx.lineJoin = 'round';
           ctx.textAlign = 'left';
+          ctx.strokeText(item.label, lx, ly);
+          ctx.fillStyle = textColor;
           ctx.fillText(item.label, lx, ly);
         }
       } else {
@@ -2282,11 +2297,11 @@ function drawView(dist,tAz,va){
         for(const item of labelItems){
           if(!item.isNear && item.p.x<0||item.p.x>W||item.p.y<0||item.p.y>H)continue;
           const lx=item.p.x+(item.p.x<cx?-5:5);
-          const lw=ctx.measureText(item.label).width;
-          const bx=item.p.x<cx?lx-lw-2:lx-2;
-          ctx.fillStyle='rgba(13,17,26,0.6)';ctx.fillRect(bx,item.p.y-14,lw+4,12);
-          ctx.fillStyle=item.isNear?(item.isPast?'rgba(160,210,255,0.95)':'rgba(240,200,120,0.95)'):'rgba(200,200,220,0.6)';
           ctx.textAlign=item.p.x<cx?'right':'left';
+          const col=item.isNear?(item.isPast?'rgba(160,210,255,0.95)':'rgba(240,200,120,0.95)'):'rgba(200,200,220,0.6)';
+          ctx.strokeStyle='rgba(4,6,14,0.95)';ctx.lineWidth=3;ctx.lineJoin='round';
+          ctx.strokeText(item.label,lx,item.p.y-4);
+          ctx.fillStyle=col;
           ctx.fillText(item.label,lx,item.p.y-4);
         }
       }
@@ -2322,8 +2337,8 @@ function drawView(dist,tAz,va){
   const bodyName=sunsetMode?'太陽':'月';
   const fovLabel=`FOV ${fvH.toFixed(1)}°  ${bodyName} ${bodyAngDiam.toFixed(3)}°  ${T[cur].name}頂 ${angS(T[cur].h,dist).toFixed(1)}°  仰角 ${vaTop.toFixed(2)}°`;
   ctx.font=`10px 'Space Mono',monospace`;ctx.textAlign='left';
-  const flw=ctx.measureText(fovLabel).width;
-  ctx.fillStyle='rgba(10,15,28,0.75)';ctx.fillRect(0,H-18,flw+10,18);
+  ctx.strokeStyle='rgba(4,6,14,0.95)';ctx.lineWidth=3;ctx.lineJoin='round';
+  ctx.strokeText(fovLabel,5,H-5);
   ctx.fillStyle='rgba(200,169,110,.9)';ctx.fillText(fovLabel,5,H-5);
 
   // 左上に設定日時を大きく表示（canvas幅に収まるようフォントサイズ自動調整）
@@ -2336,12 +2351,10 @@ function drawView(dist,tAz,va){
       ctx.font=`bold ${dtFs}px 'Space Mono',monospace`;
     }
     ctx.textAlign='left';
-    const dtW=ctx.measureText(dtLabel).width;
-    const dtH=dtFs+10;
-    ctx.fillStyle='rgba(10,15,28,0.72)';
-    ctx.fillRect(4,4,dtW+12,dtH);
+    ctx.strokeStyle='rgba(4,6,14,0.95)';ctx.lineWidth=4;ctx.lineJoin='round';
+    ctx.strokeText(dtLabel,10,dtFs+6);
     ctx.fillStyle='rgba(240,230,200,0.95)';
-    ctx.fillText(dtLabel,10,dtH-4);
+    ctx.fillText(dtLabel,10,dtFs+6);
   }
   // canvas外周枠線（スマホでcanvasと余白の境界を明示）
   ctx.strokeStyle='rgba(200,169,110,0.30)';
@@ -3461,8 +3474,10 @@ window.addEventListener('load',()=>{
   setTimeout(()=>{
     if(map)map.invalidateSize();
     layout();
-    calcSunMoon(); // 地図準備完了後に扇形を描画
+    calcSunMoon();
   },400);
+  setTimeout(()=>{ layout(); },900);
+  setTimeout(()=>{ layout(); },1800);
 
   // 日付変更
   document.getElementById('idate').addEventListener('change',()=>{
@@ -3521,6 +3536,13 @@ window.addEventListener('load',()=>{
     clearTimeout(_resizeTimer);
     _resizeTimer=setTimeout(scheduleLayout,60);
   });
+  // visualViewport resize: ピンチズーム変化時（ズームアウト含む）にlayoutを再実行
+  if(window.visualViewport){
+    window.visualViewport.addEventListener('resize',()=>{
+      clearTimeout(_resizeTimer);
+      _resizeTimer=setTimeout(scheduleLayout,60);
+    });
+  }
 });
 </script>
 </body>
