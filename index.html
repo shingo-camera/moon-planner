@@ -2621,15 +2621,18 @@ function drawView(dist,tAz,va){
           ctx.strokeStyle = lineColor;
           ctx.lineWidth = 0.8; ctx.setLineDash([2,3]); ctx.stroke(); ctx.setLineDash([]);
 
-          // テキスト（白半透明背景＋黒テキストで全時間帯視認性確保）
-          const bgRect = 'rgba(240,240,248,0.88)';
+          // テキスト（半透明白背景＋黒縁取りで視認性とシルエット透過性を両立）
+          const bgRect = 'rgba(240,240,248,0.72)';
           const fgRect = isNear
             ? (isPast ? 'rgba(10,50,140,0.95)' : 'rgba(130,60,0,0.95)')
-            : 'rgba(30,30,60,0.80)';
+            : 'rgba(30,30,60,0.85)';
           ctx.textAlign = 'left';
           const _tw = ctx.measureText(item.label).width;
           ctx.fillStyle = bgRect;
           ctx.fillRect(lx-2, ly-9, _tw+4, 11);
+          ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+          ctx.lineWidth = 2; ctx.lineJoin = 'round';
+          ctx.strokeText(item.label, lx, ly-1);
           ctx.fillStyle = fgRect;
           ctx.fillText(item.label, lx, ly-1);
         }
@@ -2643,7 +2646,9 @@ function drawView(dist,tAz,va){
           const col=item.isNear?(item.isPast?'rgba(10,50,140,0.95)':'rgba(130,60,0,0.95)'):'rgba(30,30,60,0.80)';
           const _tw2=ctx.measureText(item.label).width;
           const _bx=item.p.x<cx?lx-_tw2-2:lx-2;
-          ctx.fillStyle='rgba(240,240,248,0.88)'; ctx.fillRect(_bx,item.p.y-9,_tw2+4,11);
+          ctx.fillStyle='rgba(240,240,248,0.72)'; ctx.fillRect(_bx,item.p.y-9,_tw2+4,11);
+          ctx.strokeStyle='rgba(255,255,255,0.6)';ctx.lineWidth=2;ctx.lineJoin='round';
+          ctx.strokeText(item.label,lx,item.p.y-1);
           ctx.fillStyle=col;
           ctx.fillText(item.label,lx,item.p.y-1);
         }
@@ -2686,7 +2691,7 @@ function drawView(dist,tAz,va){
   ctx.textAlign='left';
   {
     const fovW=ctx.measureText(fovLabel).width;
-    ctx.fillStyle='rgba(240,240,248,0.88)';ctx.fillRect(0,H-fovFs-4,fovW+8,fovFs+5);
+    ctx.fillStyle='rgba(240,240,248,0.72)';ctx.fillRect(0,H-fovFs-4,fovW+8,fovFs+5);
   }
   ctx.fillStyle='rgba(20,20,50,0.95)';ctx.fillText(fovLabel,4,H-2);
 
@@ -2702,7 +2707,7 @@ function drawView(dist,tAz,va){
     ctx.textAlign='left';
     {
       const dtW=ctx.measureText(dtLabel).width;
-      ctx.fillStyle='rgba(240,240,248,0.88)';ctx.fillRect(6,4,dtW+6,dtFs+4);
+      ctx.fillStyle='rgba(240,240,248,0.72)';ctx.fillRect(6,4,dtW+6,dtFs+4);
     }
     ctx.fillStyle='rgba(20,20,50,0.95)';
     ctx.fillText(dtLabel,9,dtFs+5);
