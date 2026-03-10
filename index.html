@@ -1195,7 +1195,7 @@ function updateMapBtns(az){
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function onPick(){
   if(sLat===null||sLng===null)return;
-  elevOffset=0; // 新しい地点選択時はオフセットをリセット
+  // elevOffsetは地点変更時にリセットしない（ユーザーが手動でRstボタンを押す）
   // スマホでは撮影地点確定後にhintを非表示
   if(window.innerWidth<=600){const h=document.getElementById('hint');if(h)h.style.display='none';}
   if(map&&sMarker){try{map.removeLayer(sMarker);}catch(e){}}
