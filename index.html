@@ -788,33 +788,14 @@ function layout(){
   const isMobile=W<=600;
 
   if(isMobile){
-    const hdrH=0, lblH=22;
+    const lblH=22;
     const mobBarH=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--mob-bar'))||104;
-    // dvh対応：CSS 100dvhが使えれば使う（iOSアドレスバー伸縮を吸収）
-    const dvhH = (() => {
-      try {
-        const el = document.createElement('div');
-        el.style.cssText = 'position:fixed;top:0;left:0;height:100dvh;width:0;pointer-events:none;visibility:hidden;';
-        document.body.appendChild(el);
-        const h = el.offsetHeight;
-        document.body.removeChild(el);
-        return h > 0 ? h : H;
-      } catch(e){ return H; }
-    })();
-    const avH=dvhH-hdrH-mobBarH;
-    const mapH=Math.round(avH*0.55);
-    const pvH=avH-mapH;
-
-    document.getElementById('mapbox').style.flex='none';
-
-    // プレビューとダイアグラムを横並び（元のレイアウト）
-    const ppanel=document.getElementById('preview-panel');
-    ppanel.style.flexDirection='row';
-    ppanel.style.overflow='hidden';
+    // 利用可能高さ = visualViewport高さ - ボトムバー高さ
+    const avH = H - mobBarH;
 
     // ── canvas サイズ計算（縦横で px/deg を統一）──
-    // 横構図: 幅を avH*45%-lbl の高さから 3:2 比率で決定（幅上限 W*0.75）
-    // 縦構図: 横構図の canvas を 90度回転（W↔H）→ pvH が変わる → mapH が連動
+    // 横構図を基準: avH の 45% を pvH とし、そこから canvas サイズを決定
+    // 縦構図は横構図 canvas を 90度回転（W↔H入れ替え）→ pvH が変わる → mapH が連動
     const pvH_land = Math.round(avH * 0.45);
     const cvH_land = pvH_land - lblH;
     const cvWbyAspect_land = Math.round(cvH_land * 3/2);
@@ -822,41 +803,51 @@ function layout(){
     const cvW_land = Math.min(cvWbyAspect_land, maxCvW);
     const cvHfinal_land = cvW_land === cvWbyAspect_land ? cvH_land : Math.round(cvW_land * 2/3);
 
-    // 縦構図: 横構図の canvas を 90度回転
-    const cvW_port = cvHfinal_land;   // 元の高さ → 縦構図の幅
-    const cvH_port = cvW_land;        // 元の幅   → 縦構図の高さ
+    // 縦構図: 90度回転
+    const cvW_port = cvHfinal_land;
+    const cvH_port = cvW_land;
 
     const isPort = orientation === 'port';
-    const cvW    = isPort ? cvW_port    : cvW_land;
-    const cvH    = isPort ? cvH_port    : cvHfinal_land;
-    const pvH    = isPort ? cvH_port + lblH : pvH_land;
-    const curMapH= avH - pvH;  // 縦構図では地図が伸びる
+    const cvW = isPort ? cvW_port : cvW_land;
+    const cvH = isPort ? cvH_port : cvHfinal_land;
+    const pvH = isPort ? cvH_port + lblH : pvH_land;
+    const mapH = avH - pvH;
 
-    document.getElementById('mapbox').style.height = curMapH + 'px';
-    ppanel.style.height = pvH + 'px';
+    // DOM 反映
+    const mapbox = document.getElementById('mapbox');
+    mapbox.style.flex = 'none';
+    mapbox.style.height = mapH + 'px';
+
+    const ppanel = document.getElementById('preview-panel');
     ppanel.style.flex = 'none';
+    ppanel.style.flexDirection = 'row';
+    ppanel.style.height = pvH + 'px';
+    ppanel.style.overflow = 'hidden';
 
     const diagW = W - cvW;
     const diagH = cvH;
 
-    document.getElementById('pv-left').style.width=cvW+'px';
-    document.getElementById('pv-left').style.flexDirection='row';
-    document.getElementById('pv-left').style.flexShrink='0';
-    const pvWrap=document.getElementById('pv-cv-wrap');
-    pvWrap.style.width=cvW+'px';
-    pvWrap.style.height=pvH+'px';
+    const pvLeft = document.getElementById('pv-left');
+    pvLeft.style.width = cvW+'px';
+    pvLeft.style.flexDirection = 'row';
+    pvLeft.style.flexShrink = '0';
+    pvLeft.style.flexGrow = '0';
+    const pvWrap = document.getElementById('pv-cv-wrap');
+    pvWrap.style.width = cvW+'px';
+    pvWrap.style.height = pvH+'px';
 
-    const cv1=document.getElementById('cv1');
-    cv1.width=cvW;cv1.height=cvH;
-    cv1.style.cssText=`width:${cvW}px!important;height:${cvH}px!important;display:block;background:#060810;`;
+    const cv1 = document.getElementById('cv1');
+    cv1.width = cvW; cv1.height = cvH;
+    cv1.style.cssText = `width:${cvW}px!important;height:${cvH}px!important;display:block;background:#060810;`;
 
-    const cv2=document.getElementById('cv2');
-    cv2.width=diagW;cv2.height=diagH;
-    cv2.style.cssText=`width:${diagW}px!important;height:${diagH}px!important;display:block;background:#060810;`;
-    const diagWrap=document.getElementById('diag-wrap');
-    diagWrap.style.width=diagW+'px';
-    diagWrap.style.height=pvH+'px';
-    diagWrap.style.flex='none';
+    const cv2 = document.getElementById('cv2');
+    cv2.width = diagW; cv2.height = diagH;
+    cv2.style.cssText = `width:${diagW}px!important;height:${diagH}px!important;display:block;background:#060810;`;
+
+    const diagWrap = document.getElementById('diag-wrap');
+    diagWrap.style.width = diagW+'px';
+    diagWrap.style.height = pvH+'px';
+    diagWrap.style.flex = 'none';
 
     // ±1d ボタン: 縦構図で幅が狭い時はラベルテキストを隠す
     const pvLabelText = document.getElementById('pv-label-text');
@@ -902,7 +893,9 @@ function layout(){
   // プレビューパネル高さ（縦構図時は拡張）
   document.getElementById('preview-panel').style.height = pvPanelH+'px';
   // pv-left幅
-  document.getElementById('pv-left').style.width = pvTotalW+'px';
+  const pvLeft = document.getElementById('pv-left');
+  pvLeft.style.width = pvTotalW+'px';
+  pvLeft.style.flexShrink = '0';
   // pv-cv-wrap：幅と高さを明示固定
   const pvWrap=document.getElementById('pv-cv-wrap');
   pvWrap.style.width  = cvW+'px';
@@ -917,6 +910,12 @@ function layout(){
   const cv2=document.getElementById('cv2');
   cv2.width=diagW; cv2.height=diagH;
   cv2.style.cssText=`width:${diagW}px!important;height:${diagH}px!important;display:block;background:#060810;flex-shrink:0;flex-grow:0;`;
+
+  // diag-wrap サイズ設定
+  const diagWrap=document.getElementById('diag-wrap');
+  diagWrap.style.width  = diagW+'px';
+  diagWrap.style.height = pvPanelH+'px';
+  diagWrap.style.flex   = 'none';
 
   // 再描画
   if(map) map.invalidateSize();
