@@ -1567,11 +1567,34 @@ function jst(d){
   return new Date(d.getTime()+9*3600000).toISOString().substr(11,5);
 }
 
+// 朔の瞬間をMeeus Ch.47の式で精密計算し、直前の朔からの経過日数を月齢とする
+function _trueNewMoonJDE(k){
+  const T=k/1236.85, T2=T*T, T3=T*T2, T4=T*T3;
+  let JDE=2451550.09766+29.530588861*k+0.00015437*T2-0.000000150*T3+0.00000000073*T4;
+  const M=(2.5534+29.10535670*k-0.0000014*T2)*Math.PI/180;
+  const Mp=(201.5643+385.81693528*k+0.0107582*T2)*Math.PI/180;
+  const F=(160.7108+390.67050284*k-0.0016118*T2)*Math.PI/180;
+  const Om=(124.7746-1.56375588*k+0.0020672*T2)*Math.PI/180;
+  return JDE
+    -0.40720*Math.sin(Mp)+0.17241*Math.sin(M)+0.01608*Math.sin(2*Mp)
+    +0.01039*Math.sin(2*F)+0.00739*Math.sin(Mp-M)-0.00514*Math.sin(Mp+M)
+    +0.00208*Math.sin(2*M)-0.00111*Math.sin(Mp-2*F)-0.00057*Math.sin(Mp+2*F)
+    +0.00056*Math.sin(2*Mp+M)-0.00042*Math.sin(3*Mp)+0.00042*Math.sin(M+2*F)
+    +0.00038*Math.sin(M-2*F)-0.00024*Math.sin(2*Mp-M)-0.00017*Math.sin(Om)
+    -0.00007*Math.sin(Mp+2*M)+0.00004*Math.sin(2*Mp-2*F)+0.00004*Math.sin(3*M)
+    +0.00003*Math.sin(Mp+M-2*F)+0.00003*Math.sin(2*Mp+2*F)
+    -0.00003*Math.sin(Mp+M+2*F)+0.00003*Math.sin(Mp-M+2*F)
+    -0.00002*Math.sin(Mp-M-2*F)-0.00002*Math.sin(3*Mp+M)+0.00002*Math.sin(4*Mp);
+}
 function moonAge(date){
-  const known=new Date('2000-01-06T18:14:00Z');
-  const cycle=29.53058867;
-  const diff=(date-known)/(1000*60*60*24);
-  return((diff%cycle)+cycle)%cycle;
+  const JD=date.valueOf()/86400000+2440587.5;
+  const k0=Math.floor((JD-2451550.09766)/29.530588861);
+  let bestJDE=null;
+  for(let dk=-2;dk<=2;dk++){
+    const jde=_trueNewMoonJDE(k0+dk);
+    if(jde<=JD&&(bestJDE===null||jde>bestJDE)) bestJDE=jde;
+  }
+  return JD-bestJDE;
 }
 
 function moonPhaseName(age){
@@ -3769,11 +3792,17 @@ function renderMoonCal(){
   const daysInMonth=new Date(y,mo+1,0).getDate();
   // 選択中の日付
   const selDs=document.getElementById('idate').value;
+  // 月の出入り計算に使う座標（撮影地点 or 対象地点）
+  const mlat=sLat!==null?sLat:T[cur].lat;
+  const mlng=sLng!==null?sLng:T[cur].lng;
 
   // 空白セル
   for(let i=0;i<firstDay;i++){
     grid.appendChild(Object.assign(document.createElement('div'),{style:''}));
   }
+
+  // 月の出入り時刻プレースホルダ要素をまとめて保持
+  const riseEls=[], setEls=[];
 
   for(let d=1;d<=daysInMonth;d++){
     const ds=`${y}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
@@ -3816,11 +3845,26 @@ function renderMoonCal(){
     nameEl.style.cssText=`font-size:7px;color:var(--sub);line-height:1.2;text-align:center;word-break:keep-all;pointer-events:none;`;
     nameEl.textContent=phaseName;
 
+    // 月の出時刻（非同期で埋める）
+    const riseEl=document.createElement('div');
+    riseEl.style.cssText=`font-family:'Space Mono',monospace;font-size:7px;color:#ffcc88;line-height:1.3;pointer-events:none;`;
+    riseEl.textContent='↑…';
+
+    // 月の入り時刻（非同期で埋める）
+    const setEl=document.createElement('div');
+    setEl.style.cssText=`font-family:'Space Mono',monospace;font-size:7px;color:#88ccff;line-height:1.3;pointer-events:none;`;
+    setEl.textContent='↓…';
+
     cell.appendChild(dayEl);
     cell.appendChild(cv);
     cell.appendChild(ageEl);
     cell.appendChild(nameEl);
+    cell.appendChild(riseEl);
+    cell.appendChild(setEl);
     grid.appendChild(cell);
+
+    riseEls.push({ds, el:riseEl});
+    setEls.push({ds, el:setEl});
   }
 
   // イベント委譲：grid全体でclickを受けてdata-dsでセル特定
@@ -3828,6 +3872,20 @@ function renderMoonCal(){
     const cell=e.target.closest('[data-ds]');
     if(cell) setDateFromCal(cell.dataset.ds);
   };
+
+  // 月の出入りを非同期で1日ずつ計算して埋める
+  let _calIdx=0;
+  function _fillNextDay(){
+    if(_calIdx>=riseEls.length)return;
+    const {ds, el:rEl}=riseEls[_calIdx];
+    const {el:sEl}=setEls[_calIdx];
+    _calIdx++;
+    const mt=moonTCached(ds, mlat, mlng);
+    rEl.textContent=mt.rise?'↑'+jst(mt.rise):'↑—';
+    sEl.textContent=mt.set ?'↓'+jst(mt.set) :'↓—';
+    setTimeout(_fillNextDay, 0);
+  }
+  setTimeout(_fillNextDay, 0);
 }
 
 function drawMoonPhaseSmall(cv,age){
@@ -4316,6 +4374,7 @@ window.addEventListener('load',()=>{
   // 日付変更
   document.getElementById('idate').addEventListener('change',()=>{
     calcSunMoon();
+    updateDrawerIfOpen();
     updatePvDateDisp();
     if(sLat!==null){
       // 地点変わらず標高再取得不要 → 直接再描画
