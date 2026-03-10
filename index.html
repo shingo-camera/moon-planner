@@ -2963,7 +2963,12 @@ function _loadFromLocalStorage(){
 function _loadFromURLHash(){
   try{
     const hash=location.hash;
-    console.log('[hash] location.hash=', hash ? hash.slice(0,60)+'...' : '(empty)');
+    // デバッグ：hashの内容を画面に一時表示
+    const dbg=document.createElement('div');
+    dbg.style.cssText='position:fixed;top:50px;left:0;right:0;z-index:99999;background:rgba(0,0,0,.92);color:#0f0;font-size:11px;font-family:monospace;padding:8px;word-break:break-all;';
+    dbg.textContent='[HASH DEBUG] '+(hash?hash.slice(0,80)+'...(len='+hash.length+')':'(empty)');
+    document.body.appendChild(dbg);
+    setTimeout(()=>dbg.remove(), 8000);
     const m=hash.match(/spots=([^&]+)/);
     if(!m)return;
     const data=JSON.parse(decodeURIComponent(atob(m[1])));
@@ -2971,8 +2976,19 @@ function _loadFromURLHash(){
     // nullでない最初の1件を取り出して画面に反映するだけ
     // savedSpots・LocalStorageには一切書き込まない
     const spot=data.find(s=>s!==null);
-    if(!spot){ console.log('[hash] no valid spot found'); return; }
-    console.log('[hash] applying spot lat=', spot.lat, 'lng=', spot.lng);
+    if(!spot){
+      const dbg2=document.createElement('div');
+      dbg2.style.cssText='position:fixed;top:110px;left:0;right:0;z-index:99999;background:rgba(80,0,0,.92);color:#f88;font-size:11px;font-family:monospace;padding:8px;';
+      dbg2.textContent='[HASH] spot not found in array';
+      document.body.appendChild(dbg2);
+      setTimeout(()=>dbg2.remove(),8000);
+      return;
+    }
+    const dbg3=document.createElement('div');
+    dbg3.style.cssText='position:fixed;top:110px;left:0;right:0;z-index:99999;background:rgba(0,60,0,.92);color:#8f8;font-size:11px;font-family:monospace;padding:8px;';
+    dbg3.textContent=`[HASH] OK lat=${spot.lat?.toFixed(4)} lng=${spot.lng?.toFixed(4)}`;
+    document.body.appendChild(dbg3);
+    setTimeout(()=>dbg3.remove(),8000);
     // 地点
     if(spot.lat!=null&&spot.lng!=null){ sLat=spot.lat; sLng=spot.lng; }
     if(spot.target&&T[spot.target]) selTarget(spot.target);
