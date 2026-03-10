@@ -137,7 +137,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 
 /* ±ボタン＋プレビュー側 */
 #pv-left{display:flex;flex-direction:row;flex-shrink:0;flex-grow:0;
-  overflow:hidden;border-right:1px solid var(--bd);}
+  overflow:hidden;border-right:1px solid var(--bd);align-items:flex-start;}
 
 /* ±ボタン縦列 */
 #tbtn-col{width:var(--btn);flex-shrink:0;display:flex;flex-direction:column;
@@ -153,7 +153,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 .tbtn-time{font-family:'Space Mono',monospace;font-size:7px;color:var(--ac);
   writing-mode:vertical-rl;letter-spacing:.05em;padding:3px 0;flex-shrink:0;}
 
-#pv-cv-wrap{display:flex;flex-direction:column;flex-shrink:0;flex-grow:0;overflow:hidden;position:relative;box-shadow:inset 0 0 0 1px rgba(200,169,110,0.25);}
+#pv-cv-wrap{display:flex;flex-direction:column;flex-shrink:0;flex-grow:0;overflow:hidden;position:relative;box-shadow:inset 0 0 0 1px rgba(200,169,110,0.25);align-items:flex-start;}
 /* プレビューcanvasラップ */
 .pv-label{height:var(--lbl);display:flex;align-items:center;padding:0 6px;
   font-family:'Space Mono',monospace;font-size:7px;letter-spacing:.08em;
@@ -163,7 +163,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 #cv2{display:block;background:#060810;flex-shrink:0;flex-grow:0;}
 
 /* ダイアグラム側 */
-#diag-wrap{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;}
+#diag-wrap{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;align-items:flex-start;}
 
 /* 8方向パッド（プレビュー右上オーバーレイ） */
 #pv-pad{
@@ -334,7 +334,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   #mapbox{flex:0 0 55%;}
 
   /* プレビューパネル：残り */
-  #preview-panel{flex:1;min-height:0;border-top:1px solid var(--bd);overflow-y:auto;}
+  #preview-panel{flex:1;min-height:0;border-top:1px solid var(--bd);overflow:hidden;}
 
   /* PC用±ボタン列を非表示 */
   #tbtn-col{display:none;}
@@ -784,7 +784,7 @@ let savedSpots=[]; // 保存した撮影地点 [{lat,lng,name,target,note}]
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function layout(){
   const W = window.innerWidth;
-  const H = window.visualViewport ? Math.round(window.visualViewport.height) : window.innerHeight;
+  const H = window.innerHeight;
   const isMobile=W<=600;
 
   if(isMobile){
@@ -942,6 +942,19 @@ function scheduleLayout(){
 // ブラウザのピンチズームを禁止した代わりにプレビュー内のみ拡大を可能にする
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 window.addEventListener('DOMContentLoaded',()=>{
+  // Safari は user-scalable=no を無視するため touchmove で防ぐ
+  // 地図コンテナ(#map)の中は Leaflet に任せる
+  document.addEventListener('touchmove', e => {
+    if(e.touches.length >= 2) {
+      let el = e.target;
+      while(el) {
+        if(el.id === 'map') return;
+        el = el.parentElement;
+      }
+      e.preventDefault();
+    }
+  }, { passive: false });
+
   const wrap=document.getElementById('pv-cv-wrap');
   if(!wrap)return;
 
