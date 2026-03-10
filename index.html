@@ -553,6 +553,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
       <div id="chance-list" style="font-size:9px;color:var(--tx);"></div>
       <button id="btn-fullmoon" onclick="calcFullMoonChances()" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;margin-top:6px;margin-bottom:4px;">🌕 満月チャンス（1年）を検索</button>
       <div id="fullmoon-list" style="font-size:9px;color:var(--tx);"></div>
+      <button id="btn-mooncal" onclick="openMoonCal()" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;margin-top:6px;">🌙 満ち欠けカレンダー</button>
     </div>
     <!--
     <div>
@@ -748,6 +749,28 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
     <div id="mob-drawer-content"></div>
   </div>
 </div>
+<div id="mooncal-overlay" onclick="closeMoonCal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10100;"></div>
+<div id="mooncal-popup" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  z-index:10200;background:var(--sur);border:1px solid var(--bd);border-radius:10px;
+  padding:14px;width:min(96vw,480px);max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.6);">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+    <div onclick="shiftMoonCal(-1)" style="cursor:pointer;padding:4px 10px;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;font-family:'Space Mono',monospace;font-size:11px;color:var(--ac);">◀</div>
+    <div id="mooncal-title" style="font-family:'Space Mono',monospace;font-size:13px;color:var(--ac);font-weight:700;"></div>
+    <div onclick="shiftMoonCal(1)" style="cursor:pointer;padding:4px 10px;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;font-family:'Space Mono',monospace;font-size:11px;color:var(--ac);">▶</div>
+    <div onclick="closeMoonCal()" style="cursor:pointer;padding:4px 8px;color:var(--sub);font-size:16px;line-height:1;">✕</div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;margin-bottom:6px;">
+    <div style="text-align:center;font-family:'Space Mono',monospace;font-size:9px;color:#ff6655;padding:2px;">日</div>
+    <div style="text-align:center;font-family:'Space Mono',monospace;font-size:9px;color:var(--sub);padding:2px;">月</div>
+    <div style="text-align:center;font-family:'Space Mono',monospace;font-size:9px;color:var(--sub);padding:2px;">火</div>
+    <div style="text-align:center;font-family:'Space Mono',monospace;font-size:9px;color:var(--sub);padding:2px;">水</div>
+    <div style="text-align:center;font-family:'Space Mono',monospace;font-size:9px;color:var(--sub);padding:2px;">木</div>
+    <div style="text-align:center;font-family:'Space Mono',monospace;font-size:9px;color:var(--sub);padding:2px;">金</div>
+    <div style="text-align:center;font-family:'Space Mono',monospace;font-size:9px;color:#4488ff;padding:2px;">土</div>
+  </div>
+  <div id="mooncal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;"></div>
+</div>
+
 <div id="mob-overlay" onclick="toggleDrawer()"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -3224,6 +3247,9 @@ function setSunsetMode(v){
   const fmList=document.getElementById('fullmoon-list');
   if(btnFM)btnFM.style.display=v?'none':'';
   if(fmList&&v)fmList.innerHTML='';
+  // 満ち欠けカレンダーボタン：夕日モード時は非表示
+  const btnMC=document.getElementById('btn-mooncal');
+  if(btnMC)btnMC.style.display=v?'none':'';
   calcSunMoon();
   if(sLat!==null){
     const t=T[cur];
@@ -3698,6 +3724,139 @@ function setTimeFromEl(id){
     itime.dispatchEvent(new Event('change'));
     updateDrawerIfOpen();
   }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 月の満ち欠けカレンダー
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let _moonCalYear=0, _moonCalMonth=0;
+
+function openMoonCal(){
+  const ds=document.getElementById('idate').value;
+  const base=ds?new Date(ds+'T12:00:00+09:00'):new Date();
+  _moonCalYear=base.getFullYear();
+  _moonCalMonth=base.getMonth(); // 0-11
+  renderMoonCal();
+  document.getElementById('mooncal-overlay').style.display='block';
+  document.getElementById('mooncal-popup').style.display='block';
+}
+
+function closeMoonCal(){
+  document.getElementById('mooncal-overlay').style.display='none';
+  document.getElementById('mooncal-popup').style.display='none';
+}
+
+function shiftMoonCal(delta){
+  _moonCalMonth+=delta;
+  if(_moonCalMonth>11){_moonCalMonth=0;_moonCalYear++;}
+  if(_moonCalMonth<0){_moonCalMonth=11;_moonCalYear--;}
+  renderMoonCal();
+}
+
+function renderMoonCal(){
+  const y=_moonCalYear, mo=_moonCalMonth;
+  document.getElementById('mooncal-title').textContent=`${y}年 ${mo+1}月`;
+  const grid=document.getElementById('mooncal-grid');
+  grid.innerHTML='';
+
+  // 1日の曜日（0=日）
+  const firstDay=new Date(y,mo,1).getDay();
+  const daysInMonth=new Date(y,mo+1,0).getDate();
+  // 選択中の日付
+  const selDs=document.getElementById('idate').value;
+
+  // 空白セル
+  for(let i=0;i<firstDay;i++){
+    grid.appendChild(Object.assign(document.createElement('div'),{style:''}));
+  }
+
+  for(let d=1;d<=daysInMonth;d++){
+    const ds=`${y}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dt=new Date(ds+'T00:00:00+09:00');
+    const dow=dt.getDay();
+    const age=moonAge(new Date(ds+'T03:00:00Z'));
+    const phaseName=moonPhaseName(age);
+    const isSel=(ds===selDs);
+
+    // セル
+    const cell=document.createElement('div');
+    cell.style.cssText=`
+      display:flex;flex-direction:column;align-items:center;gap:1px;
+      padding:3px 1px;border-radius:5px;cursor:pointer;
+      border:1px solid ${isSel?'var(--ac)':'var(--bd)'};
+      background:${isSel?'rgba(200,169,110,0.12)':'var(--sur2)'};
+      min-width:0;
+    `;
+    cell.onclick=()=>{ setDateFromCal(ds); };
+
+    // 日付数字
+    const dayEl=document.createElement('div');
+    dayEl.style.cssText=`font-family:'Space Mono',monospace;font-size:10px;font-weight:700;
+      color:${dow===0?'#ff6655':dow===6?'#4488ff':'var(--tx)'};line-height:1.2;`;
+    dayEl.textContent=d;
+
+    // 月相canvas（小）
+    const cv=document.createElement('canvas');
+    cv.width=24;cv.height=24;
+    cv.style.cssText='display:block;border-radius:50%;flex-shrink:0;';
+    drawMoonPhaseSmall(cv,age);
+
+    // 月齢
+    const ageEl=document.createElement('div');
+    ageEl.style.cssText=`font-family:'Space Mono',monospace;font-size:8px;color:var(--ac);line-height:1.2;`;
+    ageEl.textContent=age.toFixed(1);
+
+    // 月相名
+    const nameEl=document.createElement('div');
+    nameEl.style.cssText=`font-size:7px;color:var(--sub);line-height:1.2;text-align:center;word-break:keep-all;`;
+    nameEl.textContent=phaseName;
+
+    cell.appendChild(dayEl);
+    cell.appendChild(cv);
+    cell.appendChild(ageEl);
+    cell.appendChild(nameEl);
+    grid.appendChild(cell);
+  }
+}
+
+function drawMoonPhaseSmall(cv,age){
+  const ctx=cv.getContext('2d');
+  const W=24,cx=12,cy=12,r=10;
+  ctx.clearRect(0,0,W,W);
+  ctx.fillStyle='#060810';
+  ctx.beginPath();ctx.arc(cx,cy,r+1,0,Math.PI*2);ctx.fill();
+  const mg=ctx.createRadialGradient(cx-3,cy-3,1,cx,cy,r);
+  mg.addColorStop(0,'#fffde8');mg.addColorStop(0.6,'#e8d5a0');mg.addColorStop(1,'#b89840');
+  ctx.fillStyle=mg;
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();
+  ctx.save();
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.clip();
+  const phase=age/29.53058867;
+  const illum=(1-Math.cos(2*Math.PI*phase))/2;
+  const ex=r*(2*illum-1);
+  ctx.fillStyle='#060810';
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();
+  const mg2=ctx.createRadialGradient(cx-3,cy-3,1,cx,cy,r);
+  mg2.addColorStop(0,'#fffde8');mg2.addColorStop(0.6,'#e8d5a0');mg2.addColorStop(1,'#b89840');
+  ctx.fillStyle=mg2;
+  if(phase<0.5){
+    ctx.beginPath();ctx.arc(cx,cy,r,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();
+    ctx.beginPath();ctx.ellipse(cx,cy,Math.abs(ex),r,0,0,Math.PI*2);
+    if(ex>0){ctx.fill();}else{ctx.fillStyle='#060810';ctx.fill();}
+  }else{
+    ctx.beginPath();ctx.arc(cx,cy,r,Math.PI/2,-Math.PI/2,false);ctx.closePath();ctx.fill();
+    ctx.beginPath();ctx.ellipse(cx,cy,Math.abs(ex),r,0,0,Math.PI*2);
+    if(ex>0){ctx.fill();}else{ctx.fillStyle='#060810';ctx.fill();}
+  }
+  ctx.restore();
+  ctx.strokeStyle='rgba(200,169,110,.25)';ctx.lineWidth=0.8;
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
+}
+
+function setDateFromCal(ds){
+  document.getElementById('idate').value=ds;
+  document.getElementById('idate').dispatchEvent(new Event('change'));
+  closeMoonCal();
 }
 
 function calcChances(){
