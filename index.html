@@ -3769,13 +3769,11 @@ function calcFullMoonChances(){
         const dowColor=dow.includes('日')?'#ff6655':dow.includes('土')?'#4488ff':'var(--sub)';
         const star=r.azDiff<=1?'★★★':r.azDiff<=2?'★★☆':'★☆☆';
         const altPct=Math.round(r.alt/r.topAlt*100);
-        const ageDiff=Math.abs(r.age-14.76);
-        const ageMark=ageDiff<0.5?'🌕':ageDiff<1.0?'🌖':'🌗';
         return `<div class="chance-item" onclick="setChance('${r.date}','${r.time}')" title="クリックで日時をセット">
           <span style="color:${dowColor}">${r.date}(${dow})</span>
           <span class="chance-time">${r.time}</span>
           <span style="color:var(--ac)">${star}</span>
-          <span style="color:var(--sub)">${ageMark}${r.age.toFixed(1)}日 ±${r.azDiff.toFixed(1)}° 高${altPct}%</span>
+          <span style="color:var(--sub)">🌕${r.age.toFixed(1)}日 ±${r.azDiff.toFixed(1)}° 高${altPct}%</span>
         </div>`;
       }).join('');
     updateDrawerIfOpen();
