@@ -153,13 +153,14 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 .tbtn-time{font-family:'Space Mono',monospace;font-size:7px;color:var(--ac);
   writing-mode:vertical-rl;letter-spacing:.05em;padding:3px 0;flex-shrink:0;}
 
-#pv-cv-wrap{display:flex;flex-direction:column;flex-shrink:0;flex-grow:0;overflow:hidden;position:relative;box-shadow:inset 0 0 0 1px rgba(200,169,110,0.25);align-items:flex-start;}
+#pv-cv-wrap{display:flex;flex-direction:column;flex-shrink:0;flex-grow:0;overflow:hidden;position:relative;background:var(--bd);align-items:flex-start;}
 /* プレビューcanvasラップ */
 .pv-label{height:var(--lbl);display:flex;align-items:center;padding:0 6px;
   font-family:'Space Mono',monospace;font-size:7px;letter-spacing:.08em;
   color:var(--ac);text-transform:uppercase;border-bottom:1px solid var(--bd);
   flex-shrink:0;white-space:nowrap;}
-#cv1{display:block;background:#060810;flex-shrink:0;flex-grow:0;}
+#cv1{display:block;background:#060810;flex-shrink:0;flex-grow:0;
+  outline:1.5px solid var(--ac);}
 #cv2{display:block;background:#060810;flex-shrink:0;flex-grow:0;}
 
 /* ダイアグラム側 */
@@ -954,6 +955,15 @@ window.addEventListener('DOMContentLoaded',()=>{
       e.preventDefault();
     }
   }, { passive: false });
+
+  // #mob-bar は overflow-x:auto の子要素があるため document の preventDefault が
+  // ブラウザに無視される。直接リスナーを passive:false でアタッチしてブロックする。
+  const mobBar = document.getElementById('mob-bar');
+  if(mobBar){
+    mobBar.addEventListener('touchmove', e => {
+      if(e.touches.length >= 2) e.preventDefault();
+    }, { passive: false });
+  }
 
   const wrap=document.getElementById('pv-cv-wrap');
   if(!wrap)return;
