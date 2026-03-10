@@ -551,7 +551,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
       <div class="sec">06 チャンス一覧</div>
       <button id="btn-chance" onclick="calcChances()" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;margin-bottom:4px;">📅 選択日から30日を検索</button>
       <div id="chance-list" style="font-size:9px;color:var(--tx);"></div>
-      <button id="btn-fullmoon" onclick="calcFullMoonChances()" style="width:100%;background:var(--sur2);border:1px solid rgba(200,169,110,.5);border-radius:4px;color:#e8c87a;font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;margin-top:6px;margin-bottom:4px;">🌕 満月チャンス（1年）を検索</button>
+      <button id="btn-fullmoon" onclick="calcFullMoonChances()" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;margin-top:6px;margin-bottom:4px;">🌕 満月チャンス（1年）を検索</button>
       <div id="fullmoon-list" style="font-size:9px;color:var(--tx);"></div>
     </div>
     <!--
@@ -3018,37 +3018,15 @@ function _loadFromLocalStorage(){
 
 function _loadFromURLHash(){
   try{
-    // クエリパラメータ優先（?spots=）、なければハッシュ（#spots=）をフォールバック
     const search=location.search;
     const hash=location.hash;
     const src=search.includes('spots=')?(search.slice(1)):(hash.slice(1));
-    // デバッグ：hashの内容を画面に一時表示
-    const dbg=document.createElement('div');
-    dbg.style.cssText='position:fixed;top:50px;left:0;right:0;z-index:99999;background:rgba(0,0,0,.92);color:#0f0;font-size:11px;font-family:monospace;padding:8px;word-break:break-all;';
-    dbg.textContent='[HASH DEBUG] '+(src?src.slice(0,80)+'...(len='+src.length+')':'(empty)');
-    document.body.appendChild(dbg);
-    setTimeout(()=>dbg.remove(), 8000);
     const m=src.match(/spots=([^&]+)/);
     if(!m)return;
     const data=JSON.parse(decodeURIComponent(atob(m[1])));
     if(!Array.isArray(data))return;
-    // nullでない最初の1件を取り出して画面に反映するだけ
-    // savedSpots・LocalStorageには一切書き込まない
     const spot=data.find(s=>s!==null);
-    if(!spot){
-      const dbg2=document.createElement('div');
-      dbg2.style.cssText='position:fixed;top:110px;left:0;right:0;z-index:99999;background:rgba(80,0,0,.92);color:#f88;font-size:11px;font-family:monospace;padding:8px;';
-      dbg2.textContent='[HASH] spot not found in array';
-      document.body.appendChild(dbg2);
-      setTimeout(()=>dbg2.remove(),8000);
-      return;
-    }
-    const dbg3=document.createElement('div');
-    dbg3.style.cssText='position:fixed;top:110px;left:0;right:0;z-index:99999;background:rgba(0,60,0,.92);color:#8f8;font-size:11px;font-family:monospace;padding:8px;';
-    dbg3.textContent=`[HASH] OK lat=${spot.lat?.toFixed(4)} lng=${spot.lng?.toFixed(4)}`;
-    document.body.appendChild(dbg3);
-    setTimeout(()=>dbg3.remove(),8000);
-    // 地点
+    if(!spot)return;
     if(spot.lat!=null&&spot.lng!=null){ sLat=spot.lat; sLng=spot.lng; }
     if(spot.target&&T[spot.target]) selTarget(spot.target);
     if(spot.focal) setF(spot.focal);
@@ -3072,16 +3050,11 @@ function _loadFromURLHash(){
       if(td)td.textContent=spot.time;
     }
     syncMobileUI();
-    // 地図・描画反映（地図準備後に実行）→ 完了後にハッシュ消去
+    // 地図準備後に反映（initMapのsetTimeout 400msより長く取る）
     setTimeout(()=>{
       if(map&&sLat!==null) map.setView([sLat,sLng],15);
       if(sLat!==null) onPick();
-      // URLパラメータをクリア（再読み込み時に再適用されないよう）
-      setTimeout(()=>{
-        const clean=location.href.split('?')[0].split('#')[0];
-        history.replaceState(null,'',clean);
-      },2000);
-    },600);
+    },700);
   }catch(e){}
 }
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -3231,7 +3204,7 @@ function updateDrawerIfOpen(){
 
   // ② innerHTML更新が必要なテキスト表示要素
   ['i-d','i-e','i-a','i-v','t-sr','t-ss','t-mr','t-ms','p-age','p-name',
-   'i-dow','tripod-disp','fn','chance-list'].forEach(id=>{
+   'i-dow','tripod-disp','fn','chance-list','fullmoon-list'].forEach(id=>{
     const s=src.querySelector('#'+id);
     const d=dst.querySelector('#'+id);
     if(s&&d) d.innerHTML=s.innerHTML;
