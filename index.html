@@ -159,8 +159,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   font-family:'Space Mono',monospace;font-size:7px;letter-spacing:.08em;
   color:var(--ac);text-transform:uppercase;border-bottom:1px solid var(--bd);
   flex-shrink:0;white-space:nowrap;}
-#cv1{display:block;background:#060810;flex-shrink:0;flex-grow:0;
-  outline:1.5px solid var(--ac);}
+#cv1{display:block;background:#060810;flex-shrink:0;flex-grow:0;}
 #cv2{display:block;background:#060810;flex-shrink:0;flex-grow:0;}
 
 /* ダイアグラム側 */
@@ -825,7 +824,7 @@ function layout(){
 
     const cv1 = document.getElementById('cv1');
     cv1.width = cvW; cv1.height = cvH;
-    cv1.style.cssText = `width:${cvW}px!important;height:${cvH}px!important;display:block;background:#060810;`;
+    cv1.style.cssText = `width:${cvW}px!important;height:${cvH}px!important;display:block;background:#060810;box-sizing:border-box;border:1.5px solid var(--ac);`;
 
     const cv2 = document.getElementById('cv2');
     cv2.width = diagW; cv2.height = diagH;
@@ -891,7 +890,7 @@ function layout(){
   // cv1：常にstyleを強制セット
   const cv1=document.getElementById('cv1');
   cv1.width=cvW; cv1.height=cvH;
-  cv1.style.cssText=`width:${cvW}px!important;height:${cvH}px!important;display:block;background:#060810;flex-shrink:0;flex-grow:0;`;
+  cv1.style.cssText=`width:${cvW}px!important;height:${cvH}px!important;display:block;background:#060810;flex-shrink:0;flex-grow:0;box-sizing:border-box;border:1.5px solid var(--ac);`;
 
   // cv2：常にstyleを強制セット
   const cv2=document.getElementById('cv2');
@@ -2471,7 +2470,11 @@ function drawView(dist,tAz,va){
   ctx.restore();
   const bodyName=sunsetMode?'太陽':'月';
   const fovLabel=`FOV ${fvH.toFixed(1)}°  ${bodyName} ${bodyAngDiam.toFixed(3)}°  ${T[cur].name}頂 ${angS(T[cur].h,dist).toFixed(1)}°  仰角 ${vaTop.toFixed(2)}°`;
-  ctx.font=`10px 'Space Mono',monospace`;ctx.textAlign='left';
+  // canvas幅に収まるようフォントサイズを自動縮小（10px→最小6px）
+  let fovFs=10;
+  ctx.font=`${fovFs}px 'Space Mono',monospace`;
+  while(ctx.measureText(fovLabel).width>W-10&&fovFs>6){ fovFs--; ctx.font=`${fovFs}px 'Space Mono',monospace`; }
+  ctx.textAlign='left';
   ctx.strokeStyle='rgba(4,6,14,0.95)';ctx.lineWidth=3;ctx.lineJoin='round';
   ctx.strokeText(fovLabel,5,H-5);
   ctx.fillStyle='rgba(200,169,110,.9)';ctx.fillText(fovLabel,5,H-5);
