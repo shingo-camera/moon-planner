@@ -445,6 +445,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
       <div id="c-gifu" class="tc" onclick="selTarget('gifu')">
         <div class="nm">岐阜城</div><div class="co">35.4340°N 136.7818°E</div>
       </div>
+      <div id="c-wakayama" class="tc" onclick="selTarget('wakayama')">
+        <div class="nm">和歌山城</div><div class="co">34.2276°N 135.1715°E</div>
+      </div>
       <div style="margin-top:6px;display:flex;align-items:center;gap:6px;">
         <input type="checkbox" id="cb-sunset" onchange="setSunsetMode(this.checked)"
           style="width:14px;height:14px;accent-color:#c8a96e;cursor:pointer;">
@@ -779,8 +782,17 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 // STATE
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const T={
-  pl:  {name:'PLの塔',  lat:34.502231,  lng:135.585904,  h:180, e:'pl', zoom:13, elev:110},
-  gifu:{name:'岐阜城',  lat:35.433931,  lng:136.782041,  h:29,  e:'🏯', zoom:14, elev:335}
+  // sunsetOk    : 夕日モードを有効にするか
+  // silhouette  : 'pl'=PLの塔専用輪郭, 'castle'=16方向城郭シルエット
+  // physW       : 対象の物理的な幅(m) — 仰角・FOV計算に使用
+  // horizonRatio: drawViewでの地平線Y位置(0〜1、H基準)
+  // topLimitRatio: 頂点Yの上限(0〜1、H基準)。castleは topLimitDynamic で動的計算
+  pl:  {name:'PLの塔',  lat:34.502231,  lng:135.585904,  h:180,  e:'pl', zoom:13, elev:110,
+        sunsetOk:true,  silhouette:'pl',     physW:62,  horizonRatio:0.72, topLimitRatio:0.60},
+  gifu:{name:'岐阜城',  lat:35.433931,  lng:136.782041,  h:29,   e:'🏯', zoom:14, elev:335,
+        sunsetOk:false, silhouette:'castle', physW:180, horizonRatio:0.75, topLimitRatio:null},
+  wakayama:{name:'和歌山城', lat:34.227593, lng:135.171508, h:29.62, e:'🏯', zoom:14, elev:42.7,
+        sunsetOk:true,  silhouette:'castle', physW:120, horizonRatio:0.75, topLimitRatio:0.50},
 };
 let cur='pl', focal=400, orientation='land';
 let sLat=null, sLng=null, sElev=0;
@@ -2021,7 +2033,7 @@ function drawView(dist,tAz,va){
   ctx.save();
   ctx.translate(ofsDx, ofsDy);
 
-  const vaTop=Math.max(va,0.01);
+  const vaTop=va;
   // 塔根本の仰角（負の値 = 地平線より下、俯瞰時）
   // ピン未選択時(sLat===null)はsElevが0のままなので城標高をデフォルトとして使う
   const vaBaseElev = sLat!==null ? sElev : T[cur].elev;
@@ -2030,30 +2042,20 @@ function drawView(dist,tAz,va){
   // 頂点位置の計算：
   // 地平線（仰角0°）を基準に、頂点はgnoV(vaTop)上、根本はgnoV(vaBase)の位置
   // horizonが画面内に収まるようclampしつつ、頂点が上限より上なら頂点固定に切替
-  const horizonDefault = cur==='gifu' ? H * 0.75 : H * 0.72;
-  // 岐阜城は月が城の上に来る構図のため、城の見かけ高さ(thTrue)基準で頂点位置を決める
-  // targetTopY = H - thTrue*k （城の高さのk倍分を下から確保）
-  // k=1.65: 400mm/1.59kmで頂点が上から50%になるよう調整
-  // thTrueはまだ未計算のためここでは暫定計算、最小H*0.15でクランプ
+  const horizonDefault = H * T[cur].horizonRatio;
+  // castle系は城の見かけ高さに応じて頂点上限を動的計算、pl系は固定
   const _vaT_tmp = elAng(dist, vaBaseElev, T[cur].elev, T[cur].h);
   const _vaB_tmp = elAng(dist, vaBaseElev, T[cur].elev, 0);
-  const _thTmp = Math.max(gnoV(Math.max(_vaT_tmp,0.01)) - gnoV(_vaB_tmp), 0);
-  const topLimitGifu = Math.min(H * 0.60, Math.max(H * 0.15, H - _thTmp * 1.65));
-  const topLimit = cur==='gifu' ? topLimitGifu : H * 0.40;
+  const _thTmp = Math.max(gnoV(_vaT_tmp) - gnoV(_vaB_tmp), 0);
+  const topLimitCastle = H * Math.min(0.45, Math.max(0.30, 0.45 - (_thTmp / H) * 0.60));
+  const topLimit = T[cur].topLimitRatio !== null ? H * T[cur].topLimitRatio : topLimitCastle;
   // 頂点Y = horizon - gnoV(vaTop)、根本Y = horizon - gnoV(vaBase)
-  // horizonを固定して頂点を計算
+  // 頂点位置を固定してhorizonを逆算（常に物理的に一貫した計算）
+  // topFromHorizon: horizonDefaultを使った場合の頂点Y
+  // targetTopY: topLimitより上に来る場合はtopLimitにclamp
   const topFromHorizon = horizonDefault - gnoV(vaTop);
-  let targetTopY, horizon;
-  if(topFromHorizon >= topLimit){
-    horizon = horizonDefault;
-    targetTopY = topFromHorizon;
-  } else {
-    targetTopY = topLimit;
-    horizon = targetTopY + gnoV(vaTop);
-  }
-  // 仰角が大きくhorizonが画面外に出る場合はclamp
-  // horizonが画面外に出ることは仰角が大きい場合は許容する
-  // （山・地平線の描画時のみ別途clampする）
+  const targetTopY = Math.max(topFromHorizon, topLimit);
+  const horizon = targetTopY + gnoV(vaTop);
 
   // 天体の位置計算（月 or 太陽）
   const ds=document.getElementById('idate').value;
@@ -2212,13 +2214,13 @@ function drawView(dist,tAz,va){
   const bY_raw=horizon - gnoV(vaBase);
   const bY=Math.max(bY_raw, tY);             // 根本は頂点より必ず下（逆転防止）
   const thTrue=bY-tY;                         // 実描画高さ（vaTop〜vaBase間のpx）
-  const physW=cur==='pl'?62:180;
+  const physW=T[cur].physW;
   const tAngW=angS(physW, dist);              // 対象幅の角度（度）
   const tw=Math.max(gnoH(tAngW), 2);          // gnomonic投影後の幅（px）
 
   ctx.fillStyle='#0e172a';ctx.strokeStyle='rgba(200,169,110,.35)';ctx.lineWidth=.8;
 
-  if(cur==='pl'){
+  if(T[cur].silhouette==='pl'){
     // PLの塔シルエット正規化座標（dx/H, dy/H）中心x=0, 上端y=0, 下端y=1
     const PL_PTS=[[-0.0130,0.0000],[-0.0026,0.0104],[-0.0026,0.0208],[-0.0026,0.0312],[-0.0026,0.0416],[0.0000,0.0519],[0.0026,0.0623],[0.0078,0.0727],[0.0182,0.0831],[0.0260,0.0935],[0.0286,0.1039],[0.0286,0.1143],[0.0286,0.1247],[0.0312,0.1351],[0.0338,0.1455],[0.0338,0.1558],[0.0364,0.1662],[0.0390,0.1766],[0.0390,0.1870],[0.0390,0.1974],[0.0390,0.2078],[0.0312,0.2182],[0.0286,0.2286],[0.0260,0.2390],[0.0260,0.2494],[0.0260,0.2597],[0.0260,0.2701],[0.0260,0.2805],[0.0260,0.2909],[0.0260,0.3013],[0.0260,0.3117],[0.0286,0.3221],[0.0286,0.3325],[0.0312,0.3429],[0.0312,0.3532],[0.0390,0.3636],[0.0390,0.3740],[0.0442,0.3844],[0.0442,0.3948],[0.0442,0.4052],[0.0468,0.4156],[0.0468,0.4260],[0.0494,0.4364],[0.0545,0.4468],[0.0571,0.4571],[0.0623,0.4675],[0.0675,0.4779],[0.0675,0.4883],[0.0675,0.4987],[0.0675,0.5091],[0.0675,0.5195],[0.0675,0.5299],[0.0675,0.5403],[0.0675,0.5506],[0.0727,0.5610],[0.0779,0.5714],[0.0805,0.5818],[0.0831,0.5922],[0.0883,0.6026],[0.0909,0.6130],[0.0961,0.6234],[0.1013,0.6338],[0.1065,0.6442],[0.1091,0.6545],[0.1117,0.6649],[0.1169,0.6753],[0.1221,0.6857],[0.1247,0.6961],[0.1273,0.7065],[0.1299,0.7169],[0.1325,0.7273],[0.1351,0.7377],[0.1377,0.7481],[0.1429,0.7584],[0.1455,0.7688],[0.1506,0.7792],[0.1558,0.7896],[0.1584,0.8000],[0.1610,0.8104],[0.1584,0.8208],[0.1584,0.8312],[0.1610,0.8416],[0.1610,0.8519],[0.1610,0.8623],[0.1636,0.8727],[0.1688,0.8831],[0.1740,0.8935],[0.1896,0.9039],[0.2130,0.9143],[0.2338,0.9247],[0.2416,0.9351],[0.2519,0.9455],[0.2519,0.9558],[0.2468,0.9662],[0.2468,0.9766],[0.2468,0.9870],[0.2468,0.9974],[0.2468,0.9974],[0.2468,1.0000],[-0.2468,1.0000],[-0.2468,0.9974],[-0.2468,0.9974],[-0.2468,0.9870],[-0.2468,0.9766],[-0.2494,0.9662],[-0.2390,0.9558],[-0.2338,0.9455],[-0.2286,0.9351],[-0.2234,0.9247],[-0.2182,0.9143],[-0.2130,0.9039],[-0.2078,0.8935],[-0.2078,0.8831],[-0.2078,0.8727],[-0.2052,0.8623],[-0.2052,0.8519],[-0.2052,0.8416],[-0.2000,0.8312],[-0.1974,0.8208],[-0.1974,0.8104],[-0.1948,0.8000],[-0.1922,0.7896],[-0.1896,0.7792],[-0.1922,0.7688],[-0.1896,0.7584],[-0.1766,0.7481],[-0.1740,0.7377],[-0.1688,0.7273],[-0.1636,0.7169],[-0.1584,0.7065],[-0.1558,0.6961],[-0.1481,0.6857],[-0.1429,0.6753],[-0.1455,0.6649],[-0.1455,0.6545],[-0.1481,0.6442],[-0.1455,0.6338],[-0.1377,0.6234],[-0.1325,0.6130],[-0.1299,0.6026],[-0.1195,0.5922],[-0.1143,0.5818],[-0.1195,0.5714],[-0.1221,0.5610],[-0.1195,0.5506],[-0.1117,0.5403],[-0.1039,0.5299],[-0.0961,0.5195],[-0.0935,0.5091],[-0.0935,0.4987],[-0.0935,0.4883],[-0.0935,0.4779],[-0.0935,0.4675],[-0.0909,0.4571],[-0.0883,0.4468],[-0.0831,0.4364],[-0.0779,0.4260],[-0.0753,0.4156],[-0.0701,0.4052],[-0.0701,0.3948],[-0.0675,0.3844],[-0.0675,0.3740],[-0.0675,0.3636],[-0.0649,0.3532],[-0.0623,0.3429],[-0.0597,0.3325],[-0.0597,0.3221],[-0.0545,0.3117],[-0.0519,0.3013],[-0.0519,0.2909],[-0.0519,0.2805],[-0.0494,0.2701],[-0.0494,0.2597],[-0.0468,0.2494],[-0.0468,0.2390],[-0.0519,0.2286],[-0.0571,0.2182],[-0.0623,0.2078],[-0.0649,0.1974],[-0.0675,0.1870],[-0.0675,0.1766],[-0.0701,0.1662],[-0.0701,0.1558],[-0.0675,0.1455],[-0.0623,0.1351],[-0.0494,0.1247],[-0.0416,0.1143],[-0.0442,0.1039],[-0.0416,0.0935],[-0.0312,0.0831],[-0.0286,0.0727],[-0.0286,0.0623],[-0.0260,0.0519],[-0.0234,0.0416],[-0.0234,0.0312],[-0.0234,0.0208],[-0.0208,0.0104],[-0.0130,0.0000]];
     const plH=thTrue; // 高さ方向: 180mに対応するpx
@@ -3259,7 +3261,7 @@ function suggest(dist,tAz,va){
 // CONTROLS
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function setSunsetMode(v){
-  if(cur!=='pl'){v=false;}
+  if(!T[cur].sunsetOk){v=false;}
   sunsetMode=v;
   const cb=document.getElementById('cb-sunset');
   const lb=document.getElementById('lb-sunset');
@@ -3292,14 +3294,14 @@ function setSunsetMode(v){
 function selTarget(k){
   if(!T[k])return;
   cur=k;
-  ['pl','gifu'].forEach(id=>{
+  Object.keys(T).forEach(id=>{
     const el=document.getElementById('c-'+id);
     if(el)el.classList.toggle('on',id===k);
   });
-  // 岐阜城選択時は夕日モード強制オフ＆disabled
+  // 夕日モード非対応の対象は強制オフ＆disabled
   const cb=document.getElementById('cb-sunset');
   const lb=document.getElementById('lb-sunset');
-  if(k==='gifu'){
+  if(!T[k].sunsetOk){
     sunsetMode=false;
     if(cb){cb.checked=false;cb.disabled=true;cb.style.opacity='0.3';cb.style.cursor='not-allowed';}
     if(lb)lb.style.color='var(--sub)';
@@ -3389,7 +3391,8 @@ function updateDrawerIfOpen(){
   });
 
   // ③ className同期（.on切替など）
-  ['c-pl','c-gifu','btn-land','btn-port','btn-chance'].forEach(id=>{
+  const syncIds = [...Object.keys(T).map(k=>'c-'+k), 'btn-land','btn-port','btn-chance'];
+  syncIds.forEach(id=>{
     const s=src.querySelector('#'+id);
     const d=dst.querySelector('#'+id);
     if(s&&d) d.className=s.className;
@@ -4010,7 +4013,7 @@ function calcChances(){
         if(az<=1 && pct>=80 && pct<=110) return'★★★';
         if(az<=2 && pct>=50 && pct<=120) return'★★☆';
         return'★☆☆';
-      } else if(cur==='gifu'){
+      } else if(T[cur].silhouette==='castle'){
         // 岐阜城×月：「飲み込み」判定
         const swallow=(r.angDiam>=targetAngDiam && pct>=30 && pct<=70);
         if(az<=1 && (pct>=70 || swallow)) return'★★★';
@@ -4030,7 +4033,7 @@ function calcChances(){
       const star=starRating(r);
       const altPct=Math.round(r.alt/r.topAlt*100);
       // 岐阜城×月：飲み込み表示
-      const swallowMark=(cur==='gifu'&&!sunsetMode&&r.angDiam>=targetAngDiam&&altPct>=30&&altPct<=70)?'🔵':'';
+      const swallowMark=(T[cur].silhouette==='castle'&&!sunsetMode&&r.angDiam>=targetAngDiam&&altPct>=30&&altPct<=70)?'🔵':'';
       const bodyInfo=sunsetMode
         ?`±${r.azDiff.toFixed(1)}° 高${altPct}%`
         :`月齢${r.age.toFixed(1)}日 ±${r.azDiff.toFixed(1)}° 高${altPct}%${swallowMark}`;
