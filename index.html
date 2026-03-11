@@ -795,7 +795,7 @@ const T={
         sunsetOk:false, silhouette:'castle', physW:180, horizonRatio:0.75, topLimitRatio:null,
         frontAz:203},   // 棟の走る方向203°（SSW-NNE）。Google衛星画像から棟ラインを実測して算出。
   wakayama:{name:'和歌山城', lat:34.227593, lng:135.171508, h:29.62, e:'🏯', zoom:14, elev:42.7, // 42.7m: 石垣下地面
-        sunsetOk:true,  silhouette:'castle', physW:120, horizonRatio:0.75, topLimitRatio:0.50,
+        sunsetOk:true,  silhouette:'castle', physW:120, horizonRatio:0.75, topLimitRatio:null,
         // 実寸: 総高29.62m（天守本体23.42m + 石垣6.20m）
         // 天守台: 約17m×17m / 1層: 12m×12m / 2層: 10m×10m / 3層: 8m×8m
         depthRatio:1.00,                        // 全層ほぼ正方形（2・3層は確実、1層は近似）
@@ -2061,19 +2061,31 @@ function drawView(dist,tAz,va){
 
   // horizonが画面内に収まるようclampしつつ、頂点が上限より上なら頂点固定に切替
   const horizonDefault = H * T[cur].horizonRatio;
-  // castle系は城の見かけ高さに応じて頂点上限を動的計算（α_cam基準のtoYで厳密計算）
-  const _vaT_tmp = elAng(dist, vaBaseElev, T[cur].elev, T[cur].h);
-  const _vaB_tmp = elAng(dist, vaBaseElev, T[cur].elev, 0);
-  // topLimit仮計算用：α_cam=0近似でthTmpを求める（topLimit自体への影響は軽微）
-  const _thTmp = Math.max(gnoV(_vaT_tmp) - gnoV(_vaB_tmp), 0);
-  const topLimitCastle = H * Math.min(0.45, Math.max(0.30, 0.45 - (_thTmp / H) * 0.60));
-  const topLimit = T[cur].topLimitRatio !== null ? H * T[cur].topLimitRatio : topLimitCastle;
-  const topFromHorizon = horizonDefault - gnoV(vaTop);
-  const targetTopY = Math.max(topFromHorizon, topLimit);
+  // castle系: 城の見かけ高さ(thTmp/H)に応じて頂点上限を動的計算
+  // - 遠距離・小さく見える → topLimit→H*0.45（画面上から45%）
+  // - 近距離・大きく見える → topLimit→H*0.30（画面上から30%）
+  // topLimitRatio=nullの城(岐阜城・和歌山城)はこの動的計算を使用
+  // topLimitRatio=固定値の城(PLの塔:0.60)は固定値を使用
+  // sizeRatio方式でtopRatioを決定:
+  //   angSize  = 対象の見かけ角サイズ（頂上〜根本の仰角差、度）
+  //   sizeRatio = angSize / fvV（縦画角に占める割合）
+  //   topRatio  = 0.45 - sizeRatio*0.15  → clamp[0.30, 0.45]
+  //   0.45: 遠距離・小さい → 頂上は画面上から45%
+  //   0.30: 近距離・大きい → 頂上は画面上から30%
+  //   PLの塔はtopLimitRatioで固定値を使用
+  const angSize = Math.max(vaTop - vaBase, 0);  // 対象の見かけ角サイズ（度）
+  const sizeRatio = Math.min(angSize / fvV, 1);  // 0〜1にクランプ
+  const topRatioCastle = 0.45 - sizeRatio * 0.15;
+  const topLimit = T[cur].topLimitRatio !== null
+    ? H * T[cur].topLimitRatio
+    : H * Math.min(0.45, Math.max(0.30, topRatioCastle));
+  const targetTopY = topLimit;
 
   // α_cam: 「頂点がtargetTopYに来るようにカメラを向けたときの光軸仰角」
   // targetTopY = H/2 - f_px_V * tan(vaTop - α_cam)
   // → α_cam = vaTop*r - atan((H/2 - targetTopY) / f_px_V)
+  // ※ vaTopが地平線以下(負)でもtargetTopYがH/2より上なら α_cam > vaTop となり
+  //    カメラは頂上より上を向く。これは仕様通り（頂上が画面上部に来るよう自動調整）。
   const alpha_cam = vaTop * r - Math.atan((H/2 - targetTopY) / f_px_V);
 
   // 全仰角→Y座標変換（gnomonic、α_cam基準）
