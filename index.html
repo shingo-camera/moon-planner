@@ -2301,23 +2301,22 @@ function drawView(dist,tAz,va){
   }else{
     // ━━━ 和歌山城・台形の山（先に描いて城を手前に重ねる）━━━
     {
-      // 台形の上辺Y = 石垣底辺（bY）、下辺Y = 地平線
       const mTopY = bY;
       const mBaseY = Math.min(horizon < H ? horizon : H, H);
+      console.log('[山] bY='+bY.toFixed(2)+' horizon='+horizon.toFixed(2)+' mTopY='+mTopY.toFixed(2)+' mBaseY='+mBaseY.toFixed(2)+' 山高さ='+(mBaseY-mTopY).toFixed(2)+'px H='+H);
       if(mTopY < mBaseY){
-        // 台形の短辺（上辺）= 城最大横幅（石垣幅 = tw * sekWidthScale）× 2.5
         const sekW = tw * (T[cur].sekWidthScale || 1.10);
         const flatHalf = sekW * 2.5 / 2;
+        console.log('[山] tw='+tw.toFixed(2)+' sekW='+sekW.toFixed(2)+' flatHalf='+flatHalf.toFixed(2)+' W='+W);
+        const mH = mBaseY - mTopY;
+        const slope = mH * 1.5;
+        const baseLeft  = Math.max(0, cx - flatHalf - slope);
+        const baseRight = Math.min(W, cx + flatHalf + slope);
         ctx.save();
         ctx.beginPath();ctx.rect(0,0,W,H);ctx.clip();
         ctx.fillStyle='#1a3020';
         ctx.strokeStyle='rgba(200,169,110,0.55)';
         ctx.lineWidth=1.2;
-        // 台形の下辺: 上辺端から斜辺が広がる（山高さ×1.5の水平距離）
-        const mH = mBaseY - mTopY;
-        const slope = mH * 1.5;
-        const baseLeft  = Math.max(0, cx - flatHalf - slope);
-        const baseRight = Math.min(W, cx + flatHalf + slope);
         ctx.beginPath();
         ctx.moveTo(baseLeft,  mBaseY);
         ctx.lineTo(cx - flatHalf, mTopY);
