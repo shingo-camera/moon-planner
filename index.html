@@ -2303,11 +2303,11 @@ function drawView(dist,tAz,va){
     {
       const mTopY = bY;
       const mBaseY = Math.min(horizon < H ? horizon : H, H);
-      console.log('[山] bY='+bY.toFixed(2)+' horizon='+horizon.toFixed(2)+' mTopY='+mTopY.toFixed(2)+' mBaseY='+mBaseY.toFixed(2)+' 山高さ='+(mBaseY-mTopY).toFixed(2)+'px H='+H);
+
       if(mTopY < mBaseY){
         const sekW = tw * (T[cur].sekWidthScale || 1.10);
         const flatHalf = sekW * 2.5 / 2;
-        console.log('[山] tw='+tw.toFixed(2)+' sekW='+sekW.toFixed(2)+' flatHalf='+flatHalf.toFixed(2)+' W='+W);
+
         const mH = mBaseY - mTopY;
         const slope = mH * 1.5;
         const baseLeft  = Math.max(0, cx - flatHalf - slope);
