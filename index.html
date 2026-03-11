@@ -453,7 +453,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
           style="width:14px;height:14px;accent-color:#c8a96e;cursor:pointer;">
         <label for="cb-sunset" id="lb-sunset"
           style="font-family:'Space Mono',monospace;font-size:8.5px;color:var(--sub);cursor:pointer;">
-          夕日モード
+          太陽モード
         </label>
       </div>
     </div>
@@ -792,7 +792,7 @@ const T={
   pl:  {name:'PLの塔',  lat:34.502231,  lng:135.585904,  h:180,  e:'pl', zoom:13, elev:110,   // 110m: 塔基部地面
         sunsetOk:true,  silhouette:'pl',     physW:62,  horizonRatio:0.72, topLimitRatio:0.60},
   gifu:{name:'岐阜城',  lat:35.433931,  lng:136.782041,  h:29,   e:'🏯', zoom:14, elev:335,   // 335m: 天守台下地面
-        sunsetOk:false, silhouette:'castle', physW:180, horizonRatio:0.75, topLimitRatio:null,
+        sunsetOk:true,  silhouette:'castle', physW:180, horizonRatio:0.75, topLimitRatio:null,
         frontAz:203},   // 棟の走る方向203°（SSW-NNE）。Google衛星画像から棟ラインを実測して算出。
   wakayama:{name:'和歌山城', lat:34.227593, lng:135.171508, h:29.62, e:'🏯', zoom:14, elev:42.7, // 42.7m: 石垣下地面
         sunsetOk:true,  silhouette:'castle', physW:120, horizonRatio:0.75, topLimitRatio:null,
@@ -1859,46 +1859,51 @@ function drawFans(ds, moon){
 
   const DIST_MAX=15;
   const STEP=30*60*1000;
-  const SLOTS=4;
   const legendItems=[];
 
   if(sunsetMode){
     const sun=sunT(new Date(ds+'T03:00:00Z'),t.lat,t.lng);
-    if(!sun||!sun.set)return;
-    const colors=['#ffcc88','#ffaa66','#ff8844','#ff6622']; // 日の入りに近いほど濃い
-    for(let i=0;i<SLOTS;i++){
-      const t0=new Date(sun.set.getTime()-(SLOTS-i)*STEP);
-      const t1=new Date(sun.set.getTime()-(SLOTS-i-1)*STEP);
+    if(!sun)return;
+    // 日の出後30分
+    if(sun.rise){
+      const t0=sun.rise;
+      const t1=new Date(sun.rise.getTime()+STEP);
+      const sp0=sunPos(t0,t.lat,t.lng);
+      const sp1=sunPos(t1,t.lat,t.lng);
+      const label=`🌄 ${jst(t0)}〜${jst(t1)}`;
+      drawOneFan(t.lat,t.lng,sp0.az,sp1.az,'#ffdd88',0.75,label,DIST_MAX);
+      legendItems.push({color:'#ffdd88',label});
+    }
+    // 日没前30分
+    if(sun.set){
+      const t0=new Date(sun.set.getTime()-STEP);
+      const t1=sun.set;
       const sp0=sunPos(t0,t.lat,t.lng);
       const sp1=sunPos(t1,t.lat,t.lng);
       const label=`🌅 ${jst(t0)}〜${jst(t1)}`;
-      drawOneFan(t.lat,t.lng,sp0.az,sp1.az,colors[i],0.6+i*0.1,label,DIST_MAX);
-      legendItems.push({color:colors[i],label});
+      drawOneFan(t.lat,t.lng,sp0.az,sp1.az,'#ff8844',0.75,label,DIST_MAX);
+      legendItems.push({color:'#ff8844',label});
     }
   }else{
+    // 月の出後30分
     if(moon.rise){
-      const colors=['#ff9944','#ffbb44','#ffdd88','#ffeeaa']; // 月の出直後が濃い（正しい）
-      for(let i=0;i<SLOTS;i++){
-        const t0=new Date(moon.rise.getTime()+i*STEP);
-        const t1=new Date(moon.rise.getTime()+(i+1)*STEP);
-        const mp0=moonPos(t0,t.lat,t.lng);
-        const mp1=moonPos(t1,t.lat,t.lng);
-        const label=`🌕出 ${jst(t0)}〜${jst(t1)}`;
-        drawOneFan(t.lat,t.lng,mp0.az,mp1.az,colors[i],0.9-i*0.15,label,DIST_MAX);
-        legendItems.push({color:colors[i],label});
-      }
+      const t0=moon.rise;
+      const t1=new Date(moon.rise.getTime()+STEP);
+      const mp0=moonPos(t0,t.lat,t.lng);
+      const mp1=moonPos(t1,t.lat,t.lng);
+      const label=`🌕出 ${jst(t0)}〜${jst(t1)}`;
+      drawOneFan(t.lat,t.lng,mp0.az,mp1.az,'#ff9944',0.85,label,DIST_MAX);
+      legendItems.push({color:'#ff9944',label});
     }
+    // 月の入前30分
     if(moon.set){
-      const colors=['#aaeeff','#88ddff','#44ccff','#44aaff']; // 月の入りに近いほど濃い
-      for(let i=0;i<SLOTS;i++){
-        const t0=new Date(moon.set.getTime()-(SLOTS-i)*STEP);
-        const t1=new Date(moon.set.getTime()-(SLOTS-i-1)*STEP);
-        const mp0=moonPos(t0,t.lat,t.lng);
-        const mp1=moonPos(t1,t.lat,t.lng);
-        const label=`🌑入 ${jst(t0)}〜${jst(t1)}`;
-        drawOneFan(t.lat,t.lng,mp0.az,mp1.az,colors[i],0.6+i*0.1,label,DIST_MAX);
-        legendItems.push({color:colors[i],label});
-      }
+      const t0=new Date(moon.set.getTime()-STEP);
+      const t1=moon.set;
+      const mp0=moonPos(t0,t.lat,t.lng);
+      const mp1=moonPos(t1,t.lat,t.lng);
+      const label=`🌑入 ${jst(t0)}〜${jst(t1)}`;
+      drawOneFan(t.lat,t.lng,mp0.az,mp1.az,'#44ccff',0.75,label,DIST_MAX);
+      legendItems.push({color:'#44ccff',label});
     }
   }
   updateFanLegend(legendItems);
@@ -3336,7 +3341,7 @@ function setSunsetMode(v){
   const pvLabel=document.getElementById('pv-label-text');
   if(pvLabel)pvLabel.textContent=v?'◎ プレビュー（対象 + 太陽）':'◎ プレビュー（対象 + 月）';
   const btnChance=document.getElementById('btn-chance');
-  if(btnChance)btnChance.textContent=v?'📅 選択日から30日を検索（夕日）':'📅 選択日から30日を検索';
+  if(btnChance)btnChance.textContent=v?'📅 選択日から30日を検索（太陽）':'📅 選択日から30日を検索';
   // 満月ボタン：夕日モード時は非表示、リストもクリア
   const btnFM=document.getElementById('btn-fullmoon');
   const fmList=document.getElementById('fullmoon-list');
@@ -3363,16 +3368,7 @@ function selTarget(k){
     const el=document.getElementById('c-'+id);
     if(el)el.classList.toggle('on',id===k);
   });
-  // 夕日モード非対応の対象は強制オフ＆disabled
-  const cb=document.getElementById('cb-sunset');
-  const lb=document.getElementById('lb-sunset');
-  if(!T[k].sunsetOk){
-    sunsetMode=false;
-    if(cb){cb.checked=false;cb.disabled=true;cb.style.opacity='0.3';cb.style.cursor='not-allowed';}
-    if(lb)lb.style.color='var(--sub)';
-  }else{
-    if(cb){cb.disabled=false;cb.style.opacity='1';cb.style.cursor='pointer';}
-  }
+
   if(map){map.setView([T[k].lat,T[k].lng],T[k].zoom);addTargetPin();}
   clearFans();
   if(sLat!==null)onPick();
@@ -4035,6 +4031,12 @@ function calcChances(){
       const base=new Date(today.getTime()+d*86400000);
       const ds=base.toLocaleDateString('sv-SE',{timeZone:'Asia/Tokyo'});
       const dayStart=new Date(ds+'T00:00:00+09:00');
+      // 月モード：輝面比5%未満（新月前後）はスキップ
+      if(!sunsetMode){
+        const age=moonAge(new Date(ds+'T03:00:00Z'));
+        const illum=(1-Math.cos(2*Math.PI*age/29.53058867))/2;
+        if(illum<0.05) continue;
+      }
       let found=null;
 
       for(let i=0;i<144;i++){
@@ -4042,7 +4044,18 @@ function calcChances(){
         const bp=sunsetMode?sunPos(dt,sLat,sLng):moonPos(dt,sLat,sLng);
         const azD=Math.abs(((bp.az-tAz+180)%360)-180);
         const inAlt=bp.alt>=0 && bp.alt<=altMax;
-        if(azD<=AZ_THR && inAlt){
+        // 太陽モード：日の出後30分または日没前30分の範囲のみ
+        let inTimeWindow=true;
+        if(sunsetMode){
+          const sun=sunT(new Date(ds+'T03:00:00Z'),t.lat,t.lng);
+          if(sun){
+            const tMs=dt.getTime();
+            const afterRise=sun.rise&&tMs>=sun.rise.getTime()&&tMs<=sun.rise.getTime()+30*60000;
+            const beforeSet=sun.set&&tMs>=sun.set.getTime()-30*60000&&tMs<=sun.set.getTime();
+            inTimeWindow=afterRise||beforeSet;
+          }
+        }
+        if(azD<=AZ_THR && inAlt && inTimeWindow){
           if(!found) found={dt,az:bp.az,alt:bp.alt,azDiff:azD,angDiam:bp.angDiam||0.53};
           else if(azD < found.azDiff) found={dt,az:bp.az,alt:bp.alt,azDiff:azD,angDiam:bp.angDiam||0.53};
         } else {
