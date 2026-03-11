@@ -2067,21 +2067,19 @@ function drawView(dist,tAz,va){
   // topLimitRatio=nullの城(岐阜城・和歌山城)はこの動的計算を使用
   // topLimitRatio=固定値の城(PLの塔:0.60)は固定値を使用
   // sizeRatio方式でtopRatioを決定:
-  //   angSize  = 対象の見かけ角サイズ（頂上〜根本の仰角差、度）
-  //   sizeRatio = angSize / fvV（縦画角に占める割合）
-  //   topRatio  = 0.45 - sizeRatio*0.15  → clamp[0.30, 0.45]
-  //   0.45: 遠距離・小さい → 頂上は画面上から45%
-  //   0.30: 近距離・大きい → 頂上は画面上から30%
-  //   PLの塔はtopLimitRatioで固定値を使用
-  const angSize = Math.max(vaTop - vaBase, 0);  // 対象の見かけ角サイズ（度）
-  const sizeRatio = Math.min(angSize / fvV, 1);  // 0〜1にクランプ
-  const topRatioCastle = 0.45 - sizeRatio * 0.15;
-  // topRatio: 下から何割の位置に頂上を置くか（0.30〜0.45）
-  // canvas座標は上=0,下=H なので targetTopY = H*(1-topRatio)
-  const topLimit = T[cur].topLimitRatio !== null
-    ? H * (1 - T[cur].topLimitRatio)
-    : H * (1 - Math.min(0.45, Math.max(0.30, topRatioCastle)));
-  const targetTopY = topLimit;
+  //   angSize   = 対象の見かけ角サイズ（頂上〜根本の仰角差、度）
+  //   sizeRatio = angSize / fvV（縦画角に占める割合）0〜1
+  //   PLの塔: topRatio = 0.60 - sizeRatio*0.20 → clamp[0.40, 0.60]（下から40〜60%）
+  //   城:     topRatio = 0.45 - sizeRatio*0.15 → clamp[0.30, 0.45]（下から30〜45%）
+  //   topRatio: 下から何割の位置に頂上を置くか
+  //   canvas座標は上=0,下=H なので targetTopY = H*(1-topRatio)
+  const angSize = Math.max(vaTop - vaBase, 0);
+  const sizeRatio = Math.min(angSize / fvV, 1);
+  const isPL = T[cur].silhouette === 'pl';
+  const topRatio = isPL
+    ? Math.min(0.60, Math.max(0.40, 0.60 - sizeRatio * 0.20))
+    : Math.min(0.45, Math.max(0.30, 0.45 - sizeRatio * 0.15));
+  const targetTopY = H * (1 - topRatio);
 
   // α_cam: 「頂点がtargetTopYに来るようにカメラを向けたときの光軸仰角」
   // targetTopY = H/2 - f_px_V * tan(vaTop - α_cam)
@@ -2301,13 +2299,15 @@ function drawView(dist,tAz,va){
     });
     ctx.setLineDash([]);
   }else{
-    // ━━━ 金華山（先に描いて城を手前に重ねる）━━━
+    // ━━━ 和歌山城・台形の山（先に描いて城を手前に重ねる）━━━
     {
-      // 山頂Y：石垣下側と重なるイメージ（城全体高さの約15%分上）
-      const mTopY = bY - thTrue * 0.15;
+      // 台形の上辺Y = 石垣底辺（bY）、下辺Y = 地平線
+      const mTopY = bY;
       const mBaseY = Math.min(horizon < H ? horizon : H, H);
       if(mTopY < mBaseY){
-        const mLeft=W*0.55, mRight=W*0.55, flatW=W*0.12;
+        // 台形の短辺（上辺）= 城最大横幅（石垣幅 = tw * sekWidthScale）× 2.5
+        const sekW = tw * (T[cur].sekWidthScale || 1.10);
+        const flatHalf = sekW * 2.5 / 2;
         ctx.save();
         ctx.beginPath();ctx.rect(0,0,W,H);ctx.clip();
         ctx.fillStyle='#1a3020';
@@ -2315,10 +2315,8 @@ function drawView(dist,tAz,va){
         ctx.lineWidth=1.2;
         ctx.beginPath();
         ctx.moveTo(0, mBaseY);
-        ctx.lineTo(cx-mLeft, mBaseY);
-        ctx.quadraticCurveTo(cx-mLeft*0.4, mTopY*0.7+mBaseY*0.3, cx-flatW/2, mTopY);
-        ctx.lineTo(cx+flatW/2, mTopY);
-        ctx.quadraticCurveTo(cx+mRight*0.4, mTopY*0.7+mBaseY*0.3, cx+mRight, mBaseY);
+        ctx.lineTo(cx - flatHalf, mTopY);
+        ctx.lineTo(cx + flatHalf, mTopY);
         ctx.lineTo(W, mBaseY);
         ctx.closePath();
         ctx.fill();ctx.stroke();
