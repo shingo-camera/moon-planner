@@ -1040,7 +1040,7 @@ window.addEventListener('DOMContentLoaded',()=>{
   // touchstart でも2本指をブロック（touchmoveより前にブラウザがズームを許可するのを防ぐ）
   function blockPinchStart(e){ if(e.touches.length >= 2) e.preventDefault(); }
   ['mob-bar','mob-focal-row','mob-drawer','mob-drawer-inner','pnl',
-   'preview-panel','pv-left','diag-wrap','right','wrap'
+   'preview-panel','pv-left','pv-cv-wrap','diag-wrap','right','wrap'
   ].forEach(id => {
     const el = document.getElementById(id);
     if(el) el.addEventListener('touchstart', blockPinchStart, pinchOpt);
