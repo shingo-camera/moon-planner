@@ -917,7 +917,12 @@ function layout(){
     }
     return;
   }
-  const hdrH=40, pnlW=200, btnW=34, lblH=22;
+  const scaleF=Math.min(1.0, W/2560);
+  const hdrH=Math.round(40*scaleF), pnlW=Math.round(200*scaleF), btnW=Math.round(34*scaleF), lblH=Math.round(22*scaleF);
+  document.documentElement.style.setProperty('--hdr', hdrH+'px');
+  document.documentElement.style.setProperty('--pnl', pnlW+'px');
+  document.documentElement.style.setProperty('--btn', btnW+'px');
+  document.documentElement.style.setProperty('--lbl', lblH+'px');
   const avH=H-hdrH;
   const rightW=W-pnlW;
 
@@ -925,7 +930,7 @@ function layout(){
   // 横構図を基準とし、縦構図は横構図の canvas を 90度回転
   const pvPanelH_land = Math.round(avH * 0.45);
   const cvH_land = pvPanelH_land - lblH;
-  const cvW_land = Math.round(cvH_land * 3/2);
+  const cvW_land = Math.min(Math.round(cvH_land * 3/2), rightW - btnW - 80);
 
   // 縦構図: 90度回転 → W↔H 入れ替え
   const cvW_port = cvH_land;   // 元の高さ → 縦構図の幅
@@ -4165,10 +4170,7 @@ function calcFullMoonChances(){
     const distH=hav(sLat,sLng,t.lat,t.lng);
     const topAlt=elAng(distH,sElev,t.elev,t.h);
     const AZ_THR=2.5;
-    const STEP=60*1000; // 1分刻み
-    const MOON_R=0.265;
-    const distM=distH*1000;
-    const baseAlt=elAng(distH,sElev,t.elev,0); // 根元仰角
+    const STEP=10*60*1000; // 10分刻み
 
     // 選択日から1年間の満月日を列挙（月齢13〜16日の日）
     const today=new Date(document.getElementById('idate').value+'T00:00:00+09:00');
@@ -4177,6 +4179,7 @@ function calcFullMoonChances(){
       const base=new Date(today.getTime()+d*86400000);
       const ds=base.toLocaleDateString('sv-SE',{timeZone:'Asia/Tokyo'});
       const age=moonAge(new Date(ds+'T12:00:00+09:00'));
+      // 満月前後±1.5日（月齢13〜16.5日）に絞る
       if(age>=13.0&&age<=16.5) fullMoonDays.push(ds);
     }
 
@@ -4184,32 +4187,30 @@ function calcFullMoonChances(){
     for(const ds of fullMoonDays){
       const dayStart=new Date(ds+'T00:00:00+09:00');
       let found=null;
-      for(let i=0;i<=1440;i++){
+      for(let i=0;i<144;i++){
         const dt=new Date(dayStart.getTime()+i*STEP);
         const mp=moonPos(dt,sLat,sLng);
         const azD=Math.abs(((mp.az-tAz+180)%360)-180);
-        const inAlt=mp.alt>=(baseAlt-MOON_R)&&mp.alt<=(topAlt+MOON_R);
-        if(azD<=AZ_THR&&inAlt){
-          if(!found) found={dt,alt:mp.alt,azDiff:azD};
-          else if(azD<found.azDiff) found={dt,alt:mp.alt,azDiff:azD};
+        if(azD<=AZ_THR&&mp.alt>=0&&mp.alt<=topAlt){
+          if(!found) found={dt,az:mp.az,alt:mp.alt,azDiff:azD};
         } else {
           if(found){
             const age=moonAge(new Date(ds+'T03:00:00Z'));
-            results.push({date:ds,time:jst(found.dt),azDiff:found.azDiff,alt:found.alt,baseAlt,topAlt,distM,age,ts:found.dt});
+            results.push({date:ds,time:jst(found.dt),azDiff:found.azDiff,alt:found.alt,topAlt,age,ts:found.dt});
             found=null;
           }
         }
       }
       if(found){
         const age=moonAge(new Date(ds+'T03:00:00Z'));
-        results.push({date:ds,time:jst(found.dt),azDiff:found.azDiff,alt:found.alt,baseAlt,topAlt,distM,age,ts:found.dt});
+        results.push({date:ds,time:jst(found.dt),azDiff:found.azDiff,alt:found.alt,topAlt,age,ts:found.dt});
       }
     }
 
     btn.textContent='🌕 満月チャンス（1年）を検索';
 
     if(results.length===0){
-      list.innerHTML='<div style="color:var(--sub);padding:4px 0;">今後1年間に条件を満たす満月チャンスはありません。<br>（方位角±'+AZ_THR+'°）</div>';
+      list.innerHTML='<div style="color:var(--sub);padding:4px 0;">今後1年間に条件を満たす満月チャンスはありません。<br>（方位角±'+AZ_THR+'°、仰角0°〜'+topAlt.toFixed(1)+'°）</div>';
       updateDrawerIfOpen();
       return;
     }
@@ -4221,21 +4222,13 @@ function calcFullMoonChances(){
       results.map(r=>{
         const dow=new Date(r.date+'T12:00:00+09:00').toLocaleDateString('ja-JP',{weekday:'short'});
         const dowColor=dow.includes('日')?'#ff6655':dow.includes('土')?'#4488ff':'var(--sub)';
-        const moveM=r.distM*Math.tan(r.azDiff*Math.PI/180);
-        let star;
-        if(moveM<=5)        star='🎯🌕🎯';
-        else if(moveM<=10)  star='★★★';
-        else if(moveM<=50)  star='★★☆';
-        else if(moveM<=100) star='★☆☆';
-        else if(moveM<=200) star='☆☆☆';
-        else                star='―';
-        const range=r.topAlt-r.baseAlt;
-        const altPct=range>0.001?Math.round((r.alt-r.baseAlt)/range*100):0;
+        const star=r.azDiff<=1?'★★★':r.azDiff<=2?'★★☆':'★☆☆';
+        const altPct=Math.round(r.alt/r.topAlt*100);
         return `<div class="chance-item" onclick="setChance('${r.date}','${r.time}')" title="クリックで日時をセット">
           <span style="color:${dowColor}">${r.date}(${dow})</span>
           <span class="chance-time">${r.time}</span>
           <span style="color:var(--ac)">${star}</span>
-          <span style="color:var(--sub)">🌕${r.age.toFixed(1)}日 移${Math.round(moveM)}m 高${altPct}%</span>
+          <span style="color:var(--sub)">🌕${r.age.toFixed(1)}日 ±${r.azDiff.toFixed(1)}° 高${altPct}%</span>
         </div>`;
       }).join('');
     updateDrawerIfOpen();
