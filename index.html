@@ -39,6 +39,8 @@ html,body{height:100%;background:var(--bg);color:var(--tx);
 
 /* メインラッパー */
 #wrap{position:fixed;top:var(--hdr);bottom:0;left:0;right:0;display:flex;overflow:hidden;}
+/* ピンチズーム禁止（地図・プレビューcanvas除く） */
+#wrap,#right,#preview-panel,#pv-left,#diag-wrap{touch-action:pan-x pan-y;}
 
 /* ━━━ 情報パネル ━━━ */
 #pnl{width:var(--pnl);flex-shrink:0;background:var(--sur);
