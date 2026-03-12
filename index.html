@@ -977,8 +977,8 @@ function layout(){
   diagWrap.style.height = pvPanelH+'px';
   diagWrap.style.flex   = 'none';
 
-  // 再描画
-  if(map) map.invalidateSize();
+  // 再描画（DOM更新後に地図サイズを再計算）
+  requestAnimationFrame(()=>{ if(map) map.invalidateSize(); });
   if(sLat!==null){
     const t=T[cur];
     const d=dist3D(sLat,sLng,sElev,t.lat,t.lng,t.elev);
@@ -4046,10 +4046,9 @@ function calcChances(){
     const results=[];
     const today=new Date(document.getElementById('idate').value+'T00:00:00+09:00');
     const AZ_THR=2.5;
-    const STEP=60*1000; // 1分刻み
-    const MOON_R=0.265; // 月/太陽の半径(°)
-    const distM=distH*1000; // 撮影地点〜対象の水平距離(m)
-    const baseAlt=elAng(distH,sElev,t.elev,0); // 根元仰角
+    const STEP=10*60*1000;
+    // 夕日モード: 仰角上限を120%に拡大（頂点スレスレも拾う）
+    const altMax=sunsetMode ? topAlt*1.2 : topAlt;
 
     for(let d=0;d<90;d++){
       const base=new Date(today.getTime()+d*86400000);
@@ -4072,11 +4071,11 @@ function calcChances(){
       }
       let found=null;
 
-      for(let i=0;i<=1440;i++){
+      for(let i=0;i<144;i++){
         const dt=new Date(dayStart.getTime()+i*STEP);
         const bp=sunsetMode?sunPos(dt,sLat,sLng):moonPos(dt,sLat,sLng);
         const azD=Math.abs(((bp.az-tAz+180)%360)-180);
-        const inAlt=bp.alt>=(baseAlt-MOON_R) && bp.alt<=(topAlt+MOON_R);
+        const inAlt=bp.alt>=0 && bp.alt<=altMax;
         // 太陽モード：日の出後30分または日没前30分の範囲のみ
         let inTimeWindow=true;
         if(sunsetMode){
@@ -4092,7 +4091,7 @@ function calcChances(){
           if(found){
             const age=sunsetMode?null:moonAge(new Date(ds+'T03:00:00Z'));
             results.push({date:ds,time:jst(found.dt),azDiff:found.azDiff,
-              alt:found.alt,baseAlt,topAlt,distM,age,ts:found.dt,angDiam:found.angDiam});
+              alt:found.alt,topAlt,age,ts:found.dt,angDiam:found.angDiam});
             found=null;
           }
         }
@@ -4100,7 +4099,7 @@ function calcChances(){
       if(found){
         const age=sunsetMode?null:moonAge(new Date(ds+'T03:00:00Z'));
         results.push({date:ds,time:jst(found.dt),azDiff:found.azDiff,
-          alt:found.alt,baseAlt,topAlt,distM,age,ts:found.dt,angDiam:found.angDiam});
+          alt:found.alt,topAlt,age,ts:found.dt,angDiam:found.angDiam});
       }
     }
 
@@ -4112,31 +4111,39 @@ function calcChances(){
       return;
     }
 
-    const bodyIcon=sunsetMode?'☀️':'🌕';
+    // ★評価関数
+    function starRating(r){
+      const pct=r.alt/r.topAlt*100;
+      const az=r.azDiff;
+      if(sunsetMode){
+        // PLの塔×夕日
+        if(az<=1 && pct>=80 && pct<=110) return'★★★';
+        if(az<=2 && pct>=50 && pct<=120) return'★★☆';
+        return'★☆☆';
+      } else if(T[cur].silhouette==='castle'){
+        // 岐阜城×月：「飲み込み」判定
+        const swallow=(r.angDiam>=targetAngDiam && pct>=30 && pct<=70);
+        if(az<=1 && (pct>=70 || swallow)) return'★★★';
+        if(az<=2 && pct>=40) return'★★☆';
+        return'★☆☆';
+      } else {
+        // PLの塔×月
+        if(az<=1 && pct>=70) return'★★★';
+        if(az<=2 && pct>=50) return'★★☆';
+        return'★☆☆';
+      }
+    }
 
     list.innerHTML=results.map(r=>{
       const dow=new Date(r.date+'T12:00:00+09:00').toLocaleDateString('ja-JP',{weekday:'short'});
       const dowColor=dow.includes('日')?'#ff6655':dow.includes('土')?'#4488ff':'var(--sub)';
-
-      // ★評価：横移動距離(m)基準
-      const moveM=r.distM*Math.tan(r.azDiff*Math.PI/180);
-      let star;
-      if(moveM<=2)        star=`🎯${bodyIcon}🎯`;
-      else if(moveM<=10)  star='★★★';
-      else if(moveM<=50)  star='★★☆';
-      else if(moveM<=100) star='★☆☆';
-      else if(moveM<=200) star='☆☆☆';
-      else                star='―';
-
-      // 高度%：建物内位置基準（根元=0%、頂点=100%）
-      const range=r.topAlt-r.baseAlt;
-      const altPct=range>0.001?Math.round((r.alt-r.baseAlt)/range*100):0;
-
+      const star=starRating(r);
+      const altPct=Math.round(r.alt/r.topAlt*100);
       // 岐阜城×月：飲み込み表示
       const swallowMark=(T[cur].silhouette==='castle'&&!sunsetMode&&r.angDiam>=targetAngDiam&&altPct>=30&&altPct<=70)?'🔵':'';
       const bodyInfo=sunsetMode
-        ?`移${Math.round(moveM)}m 高${altPct}%`
-        :`月齢${r.age.toFixed(1)}日 移${Math.round(moveM)}m 高${altPct}%${swallowMark}`;
+        ?`±${r.azDiff.toFixed(1)}° 高${altPct}%`
+        :`月齢${r.age.toFixed(1)}日 ±${r.azDiff.toFixed(1)}° 高${altPct}%${swallowMark}`;
       return `<div class="chance-item" onclick="setChance('${r.date}','${r.time}')" title="クリックで日時をセット">
         <span style="color:${dowColor}">${r.date}(${dow})</span>
         <span class="chance-time">${r.time}</span>
@@ -4474,8 +4481,7 @@ window.addEventListener('load',()=>{
     calcSunMoon();
     renderSpotPins(); // 保存地点ピンを地図に描画
   },400);
-  setTimeout(()=>{ layout(); },900);
-  setTimeout(()=>{ layout(); },1800);
+
 
   // 日付変更
   document.getElementById('idate').addEventListener('change',()=>{
