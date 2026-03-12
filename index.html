@@ -823,8 +823,8 @@ let savedSpots=[]; // 保存した撮影地点 [{lat,lng,name,target,note}]
 // LAYOUT
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function layout(){
-  const W = window.innerWidth;
-  const H = window.innerHeight;
+  const W = document.documentElement.clientWidth || window.innerWidth;
+  const H = document.documentElement.clientHeight || window.innerHeight;
   const isMobile=W<=600;
 
   if(isMobile){
@@ -4564,6 +4564,8 @@ window.addEventListener('pageshow', e=>{
   if(e.persisted && (location.search.includes('spots=') || location.hash.includes('spots='))){
     _loadFromURLHash();
   }
+  // リロード・BFCache復元時に正しい幅で再レイアウト
+  scheduleLayout();
 });
 </script>
 <!-- 保存地点オーバーレイ -->
