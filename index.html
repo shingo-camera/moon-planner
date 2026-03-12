@@ -4087,7 +4087,7 @@ function calcChances(){
         }
         if(azD<=AZ_THR && inAlt && inTimeWindow){
           if(!found) found={dt,az:bp.az,alt:bp.alt,azDiff:azD,angDiam:bp.angDiam||0.53};
-          else if(azD < found.azDiff) found={dt,az:bp.az,alt:bp.alt,azDiff:azD,angDiam:bp.angDiam||0.53};
+          else if(Math.abs(bp.alt-topAlt) < Math.abs(found.alt-topAlt)) found={dt,az:bp.az,alt:bp.alt,azDiff:azD,angDiam:bp.angDiam||0.53};
         } else {
           if(found){
             const age=sunsetMode?null:moonAge(new Date(ds+'T03:00:00Z'));
@@ -4121,7 +4121,7 @@ function calcChances(){
       // ★評価：横移動距離(m)基準
       const moveM=r.distM*Math.tan(r.azDiff*Math.PI/180);
       let star;
-      if(moveM<=5)        star=`🎯${bodyIcon}🎯`;
+      if(moveM<=2)        star=`🎯${bodyIcon}🎯`;
       else if(moveM<=10)  star='★★★';
       else if(moveM<=50)  star='★★☆';
       else if(moveM<=100) star='★☆☆';
@@ -4165,7 +4165,7 @@ function calcFullMoonChances(){
     const distH=hav(sLat,sLng,t.lat,t.lng);
     const topAlt=elAng(distH,sElev,t.elev,t.h);
     const AZ_THR=2.5;
-    const STEP=10*60*1000; // 10分刻み
+    const STEP=60*1000; // 1分刻み
 
     // 選択日から1年間の満月日を列挙（月齢13〜16日の日）
     const today=new Date(document.getElementById('idate').value+'T00:00:00+09:00');
@@ -4182,12 +4182,13 @@ function calcFullMoonChances(){
     for(const ds of fullMoonDays){
       const dayStart=new Date(ds+'T00:00:00+09:00');
       let found=null;
-      for(let i=0;i<144;i++){
+      for(let i=0;i<=1440;i++){
         const dt=new Date(dayStart.getTime()+i*STEP);
         const mp=moonPos(dt,sLat,sLng);
         const azD=Math.abs(((mp.az-tAz+180)%360)-180);
         if(azD<=AZ_THR&&mp.alt>=0&&mp.alt<=topAlt){
           if(!found) found={dt,az:mp.az,alt:mp.alt,azDiff:azD};
+          else if(Math.abs(mp.alt-topAlt) < Math.abs(found.alt-topAlt)) found={dt,az:mp.az,alt:mp.alt,azDiff:azD};
         } else {
           if(found){
             const age=moonAge(new Date(ds+'T03:00:00Z'));
