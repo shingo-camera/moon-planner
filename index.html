@@ -552,7 +552,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
     </div>
     <div>
       <div class="sec">06 チャンス一覧</div>
-      <button id="btn-chance" onclick="calcChances()" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;margin-bottom:4px;">📅 選択日から30日を検索</button>
+      <button id="btn-chance" onclick="calcChances()" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;margin-bottom:4px;">📅 選択日から90日を検索</button>
       <div id="chance-list" style="font-size:9px;color:var(--tx);"></div>
       <button id="btn-fullmoon" onclick="calcFullMoonChances()" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;margin-top:6px;margin-bottom:4px;">🌕 満月チャンス（1年）を検索</button>
       <div id="fullmoon-list" style="font-size:9px;color:var(--tx);"></div>
@@ -1323,7 +1323,6 @@ async function onPick(){
 
   calcSunMoon();
   redraw(distD,tAz,va);
-  suggest(distH,tAz,va);
   updateDrawerIfOpen();
 }
 
@@ -1529,8 +1528,12 @@ function moonPos(date,lat,lng){
 }
 
 // 日の出・日の入り計算（精密sunPosを使って反復で求める）
+const _sunTCache=new Map();
 function sunT(date,lat,lng){
-  const base=new Date(date.toISOString().slice(0,10)+'T00:00:00+09:00');
+  const ds=date.toISOString().slice(0,10);
+  const key=`${ds}_${lat.toFixed(4)}_${lng.toFixed(4)}`;
+  if(_sunTCache.has(key))return _sunTCache.get(key);
+  const base=new Date(ds+'T00:00:00+09:00');
   let rise=null,set=null,prev=null,prevT=null;
   for(let h=0;h<=25.1;h+=5/60){
     const t=new Date(base.getTime()+h*3600000);
@@ -1551,7 +1554,10 @@ function sunT(date,lat,lng){
     }
     prev=alt;prevT=t;
   }
-  return rise||set?{rise,set}:null;
+  const result=rise||set?{rise,set}:null;
+  if(_sunTCache.size>=400){const fk=_sunTCache.keys().next().value;_sunTCache.delete(fk);}
+  _sunTCache.set(key,result);
+  return result;
 }
 
 function moonT(ds,lat,lng){
@@ -1577,12 +1583,18 @@ function moonT(ds,lat,lng){
   return{rise,set};
 }
 
-let _moonTCache={key:null,result:null};
+// 多段キャッシュ：90日チャンス計算・満月1年計算でも再計算しない
+const _moonTCache=new Map();
 function moonTCached(ds,lat,lng){
   const key=`${ds}_${lat.toFixed(4)}_${lng.toFixed(4)}`;
-  if(_moonTCache.key===key)return _moonTCache.result;
+  if(_moonTCache.has(key))return _moonTCache.get(key);
   const result=moonT(ds,lat,lng);
-  _moonTCache={key,result};
+  // キャッシュが大きくなりすぎないよう上限400件（約1年分）
+  if(_moonTCache.size>=400){
+    const firstKey=_moonTCache.keys().next().value;
+    _moonTCache.delete(firstKey);
+  }
+  _moonTCache.set(key,result);
   return result;
 }
 
@@ -1851,10 +1863,16 @@ function drawFans(ds, moon){
     fanLayers.push(c,cl);
   });
 
-  // ズーム変更時に扇を再描画
+  // ズーム変更時に扇を再描画（常に最新のcurを使うよう、t非キャプチャ）
   if(!map._ringRedrawBound){
     map._ringRedrawBound=true;
-    map.on('zoomend',()=>{ if(typeof drawFans==='function') drawFans(document.getElementById('idate').value, moonTCached(document.getElementById('idate').value,t.lat,t.lng)); });
+    map.on('zoomend',()=>{
+      if(typeof drawFans!=='function')return;
+      const ds=document.getElementById('idate').value;
+      const tc=T[cur];
+      const moon=moonTCached(ds,tc.lat,tc.lng);
+      drawFans(ds,moon);
+    });
   }
 
   const DIST_MAX=15;
@@ -3304,28 +3322,8 @@ function _loadFromURLHash(){
     },700);
   }catch(e){}
 }
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function suggest(dist,tAz,va){
-  const t=T[cur];
-  const ta=angS(t.h,dist);
-  const opt=Math.max(9,Math.min(1600,Math.round(MOON/ta*focal)));
-  const ds=document.getElementById('idate').value;
-  const lat=sLat!==null?sLat:t.lat;
-  const lng=sLng!==null?sLng:t.lng;
-  const moon=ds?moonTCached(ds,lat,lng):{rise:null,set:null};
-  let s='';
-  if(dist<1){s=`⚠️ 近すぎます（${dist.toFixed(2)}km）\n月と対象を同フレームに収めるには最低3km以上離れてください。`;}
-  else if(dist>80){s=`⚠️ 遠すぎます（${dist.toFixed(1)}km）\n${t.name}が非常に小さくなります。`;}
-  else{
-    s+=`📍 ${t.name}まで ${dist.toFixed(1)}km\n`;
-    s+=`📷 推奨焦点距離: 約 ${opt}mm\n`;
-    s+=`🧭 対象方位: ${tAz.toFixed(1)}° ${cdir(tAz)}\n`;
-    if(va>-1&&va<4)s+=`✅ 仰角${va.toFixed(1)}° — 月の出入りのタイミングが最適\n`;
-    else if(va>=4)s+=`📐 仰角${va.toFixed(1)}° — 月が同高度に来る時刻を狙う\n`;
-    s+=moon.rise?`🌕 月の出: ${jst(moon.rise)} 前後が撮影チャンス`:`🌑 この日この地点では月の出なし`;
-  }
-  const sugEl=document.getElementById('sug');if(sugEl)sugEl.textContent=s;
-}
+// suggest()はUIコメントアウト中につき無効化（07撮影提案セクション復活時に再実装）
+// function suggest(dist,tAz,va){ ... }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // CONTROLS
@@ -3341,7 +3339,7 @@ function setSunsetMode(v){
   const pvLabel=document.getElementById('pv-label-text');
   if(pvLabel)pvLabel.textContent=v?'◎ プレビュー（対象 + 太陽）':'◎ プレビュー（対象 + 月）';
   const btnChance=document.getElementById('btn-chance');
-  if(btnChance)btnChance.textContent=v?'📅 選択日から30日を検索（太陽）':'📅 選択日から30日を検索';
+  if(btnChance)btnChance.textContent=v?'📅 選択日から90日を検索（太陽）':'📅 選択日から90日を検索';
   // 満月ボタン：夕日モード時は非表示、リストもクリア
   const btnFM=document.getElementById('btn-fullmoon');
   const fmList=document.getElementById('fullmoon-list');
@@ -3790,6 +3788,7 @@ function setNow(){
   }
   // 日付が変わった場合はcalcSunMoon、そうでなければ時刻変更のchangeイベントのみ
   if(dateChanged){
+    updatePvDateDisp();
     calcSunMoon();
     if(sLat!==null)onPick();
   } else if(itime){
@@ -4027,7 +4026,7 @@ function calcChances(){
     // 夕日モード: 仰角上限を120%に拡大（頂点スレスレも拾う）
     const altMax=sunsetMode ? topAlt*1.2 : topAlt;
 
-    for(let d=0;d<30;d++){
+    for(let d=0;d<90;d++){
       const base=new Date(today.getTime()+d*86400000);
       const ds=base.toLocaleDateString('sv-SE',{timeZone:'Asia/Tokyo'});
       const dayStart=new Date(ds+'T00:00:00+09:00');
@@ -4036,6 +4035,15 @@ function calcChances(){
         const age=moonAge(new Date(ds+'T03:00:00Z'));
         const illum=(1-Math.cos(2*Math.PI*age/29.53058867))/2;
         if(illum<0.05) continue;
+      }
+      // 太陽モード：この日の日の出/日没を事前取得（ループ外で1回）
+      let sunRiseMs=null, sunSetMs=null;
+      if(sunsetMode){
+        const sun=sunT(new Date(ds+'T03:00:00Z'),t.lat,t.lng);
+        if(sun){
+          sunRiseMs=sun.rise?sun.rise.getTime():null;
+          sunSetMs=sun.set?sun.set.getTime():null;
+        }
       }
       let found=null;
 
@@ -4047,13 +4055,10 @@ function calcChances(){
         // 太陽モード：日の出後30分または日没前30分の範囲のみ
         let inTimeWindow=true;
         if(sunsetMode){
-          const sun=sunT(new Date(ds+'T03:00:00Z'),t.lat,t.lng);
-          if(sun){
-            const tMs=dt.getTime();
-            const afterRise=sun.rise&&tMs>=sun.rise.getTime()&&tMs<=sun.rise.getTime()+30*60000;
-            const beforeSet=sun.set&&tMs>=sun.set.getTime()-30*60000&&tMs<=sun.set.getTime();
-            inTimeWindow=afterRise||beforeSet;
-          }
+          const tMs=dt.getTime();
+          const afterRise=sunRiseMs&&tMs>=sunRiseMs&&tMs<=sunRiseMs+30*60000;
+          const beforeSet=sunSetMs&&tMs>=sunSetMs-30*60000&&tMs<=sunSetMs;
+          inTimeWindow=!!(afterRise||beforeSet);
         }
         if(azD<=AZ_THR && inAlt && inTimeWindow){
           if(!found) found={dt,az:bp.az,alt:bp.alt,azDiff:azD,angDiam:bp.angDiam||0.53};
@@ -4074,10 +4079,10 @@ function calcChances(){
       }
     }
 
-    btn.textContent=sunsetMode?'📅 選択日から30日を検索（夕日）':'📅 選択日から30日を検索';
+    btn.textContent=sunsetMode?"📅 選択日から90日を検索（太陽）":"📅 選択日から90日を検索";
 
     if(results.length===0){
-      list.textContent='今後30日以内に条件を満たす日はありません。（方位角±'+AZ_THR+'°）';
+      list.textContent="今後90日以内に条件を満たす日はありません。（方位角±"+AZ_THR+"°）";
       updateDrawerIfOpen();
       return;
     }
@@ -4310,6 +4315,7 @@ function _updatePvOfsDisp(){
 function _triggerPvRedraw(){
   if(sLat===null){
     try{drawView(5,180,3.30);}catch(e){}
+    try{drawCompass(180,3.30);}catch(e){}
     return;
   }
   const t=T[cur];
@@ -4318,6 +4324,7 @@ function _triggerPvRedraw(){
   const az=brng(sLat,sLng,t.lat,t.lng);
   const va=elAng(dH,sElev,t.elev,t.h);
   try{drawView(dD,az,va);}catch(e){}
+  try{drawCompass(az,va);}catch(e){}
 }
 
 function setF(v){
@@ -4339,13 +4346,6 @@ function setF(v){
   // スマホ用焦点距離表示
   const fd=document.getElementById('mob-focal-disp');
   if(fd)fd.innerHTML=`${v}<span style="font-size:9px;color:var(--sub);">mm</span>`;
-  // 撮影地点が選択済みならポップアップのFOV情報も更新
-  if(sLat!==null&&sMarker){
-    const t=T[cur];
-    const distH=hav(sLat,sLng,t.lat,t.lng);
-    const tAz=brng(sLat,sLng,t.lat,t.lng);
-    const va=elAng(distH,sElev,t.elev,t.h);
-  }
   scheduleLayout();
   updateDrawerIfOpen();
 }
@@ -4414,6 +4414,7 @@ function shiftTime(minutes){
       idate.value=newDate;
       // 日付が変わった場合：calcSunMoon＋全再描画を行い、以降のchangeイベントはスキップ
       syncMobileUI();
+      updatePvDateDisp();
       calcSunMoon();
       if(sLat!==null)onPick();
       updateDrawerIfOpen();
