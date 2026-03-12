@@ -4492,7 +4492,6 @@ window.addEventListener('load',()=>{
 
   setTimeout(()=>{
     if(map)map.invalidateSize();
-    layout();
     calcSunMoon();
     renderSpotPins(); // 保存地点ピンを地図に描画
   },400);
@@ -4564,8 +4563,14 @@ window.addEventListener('pageshow', e=>{
   if(e.persisted && (location.search.includes('spots=') || location.hash.includes('spots='))){
     _loadFromURLHash();
   }
-  // リロード・BFCache復元時に正しい幅で再レイアウト
-  scheduleLayout();
+  // Safari リロード復元完了後に正しい幅で再レイアウト
+  // rAFを2フレーム重ねることでブラウザの描画サイクル完了後に実行
+  requestAnimationFrame(()=>{
+    requestAnimationFrame(()=>{
+      if(map)map.invalidateSize();
+      layout();
+    });
+  });
 });
 </script>
 <!-- 保存地点オーバーレイ -->
