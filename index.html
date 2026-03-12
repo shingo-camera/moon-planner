@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>月×建造物 撮影プランナー</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌕</text></svg>">
@@ -137,7 +137,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 
 /* ±ボタン＋プレビュー側 */
 #pv-left{display:flex;flex-direction:row;flex-shrink:0;flex-grow:0;
-  overflow:hidden;border-right:1px solid var(--bd);}
+  overflow:hidden;border-right:1px solid var(--bd);align-items:flex-start;}
 
 /* ±ボタン縦列 */
 #tbtn-col{width:var(--btn);flex-shrink:0;display:flex;flex-direction:column;
@@ -153,7 +153,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 .tbtn-time{font-family:'Space Mono',monospace;font-size:7px;color:var(--ac);
   writing-mode:vertical-rl;letter-spacing:.05em;padding:3px 0;flex-shrink:0;}
 
-#pv-cv-wrap{display:flex;flex-direction:column;flex-shrink:0;flex-grow:0;overflow:hidden;}
+#pv-cv-wrap{display:flex;flex-direction:column;flex-shrink:0;flex-grow:0;overflow:hidden;position:relative;background:var(--bd);align-items:flex-start;}
 /* プレビューcanvasラップ */
 .pv-label{height:var(--lbl);display:flex;align-items:center;padding:0 6px;
   font-family:'Space Mono',monospace;font-size:7px;letter-spacing:.08em;
@@ -163,7 +163,27 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 #cv2{display:block;background:#060810;flex-shrink:0;flex-grow:0;}
 
 /* ダイアグラム側 */
-#diag-wrap{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;}
+#diag-wrap{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;align-items:flex-start;}
+
+/* 8方向パッド（プレビュー右上オーバーレイ） */
+#pv-pad{
+  position:absolute;top:26px;right:4px;z-index:100;
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  background:rgba(10,12,20,0.75);border:1px solid var(--bd);border-radius:5px;
+  padding:5px 4px;
+}
+.pad-row{display:flex;gap:2px;}
+.pad-btn{
+  width:20px;height:20px;display:flex;align-items:center;justify-content:center;
+  background:rgba(24,28,46,0.85);border:1px solid var(--bd);border-radius:3px;
+  font-size:11px;color:var(--sub);cursor:pointer;user-select:none;
+  -webkit-tap-highlight-color:transparent;
+}
+.pad-btn:hover{border-color:var(--ac);color:var(--ac);}
+.pad-btn:active{background:var(--ac);color:var(--bg);}
+.pad-btn.rst{font-size:7px;font-family:'Space Mono',monospace;color:var(--ac);border-color:var(--ac);}
+.pad-btn.rst.active{background:rgba(200,169,110,0.25);}
+@media(max-width:600px){#pv-pad{display:none;}}
 
 /* 扇形凡例 */
 #fan-legend{
@@ -189,6 +209,16 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 .chance-item{background:var(--sur2);border:1px solid var(--bd);border-radius:4px;padding:5px 6px;margin-bottom:3px;cursor:pointer;display:flex;flex-wrap:wrap;gap:4px;align-items:center;transition:border-color .15s;}
 .chance-item:hover{border-color:var(--ac);}
 .chance-time{font-family:'Space Mono',monospace;font-weight:700;color:var(--tx);}
+/* 保存地点 */
+.spot-item{background:var(--sur2);border:1px solid var(--bd);border-radius:4px;
+  padding:4px 6px;margin-bottom:3px;display:flex;align-items:center;gap:4px;
+  transition:border-color .15s;}
+.spot-item:hover{border-color:var(--ac);}
+.spot-item-name{font-size:10px;color:var(--tx);flex:1;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;}
+.spot-item-meta{font-family:'Space Mono',monospace;font-size:8px;color:var(--sub);white-space:nowrap;}
+.spot-item-del{color:var(--sub);cursor:pointer;font-size:11px;flex-shrink:0;padding:0 2px;}
+.spot-item-del:hover{color:#ff6655;}
 .tripod-box{background:var(--sur2);border:1px solid var(--bd);border-radius:4px;padding:5px 7px;margin-top:4px;}
 .tripod-label{font-size:8px;color:var(--sub);font-family:'Space Mono',monospace;margin-bottom:3px;}
 .tripod-val{font-family:'Space Mono',monospace;font-size:16px;color:var(--ac);text-align:center;margin:2px 0;}
@@ -203,9 +233,90 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 #mob-drawer{display:none;}
 #mob-overlay{display:none;}
 
+/* ━━━ 焦点距離キーパッド ━━━ */
+#focal-overlay{
+  display:none;position:fixed;inset:0;z-index:9820;
+  background:rgba(0,0,0,0.5);
+  -webkit-tap-highlight-color:transparent;
+}
+#focal-overlay.open{display:block;}
+#focal-popup{
+  position:fixed;
+  top:50%;left:50%;
+  transform:translate(-50%,-52%);
+  background:var(--sur);border:1px solid var(--bd);border-radius:10px;
+  padding:14px 16px 14px;z-index:9830;
+  display:flex;flex-direction:column;align-items:center;
+  box-shadow:0 8px 32px rgba(0,0,0,.7);
+  width:200px;
+}
+.fk-btn{
+  height:44px;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--sur2);border:1px solid var(--bd);border-radius:6px;
+  font-family:'Space Mono',monospace;font-size:18px;font-weight:700;
+  color:var(--tx);cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.fk-btn:active{background:var(--bd);}
+.fk-del{color:var(--sub);font-size:20px;}
+.fk-del:active{background:var(--bd);}
+.fk-ok{background:var(--ac);color:var(--bg);border-color:var(--ac);}
+.fk-ok:active{filter:brightness(1.2);}
+/* ━━━ オフセットポップアップ（スマホ専用） ━━━ */
+#ofs-overlay{
+  display:none;position:fixed;inset:0;z-index:9800;
+  background:rgba(0,0,0,0.45);
+  -webkit-tap-highlight-color:transparent;
+}
+#ofs-overlay.open{display:block;}
+#ofs-popup{
+  position:fixed;
+  top:12px;left:50%;
+  transform:translateX(-50%);
+  background:var(--sur);border:1px solid var(--bd);border-radius:10px;
+  padding:14px 16px 12px;z-index:9810;
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  box-shadow:0 8px 32px rgba(0,0,0,.6);
+  min-width:180px;
+}
+#ofs-popup .pad-row{display:flex;gap:8px;}
+#ofs-popup .pad-btn{
+  width:46px;height:46px;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--sur2);border:1px solid var(--bd);border-radius:6px;
+  font-size:20px;color:var(--sub);cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+#ofs-popup .pad-btn:active{background:var(--ac);color:var(--bg);}
+#ofs-popup .pad-btn.rst{
+  font-size:11px;font-family:'Space Mono',monospace;
+  color:var(--ac);border-color:var(--ac);
+}
+#ofs-popup .pad-btn.rst:active{background:var(--ac);color:var(--bg);}
+#ofs-disp{
+  font-family:'Space Mono',monospace;font-size:11px;
+  color:var(--sub);text-align:center;line-height:1.8;
+}
+/* 呼び出しボタン（スマホのみ表示） */
+#pv-ofs-btn{
+  display:none;
+  position:absolute;top:26px;right:4px;z-index:100;
+  width:26px;height:26px;
+  background:rgba(10,12,20,0.75);border:1px solid var(--bd);border-radius:4px;
+  font-size:14px;cursor:pointer;
+  align-items:center;justify-content:center;
+  -webkit-tap-highlight-color:transparent;
+  color:var(--sub);
+}
+#pv-ofs-btn.active{border-color:var(--ac);color:var(--ac);}
+@media(max-width:600px){
+  #pv-ofs-btn{display:flex;}
+}
+
 /* ━━━ スマホレイアウト ━━━ */
 @media (max-width:600px){
-  :root{--hdr:0px;--mob-bar:136px;}
+  :root{--hdr:0px;--mob-bar:104px;}
 
   /* ヘッダー非表示 */
   #hdr{display:none;}
@@ -223,7 +334,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   #mapbox{flex:0 0 55%;}
 
   /* プレビューパネル：残り */
-  #preview-panel{flex:1;min-height:0;border-top:1px solid var(--bd);}
+  #preview-panel{flex:1;min-height:0;border-top:1px solid var(--bd);overflow:hidden;}
 
   /* PC用±ボタン列を非表示 */
   #tbtn-col{display:none;}
@@ -278,30 +389,15 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
     flex-shrink:0;
     min-width:40px;height:26px;
     display:flex;align-items:center;justify-content:center;
-    background:var(--sur2);border:1px solid var(--ac);border-radius:4px;
-    font-family:'Space Mono',monospace;font-size:9px;color:var(--ac);
+    background:var(--sur2);border:1px solid var(--bd);border-radius:4px;
+    font-family:'Space Mono',monospace;font-size:9px;color:var(--sub);
     cursor:pointer;-webkit-tap-highlight-color:transparent;
   }
+  .mob-icon-btn.on{border-color:var(--ac);color:var(--ac);}
   .mob-icon-btn:active{background:var(--ac);color:var(--bg);}
 
-  #mob-url-row{display:flex;align-items:center;gap:4px;}
-  #mob-url-input{
-    flex:1;min-width:0;height:24px;
-    background:var(--sur2);border:1px solid var(--bd);border-radius:4px;
-    color:var(--tx);font-size:11px;padding:0 8px;
-    font-family:'Noto Sans JP',sans-serif;
-    outline:none;
-  }
-  #mob-url-input:focus{border-color:var(--ac);}
-  #mob-url-input::placeholder{color:var(--sub);font-size:10px;}
-  #mob-url-clear{
-    flex-shrink:0;width:26px;height:24px;
-    display:flex;align-items:center;justify-content:center;
-    background:var(--sur2);border:1px solid var(--bd);border-radius:4px;
-    color:var(--sub);font-size:11px;cursor:pointer;
-    -webkit-tap-highlight-color:transparent;
-  }
-  #mob-url-clear:active{border-color:var(--ac);color:var(--ac);}
+  #mob-url-row{display:flex;align-items:center;}
+  #mob-clip-btn{height:26px;font-size:11px;letter-spacing:.02em;}
 
   /* ドロワー */
   #mob-overlay{
@@ -312,16 +408,16 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   }
   #mob-overlay.open{opacity:1;pointer-events:auto;}
   #mob-drawer{
-    display:block;
+    display:flex;flex-direction:column;
     position:fixed;bottom:0;left:0;right:0;
     height:70vh;
     background:var(--sur);border-top:2px solid var(--bd);border-radius:12px 12px 0 0;
     z-index:9950;
     transform:translateY(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);
-    overflow-y:scroll;-webkit-overflow-scrolling:touch;
+    overflow:hidden;
   }
   #mob-drawer.open{transform:translateY(0);}
-  #mob-drawer-inner{padding:12px 14px 80px;}
+  #mob-drawer-inner{flex:1;overflow-y:scroll;-webkit-overflow-scrolling:touch;padding:12px 14px 80px;}
   #mob-drawer-inner .sec{font-size:11px;margin-bottom:6px;}
   #mob-drawer-inner .pb{font-size:12px;padding:5px 10px;}
   #mob-drawer-inner label{font-size:11px;}
@@ -330,8 +426,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   #mob-drawer-inner .tbtn{width:36px;height:28px;font-size:9px;}
 }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-<script>eruda.init();</script>
 </head>
 <body>
 
@@ -351,12 +445,15 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
       <div id="c-gifu" class="tc" onclick="selTarget('gifu')">
         <div class="nm">岐阜城</div><div class="co">35.4340°N 136.7818°E</div>
       </div>
+      <div id="c-wakayama" class="tc" onclick="selTarget('wakayama')">
+        <div class="nm">和歌山城</div><div class="co">34.2276°N 135.1715°E</div>
+      </div>
       <div style="margin-top:6px;display:flex;align-items:center;gap:6px;">
         <input type="checkbox" id="cb-sunset" onchange="setSunsetMode(this.checked)"
           style="width:14px;height:14px;accent-color:#c8a96e;cursor:pointer;">
         <label for="cb-sunset" id="lb-sunset"
           style="font-family:'Space Mono',monospace;font-size:8.5px;color:var(--sub);cursor:pointer;">
-          夕日モード
+          太陽モード
         </label>
       </div>
     </div>
@@ -379,7 +476,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
     </div>
     <div>
       <div class="sec">03 焦点距離</div>
-      <div class="fn" id="fn">400<span>mm</span></div>
+      <div class="fn" id="fn" onclick="promptFocal()" style="cursor:pointer;" title="タップで入力">400<span>mm</span></div>
       <input type="range" id="fslider" min="9" max="1600" value="400" oninput="setF(+this.value)">
       <div class="ps">
         <div class="pb" onclick="setF(9)">9</div>
@@ -424,6 +521,17 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
         <div class="ic"><div class="lb">方位角</div><div class="vl" id="i-a">—</div></div>
         <div class="ic"><div class="lb">仰角</div><div class="vl" id="i-v">—</div></div>
       </div>
+      <!-- 標高オフセット -->
+      <div style="display:flex;align-items:center;gap:2px;margin-top:4px;flex-wrap:wrap;">
+        <span style="font-size:8px;color:var(--sub);font-family:'Space Mono',monospace;flex-shrink:0;">標高±</span>
+        <div class="tbtn" onclick="shiftElevOffset(-5)">−5</div>
+        <div class="tbtn" onclick="shiftElevOffset(-3)">−3</div>
+        <div class="tbtn" onclick="shiftElevOffset(-1)">−1</div>
+        <div class="tbtn" onclick="shiftElevOffset(1)">+1</div>
+        <div class="tbtn" onclick="shiftElevOffset(3)">+3</div>
+        <div class="tbtn" onclick="shiftElevOffset(5)">+5</div>
+        <span class="now-btn" onclick="shiftElevOffset(0,true)" title="オフセットをリセット" style="margin-left:2px;">Rst</span>
+      </div>
     </div>
     <div>
       <div class="sec">05 太陽・月</div>
@@ -444,8 +552,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
     </div>
     <div>
       <div class="sec">06 チャンス一覧</div>
-      <button id="btn-chance" onclick="calcChances()" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;margin-bottom:4px;">📅 選択日から30日を検索</button>
+      <button id="btn-chance" onclick="calcChances()" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;margin-bottom:4px;">📅 選択日から90日を検索</button>
       <div id="chance-list" style="font-size:9px;color:var(--tx);"></div>
+      <button id="btn-fullmoon" onclick="calcFullMoonChances()" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;margin-top:6px;margin-bottom:4px;">🌕 満月チャンス（1年）を検索</button>
+      <div id="fullmoon-list" style="font-size:9px;color:var(--tx);"></div>
+      <button id="btn-mooncal" onclick="openMoonCal()" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;margin-top:6px;">🌙 満ち欠けカレンダー</button>
     </div>
     <!--
     <div>
@@ -464,6 +575,16 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
       <div id="map"></div>
       <div id="hint">📍 地図をクリックして撮影地点を選択</div>
       <div id="fan-legend"></div>
+      <div id="map-btns" style="display:none;position:absolute;bottom:24px;right:8px;z-index:1000;flex-direction:column;gap:4px;">
+        <a id="map-btn-gmap" href="#" target="_blank"
+          style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;
+          background:#4285f4;border-radius:4px;text-decoration:none;font-size:16px;
+          box-shadow:0 2px 6px rgba(0,0,0,.5);" title="Googleマップで開く">🗺</a>
+        <a id="map-btn-sv" href="#" target="_blank"
+          style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;
+          background:#34a853;border-radius:4px;text-decoration:none;font-size:16px;
+          box-shadow:0 2px 6px rgba(0,0,0,.5);" title="ストリートビューで開く">👁</a>
+      </div>
     </div>
 
     <!-- プレビューパネル -->
@@ -490,8 +611,40 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
           </div>
         </div>
         <div id="pv-cv-wrap">
-          <div class="pv-label">◎ プレビュー（対象 + 月）</div>
+          <div class="pv-label" style="justify-content:space-between;">
+            <span id="pv-label-text">◎ プレビュー（対象 + 月）</span>
+            <span style="display:flex;align-items:center;gap:3px;margin-right:2px;">
+              <span class="tbtn" onclick="shiftDay(-1)" title="1日前">−1d</span>
+              <span id="pv-date-disp" style="font-family:'Space Mono',monospace;font-size:8px;color:var(--ac);min-width:58px;text-align:center;"></span>
+              <span class="tbtn" onclick="shiftDay(+1)" title="1日後">+1d</span>
+            </span>
+          </div>
+          <div id="cv1-clip" style="overflow:hidden;flex-shrink:0;flex-grow:0;position:relative;">
+          <div id="cv1-inner" style="width:100%;height:100%;transform-origin:center center;">
           <canvas id="cv1"></canvas>
+          </div>
+          </div>
+          <!-- スマホ用オフセット呼び出しボタン -->
+          <div id="pv-ofs-btn" onclick="toggleOfsPopup()" title="視点オフセット">⊹</div>
+          <!-- 8方向パッド（右上オーバーレイ） -->
+          <div id="pv-pad">
+            <div class="pad-row">
+              <div class="pad-btn" onclick="shiftPvOfs(-1,+1)">↖</div>
+              <div class="pad-btn" onclick="shiftPvOfs( 0,+1)">↑</div>
+              <div class="pad-btn" onclick="shiftPvOfs(+1,+1)">↗</div>
+            </div>
+            <div class="pad-row">
+              <div class="pad-btn" onclick="shiftPvOfs(-1, 0)">←</div>
+              <div class="pad-btn rst" id="pv-rst" onclick="resetPvOfs()">RST</div>
+              <div class="pad-btn" onclick="shiftPvOfs(+1, 0)">→</div>
+            </div>
+            <div class="pad-row">
+              <div class="pad-btn" onclick="shiftPvOfs(-1,-1)">↙</div>
+              <div class="pad-btn" onclick="shiftPvOfs( 0,-1)">↓</div>
+              <div class="pad-btn" onclick="shiftPvOfs(+1,-1)">↘</div>
+            </div>
+            <div id="pv-ofs-disp" style="margin-top:3px;font-family:'Space Mono',monospace;font-size:7px;color:var(--sub);text-align:center;line-height:1.6;">AZ+0.0°<br>ALT+0.0°</div>
+          </div>
         </div>
       </div>
       <!-- ダイアグラム -->
@@ -539,25 +692,88 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
     <div class="mob-icon-btn" onclick="setNow()">NOW</div>
     <div class="mob-icon-btn" onclick="toggleDrawer()">⚙️</div>
   </div>
-  <!-- URL入力欄 -->
-  <div id="mob-url-row">
-    <input id="mob-url-input" type="url" placeholder="Google Maps URLを貼り付け…"
-      inputmode="url" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-      oninput="handleMobURL(this.value)">
-    <div id="mob-url-clear" onclick="document.getElementById('mob-url-input').value='';document.getElementById('mob-url-input').placeholder='Google Maps URLを貼り付け…';">✕</div>
-  </div>
 </div>
 
+<!-- スマホ用焦点距離キーパッド -->
+<div id="focal-overlay" onclick="closeFocalPad()">
+  <div id="focal-popup" onclick="event.stopPropagation()">
+    <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--ac);margin-bottom:6px;letter-spacing:.06em;">焦点距離</div>
+    <div id="focal-input-disp" style="font-family:'Space Mono',monospace;font-size:26px;font-weight:700;color:var(--tx);min-width:110px;text-align:right;padding:4px 10px;background:var(--bg);border:1px solid var(--bd);border-radius:6px;margin-bottom:8px;letter-spacing:.04em;">—</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;width:100%;">
+      <div class="fk-btn" onclick="fkInput('7')">7</div>
+      <div class="fk-btn" onclick="fkInput('8')">8</div>
+      <div class="fk-btn" onclick="fkInput('9')">9</div>
+      <div class="fk-btn" onclick="fkInput('4')">4</div>
+      <div class="fk-btn" onclick="fkInput('5')">5</div>
+      <div class="fk-btn" onclick="fkInput('6')">6</div>
+      <div class="fk-btn" onclick="fkInput('1')">1</div>
+      <div class="fk-btn" onclick="fkInput('2')">2</div>
+      <div class="fk-btn" onclick="fkInput('3')">3</div>
+      <div class="fk-btn fk-del" onclick="fkInput('DEL')">⌫</div>
+      <div class="fk-btn" onclick="fkInput('0')">0</div>
+      <div class="fk-btn fk-ok" onclick="fkInput('OK')">OK</div>
+    </div>
+    <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--sub);margin-top:8px;">9 〜 1600 mm</div>
+  </div>
+</div>
+<!-- スマホ用オフセットポップアップ -->
+<div id="ofs-overlay" onclick="closeOfsPopup()">
+  <div id="ofs-popup" onclick="event.stopPropagation()">
+    <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--ac);margin-bottom:2px;letter-spacing:.06em;">視点オフセット</div>
+    <div class="pad-row">
+      <div class="pad-btn" onclick="shiftPvOfs(-1,+1)">↖</div>
+      <div class="pad-btn" onclick="shiftPvOfs( 0,+1)">↑</div>
+      <div class="pad-btn" onclick="shiftPvOfs(+1,+1)">↗</div>
+    </div>
+    <div class="pad-row">
+      <div class="pad-btn" onclick="shiftPvOfs(-1, 0)">←</div>
+      <div class="pad-btn rst" onclick="resetPvOfsAndClose()">RST</div>
+      <div class="pad-btn" onclick="shiftPvOfs(+1, 0)">→</div>
+    </div>
+    <div class="pad-row">
+      <div class="pad-btn" onclick="shiftPvOfs(-1,-1)">↙</div>
+      <div class="pad-btn" onclick="shiftPvOfs( 0,-1)">↓</div>
+      <div class="pad-btn" onclick="shiftPvOfs(+1,-1)">↘</div>
+    </div>
+    <div id="ofs-disp">AZ +0.0°<br>ALT +0.0°</div>
+  </div>
+</div>
 <!-- スマホ用ドロワー -->
 <div id="mob-drawer">
-  <div id="mob-drawer-inner">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--bd);">
+  <div id="mob-drawer-header" style="display:flex;justify-content:space-between;align-items:center;
+    padding:10px 14px 8px;border-bottom:1px solid var(--bd);flex-shrink:0;">
+    <div style="display:flex;flex-direction:column;gap:2px;">
       <span style="font-family:'Space Mono',monospace;font-size:11px;color:var(--ac);">詳細設定</span>
-      <div onclick="toggleDrawer()" style="cursor:pointer;font-size:18px;color:var(--sub);padding:4px 8px;">✕</div>
+      <span id="mob-drawer-datetime" style="font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:var(--tx);letter-spacing:.04em;">—</span>
     </div>
+    <div onclick="toggleDrawer()" style="cursor:pointer;font-size:18px;color:var(--sub);padding:4px 8px;">✕</div>
+  </div>
+  <div id="mob-drawer-inner">
     <div id="mob-drawer-content"></div>
   </div>
 </div>
+<div id="mooncal-overlay" onclick="if(event.target===this)closeMoonCal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10100;"></div>
+<div id="mooncal-popup" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  z-index:10200;background:var(--sur);border:1px solid var(--bd);border-radius:10px;
+  padding:14px;width:min(96vw,480px);max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.6);">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+    <div onclick="shiftMoonCal(-1)" style="cursor:pointer;padding:4px 10px;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;font-family:'Space Mono',monospace;font-size:11px;color:var(--ac);">◀</div>
+    <div id="mooncal-title" style="font-family:'Space Mono',monospace;font-size:13px;color:var(--ac);font-weight:700;"></div>
+    <div onclick="shiftMoonCal(1)" style="cursor:pointer;padding:4px 10px;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;font-family:'Space Mono',monospace;font-size:11px;color:var(--ac);">▶</div>
+    <div onclick="closeMoonCal()" style="cursor:pointer;padding:4px 8px;color:var(--sub);font-size:16px;line-height:1;">✕</div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;margin-bottom:6px;">
+    <div style="text-align:center;font-family:'Space Mono',monospace;font-size:9px;color:#ff6655;padding:2px;">日</div>
+    <div style="text-align:center;font-family:'Space Mono',monospace;font-size:9px;color:var(--sub);padding:2px;">月</div>
+    <div style="text-align:center;font-family:'Space Mono',monospace;font-size:9px;color:var(--sub);padding:2px;">火</div>
+    <div style="text-align:center;font-family:'Space Mono',monospace;font-size:9px;color:var(--sub);padding:2px;">水</div>
+    <div style="text-align:center;font-family:'Space Mono',monospace;font-size:9px;color:var(--sub);padding:2px;">木</div>
+    <div style="text-align:center;font-family:'Space Mono',monospace;font-size:9px;color:var(--sub);padding:2px;">金</div>
+    <div style="text-align:center;font-family:'Space Mono',monospace;font-size:9px;color:#4488ff;padding:2px;">土</div>
+  </div>
+  <div id="mooncal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);grid-template-rows:repeat(6,1fr);gap:3px;"></div>
+</div>
+
 <div id="mob-overlay" onclick="toggleDrawer()"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -566,58 +782,126 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 // STATE
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 const T={
-  pl:  {name:'PLの塔',  lat:34.502231,  lng:135.585904,  h:180, e:'pl', zoom:13, elev:110},
-  gifu:{name:'岐阜城',  lat:35.433931,  lng:136.782041,  h:29,  e:'🏯', zoom:14, elev:335}
+  // elev        : 建物直下の地面標高(m) ← 国土地理院地図より取得。vaBase（底辺仰角）の基準。
+  // h           : 地面(elev)から棟(屋根頂上)までの全高(m) ← vaTop（頂点仰角）の基準。elev+h が頂点絶対標高。
+  // sunsetOk    : 夕日モードを有効にするか
+  // silhouette  : 'pl'=PLの塔専用輪郭, 'castle'=16方向城郭シルエット
+  // physW       : 対象の物理的な幅(m) — 仰角・FOV計算に使用
+  // horizonRatio: drawViewでの地平線Y位置(0〜1、H基準、上=0下=1)
+  // topLimitRatio: 頂点の位置(下から何割、0〜1)。PLの塔:0.60=下から60%=上から40%。castleはdynamic計算
+  pl:  {name:'PLの塔',  lat:34.502231,  lng:135.585904,  h:180,  e:'pl', zoom:13, elev:110,   // 110m: 塔基部地面
+        sunsetOk:true,  silhouette:'pl',     physW:62,  horizonRatio:0.72, topLimitRatio:0.60},
+  gifu:{name:'岐阜城',  lat:35.433931,  lng:136.782041,  h:29,   e:'🏯', zoom:14, elev:335,   // 335m: 天守台下地面
+        sunsetOk:true,  silhouette:'castle', physW:180, horizonRatio:0.75, topLimitRatio:null,
+        frontAz:203},   // 棟の走る方向203°（SSW-NNE）。Google衛星画像から棟ラインを実測して算出。
+  wakayama:{name:'和歌山城', lat:34.227593, lng:135.171508, h:29.62, e:'🏯', zoom:14, elev:42.7, // 42.7m: 石垣下地面
+        sunsetOk:true,  silhouette:'castle', physW:120, horizonRatio:0.75, topLimitRatio:null,
+        // 実寸: 総高29.62m（天守本体23.42m + 石垣6.20m）
+        // 天守台: 約17m×17m / 1層: 12m×12m / 2層: 10m×10m / 3層: 8m×8m
+        depthRatio:1.00,                        // 全層ほぼ正方形（2・3層は確実、1層は近似）
+        sekRatio:0.209,                         // 石垣高さ比 (6.20/29.62)
+        sekWidthScale:1.417,                    // 石垣幅 = 天守1層幅 × 1.417 (17m/12m)
+        gUnitRatio:0.324,                       // G_UNIT = G_TOTAL × 0.324 (修正前0.405の80%)
+        layerRatios:[0.384,0.342,0.274],        // 各層高さ比（9m/8m/6.42m、天守本体23.42m基準）
+        layerWidthScales:[1.000,0.833,0.667],   // 各層幅縮小率（12m/10m/8m）
+        frontAz:36},                            // 棟の走る方向36°（NNE-SSW）。衛星画像から実測。
 };
 let cur='pl', focal=400, orientation='land';
 let sLat=null, sLng=null, sElev=0;
+let sElevGround=0; // 地面標高（APIから取得）
+let elevOffset=0;  // 標高オフセット（+1/+3/+5m追加分）
 let tripodH=150; // 三脚高さ(cm)デフォルト150cm
+let gMoonTilt=0; // グローバル月傾き（drawView→drawCompassに共有）
 let map, sMarker, tMarker, polyLine;
 let _layoutRAF=null;
 let fanLayers=[];
 let sunsetMode=false; // 夕日モード（PLのみ）
+let pvAzOfs=0, pvAltOfs=0; // プレビュー視点オフセット（度）
+let savedSpots=[]; // 保存した撮影地点 [{lat,lng,name,target,note}]
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // LAYOUT
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function layout(){
-  const W=window.innerWidth;
-  const H=window.innerHeight;
+  const W = window.innerWidth;
+  const H = window.innerHeight;
   const isMobile=W<=600;
 
   if(isMobile){
-    const hdrH=0, mobBarH=136, lblH=22, btnW=0;
-    const avH=H-hdrH-mobBarH;
-    const mapH=Math.round(avH*0.55);
-    const pvH=avH-mapH;
+    const lblH=22;
+    const mobBarH=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--mob-bar'))||104;
+    // 利用可能高さ = visualViewport高さ - ボトムバー高さ
+    const avH = H - mobBarH;
 
-    document.getElementById('mapbox').style.height=mapH+'px';
-    document.getElementById('mapbox').style.flex='none';
-    document.getElementById('preview-panel').style.height=pvH+'px';
-    document.getElementById('preview-panel').style.flex='none';
+    // ── canvas サイズ計算（縦横で px/deg を統一）──
+    // 横構図を基準: avH の 45% を pvH とし、そこから canvas サイズを決定
+    // 縦構図は横構図 canvas を 90度回転（W↔H入れ替え）→ pvH が変わる → mapH が連動
+    const pvH_land = Math.round(avH * 0.45);
+    const cvH_land = pvH_land - lblH;
+    const cvWbyAspect_land = Math.round(cvH_land * 3/2);
+    const maxCvW = Math.round(W * 0.75);
+    const cvW_land = Math.min(cvWbyAspect_land, maxCvW);
+    const cvHfinal_land = cvW_land === cvWbyAspect_land ? cvH_land : Math.round(cvW_land * 2/3);
 
-    // プレビューとダイアグラムを横並び
-    // プレビューは画面幅の55%、ダイアグラムは45%
-    const pvPanelH=pvH;
-    const cvH=pvPanelH-lblH;
-    const maxCvW=Math.round(W*0.70);
-    const cvWbyAspect=Math.round(cvH*(orientation==='land'?3/2:2/3));
-    const cvW=Math.min(cvWbyAspect, maxCvW);
-    const diagW=W-cvW;
-    const diagH=cvH;
+    // 縦構図: 90度回転
+    const cvW_port = cvHfinal_land;
+    const cvH_port = cvW_land;
 
-    document.getElementById('pv-left').style.width=cvW+'px';
-    const pvWrap=document.getElementById('pv-cv-wrap');
-    pvWrap.style.width=cvW+'px';
-    pvWrap.style.height=pvPanelH+'px';
+    const isPort = orientation === 'port';
+    const cvW = isPort ? cvW_port : cvW_land;
+    const cvH = isPort ? cvH_port : cvHfinal_land;
+    const pvH = isPort ? cvH_port + lblH : pvH_land;
+    const mapH = avH - pvH;
 
-    const cv1=document.getElementById('cv1');
-    cv1.width=cvW;cv1.height=cvH;
-    cv1.style.cssText=`width:${cvW}px!important;height:${cvH}px!important;display:block;background:#060810;`;
+    // DOM 反映
+    const mapbox = document.getElementById('mapbox');
+    mapbox.style.flex = 'none';
+    mapbox.style.height = mapH + 'px';
 
-    const cv2=document.getElementById('cv2');
-    cv2.width=diagW;cv2.height=diagH;
-    cv2.style.cssText=`width:${diagW}px!important;height:${diagH}px!important;display:block;background:#060810;`;
+    const ppanel = document.getElementById('preview-panel');
+    ppanel.style.flex = 'none';
+    ppanel.style.flexDirection = 'row';
+    ppanel.style.height = pvH + 'px';
+    ppanel.style.overflow = 'hidden';
+
+    const diagW = W - cvW;
+    const diagH = cvH;
+
+    const pvLeft = document.getElementById('pv-left');
+    pvLeft.style.width = cvW+'px';
+    pvLeft.style.flexDirection = 'row';
+    pvLeft.style.flexShrink = '0';
+    pvLeft.style.flexGrow = '0';
+    const pvWrap = document.getElementById('pv-cv-wrap');
+    pvWrap.style.width = cvW+'px';
+    pvWrap.style.height = pvH+'px';
+
+    const cv1 = document.getElementById('cv1');
+    cv1.width = cvW; cv1.height = cvH;
+    cv1.style.cssText = `width:${cvW}px!important;height:${cvH}px!important;display:block;background:#060810;`;
+    const cv1clip = document.getElementById('cv1-clip');
+    if(cv1clip){
+      cv1clip.style.width=cvW+'px';
+      cv1clip.style.height=cvH+'px';
+      cv1clip.style.border='1.5px solid #c8a96e';
+      cv1clip.style.boxSizing='border-box';
+      cv1clip.style.overflow='hidden';
+    }
+    const cv1inner = document.getElementById('cv1-inner');
+    if(cv1inner){ cv1inner.style.width=cvW+'px'; cv1inner.style.height=cvH+'px'; }
+
+    const cv2 = document.getElementById('cv2');
+    cv2.width = diagW; cv2.height = diagH;
+    cv2.style.cssText = `width:${diagW}px!important;height:${diagH}px!important;display:block;background:#060810;`;
+
+    const diagWrap = document.getElementById('diag-wrap');
+    diagWrap.style.width = diagW+'px';
+    diagWrap.style.height = pvH+'px';
+    diagWrap.style.flex = 'none';
+
+    // ±1d ボタン: 縦構図で幅が狭い時はラベルテキストを隠す
+    const pvLabelText = document.getElementById('pv-label-text');
+    if(pvLabelText) pvLabelText.style.display = isPort ? 'none' : '';
 
     if(map) map.invalidateSize();
     if(sLat!==null){
@@ -633,26 +917,35 @@ function layout(){
     }
     return;
   }
+  const hdrH=40, pnlW=200, btnW=34, lblH=22;
   const avH=H-hdrH;
   const rightW=W-pnlW;
 
-  // プレビューパネル高さ = 利用可能高さの30%
-  const pvPanelH=Math.round(avH*0.30);
-  const cvH_port=pvPanelH-lblH;              // 縦構図canvas高さ
-  const cvW_port=Math.round(cvH_port*2/3);   // 縦構図canvas幅
-  const cvH_land=cvH_port;                   // 横構図canvas高さ（パネルいっぱい）
-  const cvW_land=Math.round(cvH_port*3/2);   // 横構図canvas幅（3:2）
+  // ── canvas サイズ計算（縦横で px/deg を統一）──
+  // 横構図を基準とし、縦構図は横構図の canvas を 90度回転
+  const pvPanelH_land = Math.round(avH * 0.45);
+  const cvH_land = pvPanelH_land - lblH;
+  const cvW_land = Math.round(cvH_land * 3/2);
 
-  const cvW = orientation==='land' ? cvW_land : cvW_port;
-  const cvH = orientation==='land' ? cvH_land : cvH_port;
+  // 縦構図: 90度回転 → W↔H 入れ替え
+  const cvW_port = cvH_land;   // 元の高さ → 縦構図の幅
+  const cvH_port = cvW_land;   // 元の幅   → 縦構図の高さ
+
+  const isPort = orientation === 'port';
+  const cvW = isPort ? cvW_port : cvW_land;
+  const cvH = isPort ? cvH_port : cvH_land;
+  const pvPanelH = isPort ? cvH_port + lblH : pvPanelH_land;
+
   const pvTotalW = cvW + btnW;
-  const diagW = rightW - pvTotalW;
+  const diagW = Math.max(80, rightW - pvTotalW);
   const diagH = pvPanelH - lblH;
 
-  // プレビューパネル高さ
+  // プレビューパネル高さ（縦構図時は拡張）
   document.getElementById('preview-panel').style.height = pvPanelH+'px';
   // pv-left幅
-  document.getElementById('pv-left').style.width = pvTotalW+'px';
+  const pvLeft = document.getElementById('pv-left');
+  pvLeft.style.width = pvTotalW+'px';
+  pvLeft.style.flexShrink = '0';
   // pv-cv-wrap：幅と高さを明示固定
   const pvWrap=document.getElementById('pv-cv-wrap');
   pvWrap.style.width  = cvW+'px';
@@ -662,11 +955,27 @@ function layout(){
   const cv1=document.getElementById('cv1');
   cv1.width=cvW; cv1.height=cvH;
   cv1.style.cssText=`width:${cvW}px!important;height:${cvH}px!important;display:block;background:#060810;flex-shrink:0;flex-grow:0;`;
+  const cv1clip=document.getElementById('cv1-clip');
+  if(cv1clip){
+    cv1clip.style.width=cvW+'px';
+    cv1clip.style.height=cvH+'px';
+    cv1clip.style.border='1.5px solid #c8a96e';
+    cv1clip.style.boxSizing='border-box';
+    cv1clip.style.overflow='hidden';
+  }
+  const cv1inner=document.getElementById('cv1-inner');
+  if(cv1inner){ cv1inner.style.width=cvW+'px'; cv1inner.style.height=cvH+'px'; }
 
   // cv2：常にstyleを強制セット
   const cv2=document.getElementById('cv2');
   cv2.width=diagW; cv2.height=diagH;
   cv2.style.cssText=`width:${diagW}px!important;height:${diagH}px!important;display:block;background:#060810;flex-shrink:0;flex-grow:0;`;
+
+  // diag-wrap サイズ設定
+  const diagWrap=document.getElementById('diag-wrap');
+  diagWrap.style.width  = diagW+'px';
+  diagWrap.style.height = pvPanelH+'px';
+  diagWrap.style.flex   = 'none';
 
   // 再描画
   if(map) map.invalidateSize();
@@ -689,6 +998,113 @@ function scheduleLayout(){
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// プレビューのピンチズーム（スマホ用）
+// ブラウザのピンチズームを禁止した代わりにプレビュー内のみ拡大を可能にする
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+window.addEventListener('DOMContentLoaded',()=>{
+  // ━━ ピンチズーム完全ブロック ━━
+  // Safari は user-scalable=no を無視する。
+  // overflow:auto/scroll な要素はブラウザが touchmove を passive 扱いするため
+  // document レベルの preventDefault が無視される。
+  // 対策：#map 以外の全スクロール可能要素に直接 passive:false リスナーを登録する。
+  function blockPinch(e){ if(e.touches.length >= 2) e.preventDefault(); }
+  const pinchOpt = { passive: false };
+
+  // document フォールバック（#map 内は除外）
+  document.addEventListener('touchmove', e => {
+    if(e.touches.length < 2) return;
+    let el = e.target;
+    while(el){ if(el.id === 'map') return; el = el.parentElement; }
+    e.preventDefault();
+  }, pinchOpt);
+
+  // overflow を持つ要素に直接登録（passive強制を上書き）
+  ['mob-bar','mob-focal-row','mob-drawer','mob-drawer-inner','pnl',
+   'preview-panel','pv-left','pv-cv-wrap','diag-wrap','right','wrap'
+  ].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.addEventListener('touchmove', blockPinch, pinchOpt);
+  });
+  // body にも念のため
+  document.body.addEventListener('touchmove', blockPinch, pinchOpt);
+
+  // ━━ プレビューcanvas ピンチズーム＋スワイプパン ━━
+  // transform は #cv1 のみに適用。ラベル・オフセットボタンは固定のまま。
+  const pvWrap=document.getElementById('pv-cv-wrap');
+  if(!pvWrap)return;
+
+  let pvScale=1, pvTx=0, pvTy=0;
+  let lastDist=null;
+  let panStartX=0, panStartY=0, panBaseTx=0, panBaseTy=0;
+  let isPanning=false;
+  let lastTap=0;
+
+  function clampTranslate(s, tx, ty){
+    const cv=document.getElementById('cv1');
+    if(!cv)return{tx,ty};
+    const W=cv.width, H=cv.height;
+    const maxTx=(W*(s-1))/2, maxTy=(H*(s-1))/2;
+    return{tx:Math.max(-maxTx,Math.min(maxTx,tx)), ty:Math.max(-maxTy,Math.min(maxTy,ty))};
+  }
+
+  function applyTransform(){
+    const inner=document.getElementById('cv1-inner');
+    if(!inner)return;
+    const {tx,ty}=clampTranslate(pvScale,pvTx,pvTy);
+    pvTx=tx; pvTy=ty;
+    inner.style.transform=pvScale===1&&tx===0&&ty===0
+      ?'none':`translate(${tx}px,${ty}px) scale(${pvScale})`;
+  }
+
+  function getDist(t){return Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);}
+
+  pvWrap.addEventListener('touchstart',e=>{
+    if(e.touches.length===2){
+      e.preventDefault();
+      lastDist=getDist(e.touches);
+      isPanning=false;
+    } else if(e.touches.length===1&&pvScale>1){
+      // 拡大中のみスワイプパンを受け付ける
+      isPanning=true;
+      panStartX=e.touches[0].clientX;
+      panStartY=e.touches[0].clientY;
+      panBaseTx=pvTx;
+      panBaseTy=pvTy;
+    }
+  },{passive:false});
+
+  pvWrap.addEventListener('touchmove',e=>{
+    if(e.touches.length===2&&lastDist!==null){
+      e.preventDefault();
+      const d=getDist(e.touches);
+      pvScale=Math.max(1,Math.min(5,pvScale*(d/lastDist)));
+      lastDist=d;
+      applyTransform();
+    } else if(e.touches.length===1&&isPanning){
+      e.preventDefault();
+      pvTx=panBaseTx+(e.touches[0].clientX-panStartX);
+      pvTy=panBaseTy+(e.touches[0].clientY-panStartY);
+      applyTransform();
+    }
+  },{passive:false});
+
+  pvWrap.addEventListener('touchend',e=>{
+    if(e.touches.length<2) lastDist=null;
+    if(e.touches.length===0){
+      isPanning=false;
+      // ダブルタップでリセット
+      const now=Date.now();
+      if(now-lastTap<300){
+        pvScale=1; pvTx=0; pvTy=0;
+        applyTransform();
+        e.preventDefault();
+      }
+      lastTap=now;
+    }
+  },{passive:false});
+});
+
+
 // MAP
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function initMap(){
@@ -711,8 +1127,9 @@ function initMap(){
       const btn=L.DomUtil.create('button');
       btn.innerHTML='🛰';
       btn.title='衛星/地図切替';
-      btn.style.cssText='background:#1a2035;border:1px solid #3a4060;color:#e8eaf0;padding:4px 7px;border-radius:4px;cursor:pointer;font-size:14px;';
+      btn.style.cssText='width:32px;height:32px;background:#1a2035;border:1px solid #3a4060;color:#e8eaf0;border-radius:4px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;';
       let isSat=false;
+      L.DomEvent.on(btn,'click',L.DomEvent.stopPropagation);
       L.DomEvent.on(btn,'click',()=>{
         isSat=!isSat;
         if(isSat){map.removeLayer(osmLayer);esriLayer.addTo(map);btn.style.background='#2a3a5a';}
@@ -731,7 +1148,7 @@ function initMap(){
     onAdd(){
       const btn=L.DomUtil.create('button','leaflet-bar');
       btn.title='現在地を撮影地点にセット';
-      btn.style.cssText='width:30px;height:30px;background:#111320;border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:#e8eaf0;';
+      btn.style.cssText='width:32px;height:32px;background:#111320;border:1px solid #3a4060;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:#e8eaf0;border-radius:4px;';
       btn.innerHTML='📍';
       L.DomEvent.on(btn,'click',L.DomEvent.stopPropagation);
       L.DomEvent.on(btn,'click',()=>{
@@ -763,77 +1180,112 @@ function initMap(){
     onAdd(){
       const btn=L.DomUtil.create('button','leaflet-bar');
       btn.title='StreetView URLをクリップボードから読み取り';
-      btn.style.cssText='width:30px;height:30px;background:#111320;border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:#e8eaf0;';
+      btn.style.cssText='width:32px;height:32px;background:#111320;border:1px solid #3a4060;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:#e8eaf0;border-radius:4px;';
       btn.innerHTML='📋';
       L.DomEvent.on(btn,'click',L.DomEvent.stopPropagation);
+      let _clipBusy=false;
       L.DomEvent.on(btn,'click',async()=>{
+        if(_clipBusy)return; // 多重実行防止
+        _clipBusy=true;
+        btn.innerHTML='⏳';
+        btn.style.cursor='not-allowed';
         try{
           const text=await navigator.clipboard.readText();
-          btn.innerHTML='⏳';
+          if(!text||!text.trim()){
+            btn.innerHTML='❌';
+            setTimeout(()=>{btn.innerHTML='📋';btn.style.cursor='pointer';_clipBusy=false;},1500);
+            return;
+          }
           const ok=await extractAndApplyMapsURL(text.trim());
-          btn.innerHTML=ok?'✅':'❌';
-          setTimeout(()=>btn.innerHTML='📋',1500);
+          if(ok){
+            btn.innerHTML='✅';
+          }else{
+            btn.title='失敗 — Googleマップで地図を長押し→座標タップ→コピーして再試行';
+            btn.innerHTML='❌';
+            showHint('❌ 読み取り失敗 — Googleマップで地図を長押し → 座標をタップ → コピーして再試行', 6000);
+          }
+          setTimeout(()=>{btn.innerHTML='📋';btn.title='StreetView URLをクリップボードから読み取り';btn.style.cursor='pointer';_clipBusy=false;},2500);
         }catch(e){
+          console.warn('[Clip]',e);
           btn.innerHTML='❌';
-          setTimeout(()=>btn.innerHTML='📋',1500);
+          setTimeout(()=>{btn.innerHTML='📋';btn.style.cursor='pointer';_clipBusy=false;},1500);
         }
       });
       return btn;
     }
   });
   new ClipCtrl().addTo(map);
-}
 
+  // 保存地点一覧ボタン
+  const SpotCtrl=L.Control.extend({
+    options:{position:'topright'},
+    onAdd(){
+      const btn=L.DomUtil.create('button','leaflet-bar');
+      btn.title='保存地点一覧';
+      btn.style.cssText='width:30px;height:30px;background:#111320;border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:#e8eaf0;';
+      btn.innerHTML='🗂';
+      L.DomEvent.on(btn,'click',L.DomEvent.stopPropagation);
+      L.DomEvent.on(btn,'click',()=>openSpotPanel());
+      return btn;
+    }
+  });
+  new SpotCtrl().addTo(map);
+}
 function addTargetPin(){
   if(map&&tMarker){try{map.removeLayer(tMarker);}catch(e){}}
   const t=T[cur];
-  const plSVG=`<svg width="32" height="36" viewBox="0 0 28 32" fill="none" xmlns="http://www.w3.org/2000/svg"><polygon points="14,1 27,31 1,31" fill="white" opacity=".9"/></svg>`;
+  const plSVG=`<svg width="24" height="40" viewBox="0 0 60 100" fill="none" xmlns="http://www.w3.org/2000/svg"><polygon points="28.5,0.0 29.7,1.0 29.7,2.0 29.7,3.0 29.7,4.0 30.0,4.9 30.3,5.9 30.9,6.9 32.1,7.9 33.0,8.9 33.3,9.9 33.3,10.9 33.3,11.8 33.6,12.8 33.9,13.8 33.9,14.8 34.2,15.8 34.5,16.8 34.5,17.8 34.5,18.8 34.5,19.7 33.6,20.7 33.3,21.7 33.0,22.7 33.0,23.7 33.0,24.7 33.0,25.7 33.0,26.6 33.0,27.6 33.0,28.6 33.0,29.6 33.3,30.6 33.3,31.6 33.6,32.6 33.6,33.6 34.5,34.5 34.5,35.5 35.1,36.5 35.1,37.5 35.1,38.5 35.4,39.5 35.4,40.5 35.7,41.5 36.3,42.4 36.6,43.4 37.2,44.4 37.8,45.4 37.8,46.4 37.8,47.4 37.8,48.4 37.8,49.4 37.8,50.3 37.8,51.3 37.8,52.3 38.4,53.3 39.0,54.3 39.3,55.3 39.6,56.3 40.2,57.2 40.5,58.2 41.1,59.2 41.7,60.2 42.3,61.2 42.6,62.2 42.9,63.2 43.5,64.2 44.1,65.1 44.4,66.1 44.7,67.1 45.0,68.1 45.3,69.1 45.6,70.1 45.9,71.1 46.5,72.0 46.8,73.0 47.3,74.0 47.9,75.0 48.2,76.0 48.5,77.0 48.2,78.0 48.2,79.0 48.5,80.0 48.5,80.9 48.5,81.9 48.8,82.9 49.4,83.9 50.0,84.9 51.8,85.9 54.5,86.9 56.9,87.8 57.8,88.8 59.0,89.8 59.0,90.8 58.4,91.8 58.4,92.8 58.4,93.8 58.4,94.8 58.4,94.8 58.4,95.0 1.6,95.0 1.6,94.8 1.6,94.8 1.6,93.8 1.6,92.8 1.3,91.8 2.5,90.8 3.1,89.8 3.7,88.8 4.3,87.8 4.9,86.9 5.5,85.9 6.1,84.9 6.1,83.9 6.1,82.9 6.4,81.9 6.4,80.9 6.4,80.0 7.0,79.0 7.3,78.0 7.3,77.0 7.6,76.0 7.9,75.0 8.2,74.0 7.9,73.0 8.2,72.0 9.7,71.1 10.0,70.1 10.6,69.1 11.2,68.1 11.8,67.1 12.1,66.1 12.9,65.1 13.5,64.2 13.2,63.2 13.2,62.2 12.9,61.2 13.2,60.2 14.1,59.2 14.7,58.2 15.0,57.2 16.2,56.3 16.8,55.3 16.2,54.3 15.9,53.3 16.2,52.3 17.1,51.3 18.0,50.3 18.9,49.4 19.2,48.4 19.2,47.4 19.2,46.4 19.2,45.4 19.2,44.4 19.5,43.4 19.8,42.4 20.4,41.5 21.0,40.5 21.3,39.5 21.9,38.5 21.9,37.5 22.2,36.5 22.2,35.5 22.2,34.5 22.5,33.6 22.8,32.6 23.1,31.6 23.1,30.6 23.7,29.6 24.0,28.6 24.0,27.6 24.0,26.6 24.3,25.7 24.3,24.7 24.6,23.7 24.6,22.7 24.0,21.7 23.4,20.7 22.8,19.7 22.5,18.8 22.2,17.8 22.2,16.8 21.9,15.8 21.9,14.8 22.2,13.8 22.8,12.8 24.3,11.8 25.2,10.9 24.9,9.9 25.2,8.9 26.4,7.9 26.7,6.9 26.7,5.9 27.0,4.9 27.3,4.0 27.3,3.0 27.3,2.0 27.6,1.0 28.5,0.0" fill="#0d2218" stroke="#3dffaa" stroke-width="1.5"/></svg>`;
   tMarker=L.marker([t.lat,t.lng],{
     icon:L.divIcon({
       html:t.e==='pl'
-        ?`<div style="filter:drop-shadow(0 0 4px gold)">${plSVG}</div>`
+        ?`<div style="filter:drop-shadow(0 0 6px #3dffaa)">${plSVG}</div>`
         :`<div style="font-size:26px;line-height:1;filter:drop-shadow(0 0 4px gold)">${t.e}</div>`,
-      className:'',iconAnchor:[13,26]
+      className:'',iconAnchor:t.e==='pl'?[12,40]:[13,26]
     })
   }).addTo(map).bindPopup(`<b>${t.name}</b><br>高さ ${t.h}m`);
 }
 
-// ポップアップHTMLを生成（方位角渡し）
-function shootingPopupHTML(az){
-  const lat=sLat.toFixed(6), lng=sLng.toFixed(6);
+// 地図右下ボタンのhrefを更新して表示
+function updateMapBtns(az){
+  if(sLat===null)return;
+  const lat=sLat.toFixed(6),lng=sLng.toFixed(6);
+  const fovDeg=Math.round(Math.min(90,Math.max(10,fovD(focal))));
+  const svAz=az.toFixed(1);
   const mapsUrl=`https://www.google.com/maps?q=${lat},${lng}`;
-  // ストリートビュー：座標・方位角・仰角0・FOV90
-  const svUrl=`https://www.google.com/maps/@${lat},${lng},3a,90y,${az.toFixed(1)}h,90t/data=!3m1!1e1`;
-  return `
-    <div style="font-family:sans-serif;font-size:11px;min-width:140px;">
-      <b>📷 撮影地点</b><br>
-      <span style="color:#888;font-size:10px;">${lat}, ${lng}</span><br>
-      <div style="margin-top:6px;display:flex;gap:4px;">
-        <a href="${mapsUrl}" target="_blank"
-          style="flex:1;text-align:center;padding:3px 0;background:#4285f4;color:white;
-          border-radius:3px;text-decoration:none;font-size:10px;">🗺 マップ</a>
-        <a href="${svUrl}" target="_blank"
-          style="flex:1;text-align:center;padding:3px 0;background:#34a853;color:white;
-          border-radius:3px;text-decoration:none;font-size:10px;">👁 Street</a>
-      </div>
-    </div>`;
+  const svUrl=`https://www.google.com/maps/@${lat},${lng},3a,${fovDeg}y,${svAz}h,90t/data=!3m1!1e1`;
+  const btns=document.getElementById('map-btns');
+  if(!btns)return;
+  btns.style.display='flex';
+  document.getElementById('map-btn-gmap').href=mapsUrl;
+  document.getElementById('map-btn-sv').href=svUrl;
 }
+
+// ポップアップHTMLを生成（方位角渡し）
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // CLICK HANDLER
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function onPick(){
   if(sLat===null||sLng===null)return;
+  // elevOffsetは地点変更時にリセットしない（ユーザーが手動でRstボタンを押す）
+  // スマホでは撮影地点確定後にhintを非表示
+  if(window.innerWidth<=600){const h=document.getElementById('hint');if(h)h.style.display='none';}
   if(map&&sMarker){try{map.removeLayer(sMarker);}catch(e){}}
   if(map&&polyLine){try{map.removeLayer(polyLine);}catch(e){}}
 
   sMarker=L.marker([sLat,sLng],{
     icon:L.divIcon({
-      html:`<div style="width:12px;height:12px;border-radius:50%;background:#7eb8e8;border:2px solid white;box-shadow:0 0 8px #7eb8e8"></div>`,
+      html:`<div style="display:flex;align-items:center;gap:4px;">
+        <div style="width:12px;height:12px;border-radius:50%;flex-shrink:0;
+          background:#7eb8e8;border:2px solid white;box-shadow:0 0 8px #7eb8e8;"></div>
+        <div id="smarker-label" style="background:rgba(10,12,20,.78);border-radius:3px;
+          padding:1px 5px;font-family:'Space Mono',monospace;font-size:10px;font-weight:700;
+          color:#7eb8e8;white-space:nowrap;pointer-events:none;line-height:1.5;">…</div>
+      </div>`,
       className:'',iconAnchor:[6,6]
     }),
     draggable:true
-  }).addTo(map).bindPopup('📷 撮影地点');
+  }).addTo(map);
 
   sMarker.on('dragend',e=>{
     const ll=e.target.getLatLng();
@@ -848,24 +1300,55 @@ async function onPick(){
   document.getElementById('i-e').textContent='取得中…';
   let se=0;
   try{se=await getElev(sLat,sLng);}catch(e){se=0;}
-  sElev=se+tripodH/100;
+  sElevGround=se;
+  sElev=se+elevOffset+tripodH/100;
 
   const distH=hav(sLat,sLng,t.lat,t.lng);
   const distD=dist3D(sLat,sLng,sElev,t.lat,t.lng,t.elev);
   const tAz=brng(sLat,sLng,t.lat,t.lng);
   const va=elAng(distH,sElev,t.elev,t.h);
 
-  // ポップアップを方位角込みで更新
-  if(sMarker) sMarker.bindPopup(shootingPopupHTML(tAz));
+
+  // 地図右下のマップ・ストリートボタンを更新
+  updateMapBtns(tAz);
 
   document.getElementById('i-d').innerHTML=`${distH.toFixed(2)}<span class="u">km</span>`;
-  document.getElementById('i-e').innerHTML=`${se.toFixed(0)}<span class="u">m</span>`;
+  // 撮影地点マーカーのラベル更新
+  const distLabel=distH<1?`${Math.round(distH*1000)}m`:`${distH.toFixed(2)}km`;
+  const lbl=document.getElementById('smarker-label');
+  if(lbl)lbl.textContent=distLabel;
+  updateElevDisplay();
   document.getElementById('i-a').innerHTML=`${tAz.toFixed(1)}<span class="u">°</span>`;
   document.getElementById('i-v').innerHTML=`${va.toFixed(2)}<span class="u">°</span>`;
 
   calcSunMoon();
   redraw(distD,tAz,va);
-  suggest(distH,tAz,va);
+  updateDrawerIfOpen();
+}
+
+function updateElevDisplay(){
+  const el=document.getElementById('i-e');
+  if(!el)return;
+  const base=sElevGround.toFixed(0);
+  const offStr=elevOffset!==0
+    ?` <span style="font-size:9px;color:var(--ac);font-family:'Space Mono',monospace;">${elevOffset>0?'+'+elevOffset:elevOffset}m</span>`
+    :'';
+  el.innerHTML=`${base}<span class="u">m</span>${offStr}`;
+}
+
+function shiftElevOffset(v,reset=false){
+  if(sLat===null)return;
+  elevOffset=reset?0:elevOffset+v;
+  sElev=sElevGround+elevOffset+tripodH/100;
+  updateElevDisplay();
+  const t=T[cur];
+  const distH=hav(sLat,sLng,t.lat,t.lng);
+  const distD=dist3D(sLat,sLng,sElev,t.lat,t.lng,t.elev);
+  const tAz=brng(sLat,sLng,t.lat,t.lng);
+  const va=elAng(distH,sElev,t.elev,t.h);
+  document.getElementById('i-v').innerHTML=`${va.toFixed(2)}<span class="u">°</span>`;
+  redraw(distD,tAz,va);
+  updateDrawerIfOpen();
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -903,7 +1386,9 @@ function elAng(dKm,se,te,th){
   // 地球曲率補正：距離dKmでの地表沈み込み量（m）
   const R=6371000; // 地球半径(m)
   const curv=(dKm*1000)**2/(2*R); // 約d²/2R
-  return Math.atan2((te+th)-(se+curv), dKm*1000)*180/Math.PI;
+  const altRaw=Math.atan2((te+th)-(se+curv), dKm*1000)*180/Math.PI;
+  // 大気差補正を加算（月と同条件：低仰角ほど見かけ上高く見える）
+  return altRaw+refraction(altRaw);
 }
 function angS(hM,dKm){return Math.atan2(hM,dKm*1000)*180/Math.PI;}
 function azDiff(a,b){let d=((b-a)+360)%360;return d>180?d-360:d;}
@@ -951,7 +1436,14 @@ function sunPos(date,lat,lng){
   const altRaw=Math.asin(sinAlt)*180/Math.PI;
   const alt=altRaw+refraction(altRaw);
   const az=((Math.atan2(Math.sin(Hr),Math.cos(Hr)*Math.sin(latr)-Math.tan(dec)*Math.cos(latr))*180/Math.PI)+180)%360;
-  return{alt,az};
+  // 地心距離（AU）：Meeus Ch.25 式25.4
+  // R = 1.000001018*(1-e²)/(1+e*cos(v))  e=離心率≈0.0167, v=真近点角=M+C
+  const ecc=0.016708634-0.000042037*T;
+  const v=M+(C*Math.PI/180); // 真近点角（rad）
+  const dist_au=(1.000001018*(1-ecc*ecc))/(1+ecc*Math.cos(v));
+  // 太陽の角直径（度）：太陽半径695700km、1AU=149597870km
+  const angDiam=2*Math.atan2(695700, dist_au*149597870)*180/Math.PI;
+  return{alt,az,dist_au,angDiam,ra,dec};
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -976,11 +1468,25 @@ function moonPos(date,lat,lng){
     [3994,2,0,2,0],[3861,4,0,0,0],[3665,2,0,-3,0],[-2689,0,1,-2,0],
     [-2602,2,0,-1,2],[-2348,1,0,1,0],[2236,2,-2,0,0],[-2120,0,1,2,0],
   ];
-  // 経度・緯度の合計計算
-  let sumL=0,sumB=0;
-  for(const [c,d,m,mp,f] of lTerms){
+  // 距離主要項（Meeus Ch.47 Table 47.A r列、単位0.001km）
+  const rTerms=[
+    [-20905355,0,0,1,0],[-3699111,2,0,-1,0],[-2955968,2,0,0,0],[-569925,0,0,2,0],
+    [48888,0,1,0,0],[-3149,0,0,0,2],[246158,2,0,-2,0],[-152138,2,-1,-1,0],
+    [-170733,2,0,1,0],[-204586,2,-1,0,0],[-129620,0,1,-1,0],[108743,1,0,0,0],
+    [104755,0,1,1,0],[10321,2,0,0,-2],[0,0,0,1,2],[79661,0,0,1,-2],
+    [-34782,4,0,-1,0],[-23210,0,0,3,0],[-21636,4,0,-2,0],[24208,2,1,-1,0],
+    [30824,2,1,0,0],[-8379,1,0,-1,0],[-16675,1,1,0,0],[-12831,2,-1,1,0],
+    [-10445,2,0,2,0],[-11650,4,0,0,0],[14403,2,0,-3,0],[-7003,0,1,-2,0],
+    [0,2,0,-1,2],[10056,2,-1,-1,0],[6322,1,0,1,0],[-9884,2,-2,0,0],
+  ];
+  // 経度・緯度・距離の合計計算
+  let sumL=0,sumB=0,sumR=0;
+  for(let i=0;i<lTerms.length;i++){
+    const [c,d,m,mp,f]=lTerms[i];
     const em=Math.abs(m)===1?E:(Math.abs(m)===2?E*E:1);
-    sumL+=c*em*Math.sin(d*D+m*M+mp*Mp+f*F);
+    const angle=d*D+m*M+mp*Mp+f*F;
+    sumL+=c*em*Math.sin(angle);
+    if(i<rTerms.length) sumR+=rTerms[i][0]*em*Math.cos(angle);
   }
   // 緯度主要項
   const bT=[
@@ -1007,12 +1513,27 @@ function moonPos(date,lat,lng){
   const altRaw=Math.asin(sinAlt)*180/Math.PI;
   const alt=altRaw+refraction(altRaw);
   const az=((Math.atan2(Math.sin(Hr),Math.cos(Hr)*Math.sin(latr)-Math.tan(dec)*Math.cos(latr))*180/Math.PI)+180)%360;
-  return{alt,az};
+  // 地心距離（km）：385000.56 + sumR/1000
+  const dist_km=385000.56+sumR/1000;
+  // 月の角直径（度）：月の平均半径1737.4kmから計算
+  const angDiam=2*Math.atan2(1737.4, dist_km)*180/Math.PI;
+  // 地心視差補正（Meeus Ch.40）
+  // 地心座標 → 地表観測者座標への変換
+  // 赤道水平視差 π_eq = arcsin(R_earth / dist_km)
+  // 高度補正量 Δalt = -arcsin(sin(π_eq)·cos(alt_地心))
+  // 月は常に地心より低く見える（最大約0.95°、望遠で支配的な誤差源）
+  const pi_eq=Math.asin(6378.14/dist_km);
+  const parallaxCorr=-Math.asin(Math.sin(pi_eq)*Math.cos(altRaw*Math.PI/180))*180/Math.PI;
+  return{alt:alt+parallaxCorr,az,dist_km,angDiam,ra,dec,Hr};
 }
 
 // 日の出・日の入り計算（精密sunPosを使って反復で求める）
+const _sunTCache=new Map();
 function sunT(date,lat,lng){
-  const base=new Date(date.toISOString().slice(0,10)+'T00:00:00+09:00');
+  const ds=date.toISOString().slice(0,10);
+  const key=`${ds}_${lat.toFixed(4)}_${lng.toFixed(4)}`;
+  if(_sunTCache.has(key))return _sunTCache.get(key);
+  const base=new Date(ds+'T00:00:00+09:00');
   let rise=null,set=null,prev=null,prevT=null;
   for(let h=0;h<=25.1;h+=5/60){
     const t=new Date(base.getTime()+h*3600000);
@@ -1033,7 +1554,10 @@ function sunT(date,lat,lng){
     }
     prev=alt;prevT=t;
   }
-  return rise||set?{rise,set}:null;
+  const result=rise||set?{rise,set}:null;
+  if(_sunTCache.size>=400){const fk=_sunTCache.keys().next().value;_sunTCache.delete(fk);}
+  _sunTCache.set(key,result);
+  return result;
 }
 
 function moonT(ds,lat,lng){
@@ -1059,12 +1583,18 @@ function moonT(ds,lat,lng){
   return{rise,set};
 }
 
-let _moonTCache={key:null,result:null};
+// 多段キャッシュ：90日チャンス計算・満月1年計算でも再計算しない
+const _moonTCache=new Map();
 function moonTCached(ds,lat,lng){
   const key=`${ds}_${lat.toFixed(4)}_${lng.toFixed(4)}`;
-  if(_moonTCache.key===key)return _moonTCache.result;
+  if(_moonTCache.has(key))return _moonTCache.get(key);
   const result=moonT(ds,lat,lng);
-  _moonTCache={key,result};
+  // キャッシュが大きくなりすぎないよう上限400件（約1年分）
+  if(_moonTCache.size>=400){
+    const firstKey=_moonTCache.keys().next().value;
+    _moonTCache.delete(firstKey);
+  }
+  _moonTCache.set(key,result);
   return result;
 }
 
@@ -1073,11 +1603,34 @@ function jst(d){
   return new Date(d.getTime()+9*3600000).toISOString().substr(11,5);
 }
 
+// 朔の瞬間をMeeus Ch.47の式で精密計算し、直前の朔からの経過日数を月齢とする
+function _trueNewMoonJDE(k){
+  const T=k/1236.85, T2=T*T, T3=T*T2, T4=T*T3;
+  let JDE=2451550.09766+29.530588861*k+0.00015437*T2-0.000000150*T3+0.00000000073*T4;
+  const M=(2.5534+29.10535670*k-0.0000014*T2)*Math.PI/180;
+  const Mp=(201.5643+385.81693528*k+0.0107582*T2)*Math.PI/180;
+  const F=(160.7108+390.67050284*k-0.0016118*T2)*Math.PI/180;
+  const Om=(124.7746-1.56375588*k+0.0020672*T2)*Math.PI/180;
+  return JDE
+    -0.40720*Math.sin(Mp)+0.17241*Math.sin(M)+0.01608*Math.sin(2*Mp)
+    +0.01039*Math.sin(2*F)+0.00739*Math.sin(Mp-M)-0.00514*Math.sin(Mp+M)
+    +0.00208*Math.sin(2*M)-0.00111*Math.sin(Mp-2*F)-0.00057*Math.sin(Mp+2*F)
+    +0.00056*Math.sin(2*Mp+M)-0.00042*Math.sin(3*Mp)+0.00042*Math.sin(M+2*F)
+    +0.00038*Math.sin(M-2*F)-0.00024*Math.sin(2*Mp-M)-0.00017*Math.sin(Om)
+    -0.00007*Math.sin(Mp+2*M)+0.00004*Math.sin(2*Mp-2*F)+0.00004*Math.sin(3*M)
+    +0.00003*Math.sin(Mp+M-2*F)+0.00003*Math.sin(2*Mp+2*F)
+    -0.00003*Math.sin(Mp+M+2*F)+0.00003*Math.sin(Mp-M+2*F)
+    -0.00002*Math.sin(Mp-M-2*F)-0.00002*Math.sin(3*Mp+M)+0.00002*Math.sin(4*Mp);
+}
 function moonAge(date){
-  const known=new Date('2000-01-06T18:14:00Z');
-  const cycle=29.53058867;
-  const diff=(date-known)/(1000*60*60*24);
-  return((diff%cycle)+cycle)%cycle;
+  const JD=date.valueOf()/86400000+2440587.5;
+  const k0=Math.floor((JD-2451550.09766)/29.530588861);
+  let bestJDE=null;
+  for(let dk=-2;dk<=2;dk++){
+    const jde=_trueNewMoonJDE(k0+dk);
+    if(jde<=JD&&(bestJDE===null||jde>bestJDE)) bestJDE=jde;
+  }
+  return JD-bestJDE;
 }
 
 function moonPhaseName(age){
@@ -1092,43 +1645,83 @@ function moonPhaseName(age){
   return'新月';
 }
 
+// 月相描画ヘルパー（ctx座標系に直接描く）
+// cx,cy: 中心, r: 半径, age: 月齢(日)
+// アルゴリズム:
+//   phase<0.5（新月→満月）: 右半円が光る
+//     境界楕円の右半分(-PI/2〜PI/2)を:
+//       ex<0 → 黒（右半円を削って三日月）
+//       ex>0 → 金色（光の面を左に拡張して凸月）
+//   phase>=0.5（満月→新月）: 左半円が光る
+//     境界楕円の左半分(PI/2〜-PI/2)を:
+//       ex<0 → 黒（左半円を削って三日月）
+//       ex>0 → 金色（光の面を右に拡張して凸月）
+function drawMoonIcon(ctx, cx, cy, r, age, tilt=0){
+  const phase=age/29.53058867;
+  const illum=(1-Math.cos(2*Math.PI*phase))/2;
+  const ex=r*(2*illum-1);
+  const DARK='#060810';
+
+  // 背景黒丸（回転前）
+  ctx.fillStyle=DARK;
+  ctx.beginPath();ctx.arc(cx,cy,r+1,0,Math.PI*2);ctx.fill();
+
+  // translate+rotate して中心(0,0)基準で描画
+  ctx.save();
+  ctx.translate(cx,cy);
+  if(tilt) ctx.rotate(tilt);
+  const mg=ctx.createRadialGradient(-r*.3,-r*.3,1,0,0,r);
+  mg.addColorStop(0,'#fffde8');mg.addColorStop(0.6,'#e8d5a0');mg.addColorStop(1,'#b89840');
+
+  // clip内で完全描画
+  ctx.save();
+  ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.clip();
+
+  // 全体を黒でリセット
+  ctx.fillStyle=DARK;
+  ctx.fillRect(-r-1,-r-1,(r+1)*2,(r+1)*2);
+
+  ctx.fillStyle=mg;
+  const exAbs=Math.max(0.5,Math.abs(ex));
+
+  if(phase<0.5){
+    // ── 右が光る（新月→満月）──
+    ctx.beginPath();ctx.moveTo(0,0);ctx.arc(0,0,r,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();
+    if(ex<0){
+      ctx.fillStyle=DARK;
+      ctx.beginPath();ctx.moveTo(0,0);ctx.ellipse(0,0,exAbs,r,0,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();
+    } else {
+      ctx.fillStyle=mg;
+      ctx.beginPath();ctx.moveTo(0,0);ctx.ellipse(0,0,exAbs,r,0,Math.PI/2,-Math.PI/2,false);ctx.closePath();ctx.fill();
+    }
+  } else {
+    // ── 左が光る（満月→新月）──
+    ctx.fillStyle=mg;
+    ctx.beginPath();ctx.moveTo(0,0);ctx.arc(0,0,r,Math.PI/2,-Math.PI/2,false);ctx.closePath();ctx.fill();
+    if(ex<0){
+      ctx.fillStyle=DARK;
+      ctx.beginPath();ctx.moveTo(0,0);ctx.ellipse(0,0,exAbs,r,0,Math.PI/2,-Math.PI/2,false);ctx.closePath();ctx.fill();
+    } else {
+      ctx.fillStyle=mg;
+      ctx.beginPath();ctx.moveTo(0,0);ctx.ellipse(0,0,exAbs,r,0,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();
+    }
+  }
+
+  ctx.restore(); // clip解除
+  // 枠線（translate座標系で(0,0)中心）
+  ctx.strokeStyle='rgba(200,169,110,.25)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.stroke();
+  ctx.restore(); // translate/rotate解除
+}
+
 function drawMoonPhase(age){
   const cv=document.getElementById('cv-phase');
   if(!cv)return;
   const ctx=cv.getContext('2d');
-  const W=32,H=32,cx=16,cy=16,r=13;
+  const W=32,H=32,r=13;
   cv.width=W;cv.height=H;
   ctx.clearRect(0,0,W,H);
-  const phase=age/29.53058867;
-  ctx.fillStyle='#060810';
-  ctx.beginPath();ctx.arc(cx,cy,r+1,0,Math.PI*2);ctx.fill();
-  const moonGrad=ctx.createRadialGradient(cx-4,cy-4,2,cx,cy,r);
-  moonGrad.addColorStop(0,'#fffde8');moonGrad.addColorStop(0.6,'#e8d5a0');moonGrad.addColorStop(1,'#b89840');
-  ctx.fillStyle=moonGrad;
-  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();
-  ctx.save();
-  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.clip();
-  const illum=(1-Math.cos(2*Math.PI*phase))/2;
-  const ex=r*(2*illum-1);
-  ctx.fillStyle='#060810';
-  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();
-  const moonGrad2=ctx.createRadialGradient(cx-4,cy-4,2,cx,cy,r);
-  moonGrad2.addColorStop(0,'#fffde8');moonGrad2.addColorStop(0.6,'#e8d5a0');moonGrad2.addColorStop(1,'#b89840');
-  ctx.fillStyle=moonGrad2;
-  ctx.save();
-  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.clip();
-  if(phase<0.5){
-    ctx.beginPath();ctx.arc(cx,cy,r,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();
-    ctx.beginPath();ctx.ellipse(cx,cy,Math.abs(ex),r,0,0,Math.PI*2);
-    if(ex>0){ctx.fill();}else{ctx.fillStyle='#060810';ctx.fill();}
-  }else{
-    ctx.beginPath();ctx.arc(cx,cy,r,Math.PI/2,-Math.PI/2,false);ctx.closePath();ctx.fill();
-    ctx.beginPath();ctx.ellipse(cx,cy,Math.abs(ex),r,0,0,Math.PI*2);
-    if(ex>0){ctx.fill();}else{ctx.fillStyle='#060810';ctx.fill();}
-  }
-  ctx.restore();ctx.restore();
-  ctx.strokeStyle='rgba(200,169,110,.3)';ctx.lineWidth=1;
-  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
+  drawMoonIcon(ctx,16,16,r,age);
 }
 
 function calcSunMoon(){
@@ -1216,17 +1809,6 @@ function drawOneFan(tLat,tLng,azStart,azEnd,color,opacity,label,distMax){
   fanLayers.push(ls,le);
 
   // 時刻ラベル（外弧の中間点）
-  const midAz=shootAzStart+(shootAzEnd-shootAzStart)*0.5;
-  const labelPt=destPoint(tLat,tLng,midAz,distMax*0.88);
-  const lbl=L.marker(labelPt,{
-    icon:L.divIcon({
-      html:`<div style="font-family:'Space Mono',monospace;font-size:10px;color:${color};
-        background:rgba(10,12,20,.75);padding:1px 4px;border-radius:3px;white-space:nowrap;
-        border:1px solid ${color}40;">${label}</div>`,
-      className:'',iconAnchor:[20,8]
-    }),interactive:false
-  }).addTo(map);
-  fanLayers.push(lbl);
 }
 
 function updateFanLegend(items){
@@ -1267,68 +1849,79 @@ function drawFans(ds, moon){
     const c=L.polyline([...pts,pts[0]],{
       color:'#7a82a0',weight:0.8,opacity:0.3,dashArray:'2,6'
     }).addTo(map);
-    // ラベル：地図の右方向に配置、背景付きで視認性UP
-    const lp=destPoint(t.lat,t.lng,95,km);
+    // ラベル：弧の真上（北側）に乗せる
+    const lp=destPoint(t.lat,t.lng,355,km);
     const labelText=km>=1?`${km}km`:km>=0.1?`${Math.round(km*1000)}m`:`${Math.round(km*1000*10)/10}m`;
     const cl=L.marker(lp,{
       icon:L.divIcon({
         html:`<div style="font-size:9px;color:#c8c8d8;font-family:'Space Mono',monospace;
           background:rgba(13,17,26,0.72);padding:1px 4px;border-radius:2px;
-          white-space:nowrap;line-height:1.4;">${labelText}</div>`,
-        className:'',iconAnchor:[-2,8]
+          white-space:nowrap;line-height:1.4;transform:translateX(-50%);">${labelText}</div>`,
+        className:'',iconAnchor:[0,14]
       }),interactive:false
     }).addTo(map);
     fanLayers.push(c,cl);
   });
 
-  // ズーム変更時に扇を再描画
+  // ズーム変更時に扇を再描画（常に最新のcurを使うよう、t非キャプチャ）
   if(!map._ringRedrawBound){
     map._ringRedrawBound=true;
-    map.on('zoomend',()=>{ if(typeof drawFans==='function') drawFans(document.getElementById('idate').value, moonTCached(document.getElementById('idate').value,t.lat,t.lng)); });
+    map.on('zoomend',()=>{
+      if(typeof drawFans!=='function')return;
+      const ds=document.getElementById('idate').value;
+      const tc=T[cur];
+      const moon=moonTCached(ds,tc.lat,tc.lng);
+      drawFans(ds,moon);
+    });
   }
 
   const DIST_MAX=15;
   const STEP=30*60*1000;
-  const SLOTS=4;
   const legendItems=[];
 
   if(sunsetMode){
     const sun=sunT(new Date(ds+'T03:00:00Z'),t.lat,t.lng);
-    if(!sun||!sun.set)return;
-    const colors=['#ffcc88','#ffaa66','#ff8844','#ff6622']; // 日の入りに近いほど濃い
-    for(let i=0;i<SLOTS;i++){
-      const t0=new Date(sun.set.getTime()-(SLOTS-i)*STEP);
-      const t1=new Date(sun.set.getTime()-(SLOTS-i-1)*STEP);
+    if(!sun)return;
+    // 日の出後30分
+    if(sun.rise){
+      const t0=sun.rise;
+      const t1=new Date(sun.rise.getTime()+STEP);
+      const sp0=sunPos(t0,t.lat,t.lng);
+      const sp1=sunPos(t1,t.lat,t.lng);
+      const label=`🌄 ${jst(t0)}〜${jst(t1)}`;
+      drawOneFan(t.lat,t.lng,sp0.az,sp1.az,'#ffdd88',0.75,label,DIST_MAX);
+      legendItems.push({color:'#ffdd88',label});
+    }
+    // 日没前30分
+    if(sun.set){
+      const t0=new Date(sun.set.getTime()-STEP);
+      const t1=sun.set;
       const sp0=sunPos(t0,t.lat,t.lng);
       const sp1=sunPos(t1,t.lat,t.lng);
       const label=`🌅 ${jst(t0)}〜${jst(t1)}`;
-      drawOneFan(t.lat,t.lng,sp0.az,sp1.az,colors[i],0.6+i*0.1,label,DIST_MAX);
-      legendItems.push({color:colors[i],label});
+      drawOneFan(t.lat,t.lng,sp0.az,sp1.az,'#ff8844',0.75,label,DIST_MAX);
+      legendItems.push({color:'#ff8844',label});
     }
   }else{
+    // 月の出後30分
     if(moon.rise){
-      const colors=['#ff9944','#ffbb44','#ffdd88','#ffeeaa']; // 月の出直後が濃い（正しい）
-      for(let i=0;i<SLOTS;i++){
-        const t0=new Date(moon.rise.getTime()+i*STEP);
-        const t1=new Date(moon.rise.getTime()+(i+1)*STEP);
-        const mp0=moonPos(t0,t.lat,t.lng);
-        const mp1=moonPos(t1,t.lat,t.lng);
-        const label=`🌕出 ${jst(t0)}〜${jst(t1)}`;
-        drawOneFan(t.lat,t.lng,mp0.az,mp1.az,colors[i],0.9-i*0.15,label,DIST_MAX);
-        legendItems.push({color:colors[i],label});
-      }
+      const t0=moon.rise;
+      const t1=new Date(moon.rise.getTime()+STEP);
+      const mp0=moonPos(t0,t.lat,t.lng);
+      const mp1=moonPos(t1,t.lat,t.lng);
+      const label=`🌕出 ${jst(t0)}〜${jst(t1)}`;
+      drawOneFan(t.lat,t.lng,mp0.az,mp1.az,'#ff9944',0.85,label,DIST_MAX);
+      legendItems.push({color:'#ff9944',label});
     }
+    // 月の入前30分
     if(moon.set){
-      const colors=['#aaeeff','#88ddff','#44ccff','#44aaff']; // 月の入りに近いほど濃い
-      for(let i=0;i<SLOTS;i++){
-        const t0=new Date(moon.set.getTime()-(SLOTS-i)*STEP);
-        const t1=new Date(moon.set.getTime()-(SLOTS-i-1)*STEP);
-        const mp0=moonPos(t0,t.lat,t.lng);
-        const mp1=moonPos(t1,t.lat,t.lng);
-        const label=`🌑入 ${jst(t0)}〜${jst(t1)}`;
-        drawOneFan(t.lat,t.lng,mp0.az,mp1.az,colors[i],0.6+i*0.1,label,DIST_MAX);
-        legendItems.push({color:colors[i],label});
-      }
+      const t0=new Date(moon.set.getTime()-STEP);
+      const t1=moon.set;
+      const mp0=moonPos(t0,t.lat,t.lng);
+      const mp1=moonPos(t1,t.lat,t.lng);
+      const label=`🌑入 ${jst(t0)}〜${jst(t1)}`;
+      drawOneFan(t.lat,t.lng,mp0.az,mp1.az,'#44ccff',0.75,label,DIST_MAX);
+      legendItems.push({color:'#44ccff',label});
     }
   }
   updateFanLegend(legendItems);
@@ -1350,68 +1943,237 @@ function drawView(dist,tAz,va){
 
   const fvH=orientation==='land'?fovD(focal):fovV(focal);
   const fvV=orientation==='land'?fovV(focal):fovD(focal);
-  const px=W/fvH;
-  const pyV=H/fvV;
+  // gnomonic投影（中心透視投影）：レンズの実際の結像に対応
+  // f_px = センサー幅(px) / (2*tan(FOV/2))
+  const r=Math.PI/180;
+  const f_px_H=W/(2*Math.tan(fvH/2*r));
+  const f_px_V=H/(2*Math.tan(fvV/2*r));
+  // 角度[度]→画素数変換（gnomonic）
+  const gnoH=deg=>f_px_H*Math.tan(deg*r);  // 水平方向
+  const gnoV=deg=>f_px_V*Math.tan(deg*r);  // 垂直方向
   const cx=W/2;
 
-  // 背景
-  const sky=ctx.createLinearGradient(0,0,0,H);
-  sky.addColorStop(0,'#02050c');sky.addColorStop(1,'#08111f');
-  ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
-  ctx.fillStyle='rgba(255,255,255,.32)';
-  for(let i=0;i<55;i++){
-    ctx.beginPath();ctx.arc((i*137)%W,(i*79)%(H*.65),.5,0,6.28);ctx.fill();
-  }
-
-  const vaTop=Math.max(va,0.01);
-
-  // 頂点位置の計算：地上線固定で頂点を求め、頂点がH*0.40より上なら頂点固定に切替
-  const horizonDefault = H * 0.85;
-  const topFromHorizon = horizonDefault - vaTop * pyV;
-  let targetTopY, horizon;
-  if(topFromHorizon >= H * 0.40){
-    // 通常：地上線固定、頂点は上に計算
-    horizon = horizonDefault;
-    targetTopY = topFromHorizon;
+  // 背景（オフセット前に描画）
+  if(sunsetMode){
+    // 夕日モード：太陽仰角に応じた夕焼けグラデーション
+    let sunAltForBg=5;
+    const _ds=document.getElementById('idate').value;
+    const _ts=document.getElementById('itime').value;
+    if(_ds&&_ts&&sLat!==null){
+      try{sunAltForBg=sunPos(new Date(`${_ds}T${_ts}:00+09:00`),sLat,sLng).alt;}catch(e){}
+    }
+    // t=0(仰角-2°以下)→1(仰角10°以上)
+    const bt=Math.max(0,Math.min(1,(sunAltForBg+2)/12));
+    const sky=ctx.createLinearGradient(0,0,0,H);
+    sky.addColorStop(0,`rgb(${Math.round(5+bt*20)},${Math.round(10+bt*40)},${Math.round(30+bt*90)})`);
+    sky.addColorStop(0.55,`rgb(${Math.round(120-bt*50)},${Math.round(40+bt*60)},${Math.round(15+bt*80)})`);
+    sky.addColorStop(1,`rgb(${Math.round(180-bt*80)},${Math.round(60+bt*80)},${Math.round(20+bt*120)})`);
+    ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
   } else {
-    // 仰角が大きい：頂点をH*0.40に固定、地上線は画面外でもいい
-    targetTopY = H * 0.40;
-    horizon = targetTopY + vaTop * pyV;
+    // 月モード：太陽仰角に応じた空の色
+    let _sunAlt=-18;
+    const _ds2=document.getElementById('idate').value;
+    const _ts2=document.getElementById('itime').value;
+    if(_ds2&&_ts2&&sLat!==null){
+      try{_sunAlt=sunPos(new Date(`${_ds2}T${_ts2}:00+09:00`),sLat,sLng).alt;}catch(e){}
+    }
+    // skyBrightness: 0=夜(-18°以下) 〜 1=昼(+18°以上)
+    const skyBrightness=Math.max(0,Math.min(1,(_sunAlt+18)/36));
+
+    // 空の色テーブル [仰角下限, 上空[r,g,b], 地平線[r,g,b]]
+    const SKY_TABLE=[
+      [-99, [1,2,8],    [2,5,12]   ],  // 夜
+      [-12, [1,3,8],     [8,15,40]   ],  // 天文薄明
+      [-9,  [1,4,10],    [16,25,64]  ],  // 薄暮
+      [-6,  [2,6,16],    [24,40,96]  ],  // ブルーアワーピーク
+      [-3,  [3,8,22],    [32,56,112] ],  // ブルーアワー開始
+      [-1,  [4,10,24],   [192,64,16] ],  // 日没ライン
+      [0,   [4,10,24],   [208,96,32] ],  // ゴールデンピーク
+      [3,   [5,13,32],   [176,80,32] ],  // ゴールデン開始
+      [6,   [20,60,140], [80,140,220]],  // 薄明（昼側）
+      [10,  [50,110,200],[100,170,255]],  // 昼（薄め）
+      [18,  [70,140,230],[130,195,255]],  // 昼（青空）
+    ];
+    function getSkyColors(alt){
+      const T=SKY_TABLE;
+      let lo=T[0],hi=T[0];
+      for(let i=0;i<T.length-1;i++){
+        if(alt>=T[i][0]&&alt<T[i+1][0]){lo=T[i];hi=T[i+1];break;}
+        if(alt>=T[T.length-1][0]){lo=hi=T[T.length-1];break;}
+      }
+      const t=lo===hi?1:Math.max(0,Math.min(1,(alt-lo[0])/(hi[0]-lo[0])));
+      const lp=(a,b)=>Math.round(a+(b-a)*t);
+      return{
+        top:  [lp(lo[1][0],hi[1][0]),lp(lo[1][1],hi[1][1]),lp(lo[1][2],hi[1][2])],
+        hor:  [lp(lo[2][0],hi[2][0]),lp(lo[2][1],hi[2][1]),lp(lo[2][2],hi[2][2])]
+      };
+    }
+    const sc=getSkyColors(_sunAlt);
+    const sky=ctx.createLinearGradient(0,0,0,H);
+    const mid=[Math.round((sc.top[0]+sc.hor[0])/2),Math.round((sc.top[1]+sc.hor[1])/2),Math.round((sc.top[2]+sc.hor[2])/2)];
+    sky.addColorStop(0,  `rgb(${sc.top[0]},${sc.top[1]},${sc.top[2]})`);
+    sky.addColorStop(0.7,`rgb(${mid[0]},${mid[1]},${mid[2]})`);
+    sky.addColorStop(1,  `rgb(${sc.hor[0]},${sc.hor[1]},${sc.hor[2]})`);
+    ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
+
+    // 星：夜〜薄暮は表示、昼に向かって消える
+    const starAlpha=Math.max(0,Math.min(0.55,(1-skyBrightness*3)*0.55));
+    if(starAlpha>0.01){
+      ctx.fillStyle=`rgba(255,255,255,${starAlpha.toFixed(2)})`;
+      for(let i=0;i<55;i++){
+        ctx.beginPath();ctx.arc((i*137)%W,(i*79)%(H*.65),.5,0,6.28);ctx.fill();
+      }
+    }
+    // 明るさ情報をctxに付与してラベル描画で参照
+    ctx._skyBrightness=skyBrightness;
+    ctx._sunAltForSky=_sunAlt;
+  }
+  // 月モードの明るさレベル（sunsetModeは常に夜想定、月モードのみ変化）
+  const skyBrightness = sunsetMode ? 0 : (ctx._skyBrightness||0);
+  // ラベル縁取り色：暗い空→黒縁、明るい空→白縁
+  const lblStroke = skyBrightness<0.3
+    ? 'rgba(4,6,14,0.95)'
+    : skyBrightness<0.6
+      ? 'rgba(8,12,28,0.92)'
+      : 'rgba(240,240,255,0.88)';
+  // 明るさに応じた文字色生成（暗い空=明色、明るい空=暗色）
+  // isPast/isFuture/isNear/isNeutral の4種を返す
+  const lblBrightAdj = skyBrightness>0.5 ? 0.75 : 1.0;
+  function lblColor(type){
+    if(skyBrightness<0.65){
+      // 夜〜ゴールデン〜薄明（太陽+6°相当まで）：明色（縁取りで視認性確保）
+      if(type==='past')    return 'rgba(160,210,255,0.95)';
+      if(type==='future')  return 'rgba(240,200,120,0.95)';
+      if(type==='neutral') return 'rgba(200,200,220,0.75)';
+      if(type==='moon')    return 'rgba(180,220,255,0.95)';
+      if(type==='fov')     return 'rgba(200,169,110,0.9)';
+      if(type==='dt')      return 'rgba(240,230,200,0.95)';
+    } else {
+      // 昼間（太陽+10°以上相当）：濃い暗色
+      if(type==='past')    return 'rgba(10,40,120,0.95)';
+      if(type==='future')  return 'rgba(120,50,5,0.95)';
+      if(type==='neutral') return 'rgba(20,20,50,0.85)';
+      if(type==='moon')    return 'rgba(10,40,120,0.95)';
+      if(type==='fov')     return 'rgba(40,30,5,0.95)';
+      if(type==='dt')      return 'rgba(10,10,30,0.95)';
+    }
+    return 'rgba(20,20,40,0.95)';
   }
 
-  // 地面（地上線が画面内の場合のみ描画）
-  if(horizon < H){
-    ctx.fillStyle='#060e0a';
-    ctx.fillRect(0, horizon, W, H - horizon);
-  }
-  // 地平線（画面内の場合のみ）
-  if(horizon < H){
-    ctx.strokeStyle='rgba(200,169,110,.2)';ctx.lineWidth=1;
-    ctx.beginPath();ctx.moveTo(0,horizon);ctx.lineTo(W,horizon);ctx.stroke();
-  }
+  // カメラ視点オフセット：以降の全描画をtranslateでずらす
+  // pvAzOfs>0 → カメラ右向き → 対象・地平線が左に移動
+  // pvAltOfs>0 → カメラ上向き → 対象・地平線が下に移動
+  const ofsDx = -gnoH(pvAzOfs);
+  const ofsDy =  gnoV(pvAltOfs);
+  ctx.save();
+  ctx.translate(ofsDx, ofsDy);
+
+  const vaTop=va;
+  // 塔根本の仰角（負の値 = 地平線より下、俯瞰時）
+  // ピン未選択時(sLat===null)はsElevが0のままなので城標高をデフォルトとして使う
+  const vaBaseElev = sLat!==null ? sElev : T[cur].elev;
+  const vaBase=elAng(dist, vaBaseElev, T[cur].elev, 0);
+
+  // 頂点位置の計算：
+  // 地平線（仰角0°）を基準に、頂点はgnoV(vaTop)上、根本はgnoV(vaBase)の位置
+  // ━━━ α_cam基準の座標変換 ━━━
+  // カメラ光軸仰角 α_cam を先に決め、全天体・地平線・被写体を
+  //   toY(alt) = H/2 - f_px_V * tan(alt - α_cam)
+  // で統一計算する。旧来の horizon - gnoV(alt) は
+  //   tan(A-B) ≠ tan(A)-tan(B) のため高仰角で誤差が生じる。
+
+  // horizonが画面内に収まるようclampしつつ、頂点が上限より上なら頂点固定に切替
+  const horizonDefault = H * T[cur].horizonRatio;
+  // castle系: 城の見かけ高さ(thTmp/H)に応じて頂点上限を動的計算
+  // - 遠距離・小さく見える → topLimit→H*0.45（画面上から45%）
+  // - 近距離・大きく見える → topLimit→H*0.30（画面上から30%）
+  // topLimitRatio=nullの城(岐阜城・和歌山城)はこの動的計算を使用
+  // topLimitRatio=固定値の城(PLの塔:0.60)は固定値を使用
+  // sizeRatio方式でtopRatioを決定:
+  //   angSize   = 対象の見かけ角サイズ（頂上〜根本の仰角差、度）
+  //   sizeRatio = angSize / fvV（縦画角に占める割合）0〜1
+  //   PLの塔: topRatio = 0.60 - sizeRatio*0.20 → clamp[0.40, 0.60]（下から40〜60%）
+  //   城:     topRatio = 0.45 - sizeRatio*0.15 → clamp[0.30, 0.45]（下から30〜45%）
+  //   topRatio: 下から何割の位置に頂上を置くか
+  //   canvas座標は上=0,下=H なので targetTopY = H*(1-topRatio)
+  const angSize = Math.max(vaTop - vaBase, 0);
+  const sizeRatio = Math.min(angSize / fvV, 1);
+  const isPL = T[cur].silhouette === 'pl';
+  const topRatio = isPL
+    ? Math.min(0.60, Math.max(0.40, 0.60 - sizeRatio * 0.20))
+    : Math.min(0.45, Math.max(0.30, 0.45 - sizeRatio * 0.15));
+  const targetTopY = H * (1 - topRatio);
+
+  // α_cam: 「頂点がtargetTopYに来るようにカメラを向けたときの光軸仰角」
+  // targetTopY = H/2 - f_px_V * tan(vaTop - α_cam)
+  // → α_cam = vaTop*r - atan((H/2 - targetTopY) / f_px_V)
+  // ※ vaTopが地平線以下(負)でもtargetTopYがH/2より上なら α_cam > vaTop となり
+  //    カメラは頂上より上を向く。これは仕様通り（頂上が画面上部に来るよう自動調整）。
+  const alpha_cam = vaTop * r - Math.atan((H/2 - targetTopY) / f_px_V);
+
+  // 全仰角→Y座標変換（gnomonic、α_cam基準）
+  const toY_cam = alt => H/2 - f_px_V * Math.tan(alt * r - alpha_cam);
+
+  // 地平線・頂点・根本のY座標
+  const horizon = toY_cam(0);
+  // tYは定義よりtargetTopYに一致（数値確認用）
+  const _tY_check = toY_cam(vaTop); // ≒ targetTopY
 
   // 天体の位置計算（月 or 太陽）
   const ds=document.getElementById('idate').value;
   const ts=document.getElementById('itime').value;
-  let mAz=null,mAlt=null,bodyVisible=false;
+  let mAz=null,mAlt=null,bodyVisible=false,bodyAngDiam=sunsetMode?0.533:0.53;
+  let moonTilt=0; // 月の位相傾き（rad）：地平線基準の明暗境界回転角
   if(ds&&ts&&sLat!==null){
     try{
       const dt=new Date(`${ds}T${ts}:00+09:00`);
       const bp=sunsetMode?sunPos(dt,sLat,sLng):moonPos(dt,sLat,sLng);
       mAz=bp.az;mAlt=bp.alt;
+      if(bp.angDiam) bodyAngDiam=bp.angDiam;
       bodyVisible=sunsetMode?(mAlt>-1):(mAlt>-5);
+      // 月の位相傾き計算（sunsetMode=falseのときのみ）
+      // Meeus Ch.48：輝縁位置角χ（天の北極基準）と視差角qから地平線基準の傾きを算出
+      if(!sunsetMode && bp.ra!==undefined){
+        const sp=sunPos(dt,sLat,sLng);
+        // χ: 輝縁の位置角（天の北極基準、rad）
+        const chi=Math.atan2(
+          Math.cos(sp.dec)*Math.sin(sp.ra-bp.ra),
+          Math.sin(sp.dec)*Math.cos(bp.dec)-Math.cos(sp.dec)*Math.sin(bp.dec)*Math.cos(sp.ra-bp.ra)
+        );
+        // q: 視差角（地平線基準への変換項、rad）
+        const latr=sLat*Math.PI/180;
+        const q=Math.atan2(
+          Math.sin(bp.Hr),
+          Math.tan(latr)*Math.cos(bp.dec)-Math.sin(bp.dec)*Math.cos(bp.Hr)
+        );
+        moonTilt=chi-q; // canvas座標系（Y軸下向き）: chi-q が正しい符号
+        gMoonTilt=moonTilt; // ダイアグラム側に共有
+      }
     }catch(e){}
   }
 
-  let moonX=cx,moonY=horizon-50;
+  let moonX=cx,moonY=toY_cam(-5); // デフォルト：画面外下
   if(mAz!==null){
     const dAz=azDiff(tAz,mAz);
-    moonX=cx+dAz*px;
-    moonY=horizon-mAlt*pyV;
+    moonX=cx+gnoH(dAz);
+    moonY=toY_cam(mAlt);
   }
 
   // 天体描画（月 or 太陽）
-  const mr=Math.max((MOON/2)*pyV,2);
+  // 天体の半径：動的角直径を使用（軌道距離連動）、gnomonic投影で計算
+  const mr=Math.max(gnoH(bodyAngDiam/2), 2);
+  // 低仰角での大気差による楕円変形：垂直方向を圧縮
+  // 大気差は低仰角ほど強く、天体の上端と下端で大気差量が異なるため縦に潰れる
+  let mrV=Math.max(gnoV(bodyAngDiam/2), 2);
+  if(mAlt!==null&&mAlt<15){
+    const altTop=mAlt+(bodyAngDiam/2);
+    const altBot=mAlt-(bodyAngDiam/2);
+    const refTop=refraction(Math.max(altTop,-1));
+    const refBot=refraction(Math.max(altBot,-1));
+    // 補正後の縦径 = angDiam + (refTop-refBot)  ※低仰角では refBot > refTop なので縦が縮む
+    const apparentVertDiam=bodyAngDiam+(refTop-refBot);
+    mrV=Math.max(gnoV(apparentVertDiam/2), 2);
+  }
   if(bodyVisible){
     ctx.save();ctx.translate(moonX,moonY);
     if(sunsetMode){
@@ -1422,51 +2184,392 @@ function drawView(dist,tAz,va){
       mg.addColorStop(0,`rgb(255,${g1+80},${b1+60})`);
       mg.addColorStop(0.5,`rgb(${r1},${g1},${b1})`);
       mg.addColorStop(1,`rgb(${Math.round(r1*0.8)},${Math.round(g1*0.6)},0)`);
-      ctx.beginPath();ctx.arc(0,0,mr,0,Math.PI*2);
+      ctx.beginPath();ctx.ellipse(0,0,mr,mrV,0,0,Math.PI*2);
       ctx.fillStyle=mg;
       ctx.shadowColor=`rgba(255,${g1},0,.6)`;ctx.shadowBlur=mr*1.2;
       ctx.fill();ctx.shadowBlur=0;
       ctx.restore();
       ctx.font=`bold 11px 'Space Mono',monospace`;ctx.textAlign='center';
-      const slabel=`太陽 ${mAlt.toFixed(1)}° / AZ${mAz.toFixed(0)}°`;
+      const slabel=`太陽 ${mAlt.toFixed(1)}° / AZ${mAz.toFixed(0)}° / ø${bodyAngDiam.toFixed(3)}°`;
       const slw=ctx.measureText(slabel).width;
-      ctx.fillStyle='rgba(10,15,28,0.7)';ctx.fillRect(moonX-slw/2-4,moonY-mr-18,slw+8,14);
-      ctx.fillStyle='rgba(255,210,100,0.95)';ctx.fillText(slabel,moonX,moonY-mr-7);
+      ctx.fillStyle='rgba(10,15,28,0.7)';ctx.fillRect(moonX-slw/2-4,moonY-mrV-18,slw+8,14);
+      ctx.fillStyle='rgba(255,210,100,0.95)';ctx.fillText(slabel,moonX,moonY-mrV-7);
     }else{
-      // 月（既存の描画）
+      // 月：動的角直径＋低仰角楕円変形＋位相傾き（Meeus Ch.48 limb orientation）
+      // mrH=水平半径（mr）、mrV=垂直半径（楕円変形時は圧縮）
+      ctx.rotate(moonTilt); // 明暗境界を地平線基準で正確に傾ける
       const ds2=document.getElementById('idate').value;
       const age=ds2?moonAge(new Date(ds2+'T03:00:00Z')):0;
       const phase=age/29.53058867;
-      const mg=ctx.createRadialGradient(-mr*.3,-mr*.3,1,0,0,mr);
-      mg.addColorStop(0,'#fffde8');mg.addColorStop(.5,'#e8d5a0');mg.addColorStop(1,'#b89840');
-      ctx.beginPath();ctx.arc(0,0,mr,0,Math.PI*2);
-      ctx.fillStyle=mg;ctx.shadowColor='rgba(200,150,50,.5)';ctx.shadowBlur=mr*0.6;
-      ctx.fill();ctx.shadowBlur=0;
+      // 月の色：仰角による大気散乱（Rayleigh散乱）を反映
+      // 高仰角: 白〜淡黄、低仰角: オレンジ〜深紅
+      // t=0(仰角2°以下)〜1(仰角20°以上)で線形補間
+      const moonAltClamped=mAlt!==null?mAlt:45;
+      const ct=Math.max(0,Math.min(1,(moonAltClamped-2)/43)); // 2°→45°で赤橙〜淡黄白
+      const mcR=255;
+      const mcG=Math.round(85 +ct*155); // 85(深橙)→240(淡黄白)
+      const mcB=Math.round(15 +ct*180); // 15(深橙)→195(淡黄白)
+      // ハイライト（中心明部）
+      const mhR=255, mhG=Math.round(Math.min(255,mcG+50)), mhB=Math.round(Math.min(255,mcB+45));
+      // エッジ（周縁暗部）
+      const meR=Math.round(mcR*0.72), meG=Math.round(mcG*0.60), meB=Math.round(mcB*0.45);
+      const moonGrad=(gx,gy)=>{
+        const mg=ctx.createRadialGradient(gx,gy,1,0,0,mr);
+        mg.addColorStop(0,`rgb(${mhR},${mhG},${mhB})`);
+        mg.addColorStop(0.55,`rgb(${mcR},${mcG},${mcB})`);
+        mg.addColorStop(1,`rgb(${meR},${meG},${meB})`);
+        return mg;
+      };
+      // 位相描画：楕円クリップ内で完結
       ctx.save();
-      ctx.beginPath();ctx.arc(0,0,mr,0,Math.PI*2);ctx.clip();
+      ctx.beginPath();ctx.ellipse(0,0,mr,mrV,0,0,Math.PI*2);ctx.clip();
+      const DARK2='rgba(6,8,16,.99)';
+      // 全体を黒でリセット
+      ctx.fillStyle=DARK2;
+      ctx.fillRect(-mr-1,-mrV-1,mr*2+2,mrV*2+2);
       const illum2=(1-Math.cos(2*Math.PI*phase))/2;
       const ex2=mr*(2*illum2-1);
-      ctx.fillStyle='rgba(6,8,16,.92)';
-      ctx.beginPath();ctx.arc(0,0,mr,0,Math.PI*2);ctx.fill();
-      const mg2=ctx.createRadialGradient(-mr*.3,-mr*.3,1,0,0,mr);
-      mg2.addColorStop(0,'#fffde8');mg2.addColorStop(.5,'#e8d5a0');mg2.addColorStop(1,'#b89840');
-      ctx.fillStyle=mg2;
+      const ex2Abs=Math.max(0.5,Math.abs(ex2));
+      ctx.fillStyle=moonGrad(-mr*.3,-mrV*.3);
       if(phase<0.5){
-        ctx.beginPath();ctx.arc(0,0,mr,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();
-        ctx.beginPath();ctx.ellipse(0,0,Math.abs(ex2),mr,0,0,Math.PI*2);
-        if(ex2>0){ctx.fill();}else{ctx.fillStyle='rgba(6,8,16,.92)';ctx.fill();}
+        // 右半円を光らせる
+        ctx.beginPath();ctx.moveTo(0,0);ctx.ellipse(0,0,mr,mrV,0,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();
+        // 境界楕円の右半分で調整
+        if(ex2<0){ctx.fillStyle=DARK2;ctx.beginPath();ctx.moveTo(0,0);ctx.ellipse(0,0,ex2Abs,mrV,0,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();}
+        else{ctx.fillStyle=moonGrad(-mr*.3,-mrV*.3);ctx.beginPath();ctx.moveTo(0,0);ctx.ellipse(0,0,ex2Abs,mrV,0,Math.PI/2,-Math.PI/2,false);ctx.closePath();ctx.fill();}
       }else{
-        ctx.beginPath();ctx.arc(0,0,mr,Math.PI/2,-Math.PI/2,false);ctx.closePath();ctx.fill();
-        ctx.beginPath();ctx.ellipse(0,0,Math.abs(ex2),mr,0,0,Math.PI*2);
-        if(ex2>0){ctx.fill();}else{ctx.fillStyle='rgba(6,8,16,.92)';ctx.fill();}
+        // 左半円を光らせる
+        ctx.beginPath();ctx.moveTo(0,0);ctx.ellipse(0,0,mr,mrV,0,Math.PI/2,-Math.PI/2,false);ctx.closePath();ctx.fill();
+        // 境界楕円の左半分で調整
+        if(ex2<0){ctx.fillStyle=DARK2;ctx.beginPath();ctx.moveTo(0,0);ctx.ellipse(0,0,ex2Abs,mrV,0,Math.PI/2,-Math.PI/2,false);ctx.closePath();ctx.fill();}
+        else{ctx.fillStyle=moonGrad(-mr*.3,-mrV*.3);ctx.beginPath();ctx.moveTo(0,0);ctx.ellipse(0,0,ex2Abs,mrV,0,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();}
       }
-      ctx.restore();ctx.restore();
+      ctx.restore();
+      // 外形グロー
+      ctx.beginPath();ctx.ellipse(0,0,mr,mrV,0,0,Math.PI*2);
+      ctx.shadowColor=`rgba(${mcR},${Math.round(mcG*0.8)},${Math.round(mcB*0.5)},.5)`;
+      ctx.shadowBlur=mr*0.6;ctx.strokeStyle='transparent';ctx.stroke();ctx.shadowBlur=0;
+      ctx.restore();
+      // ラベル（月齢・角直径も表示）
       ctx.font=`bold 11px 'Space Mono',monospace`;ctx.textAlign='center';
-      const mlabel=`月 ${mAlt.toFixed(1)}° / AZ${mAz.toFixed(0)}°`;
+      const mlabel=`月 ${mAlt.toFixed(1)}° / AZ${mAz.toFixed(0)}° / ø${bodyAngDiam.toFixed(2)}°`;
       const mlw=ctx.measureText(mlabel).width;
-      ctx.fillStyle='rgba(10,15,28,0.7)';ctx.fillRect(moonX-mlw/2-4,moonY-mr-18,mlw+8,14);
-      ctx.fillStyle='rgba(180,220,255,0.95)';ctx.fillText(mlabel,moonX,moonY-mr-7);
+      ctx.fillStyle=`rgba(${skyBrightness>0.65?220:10},${skyBrightness>0.65?220:15},${skyBrightness>0.65?255:28},0.75)`;ctx.fillRect(moonX-mlw/2-4,moonY-mrV-18,mlw+8,14);
+      ctx.strokeStyle=lblStroke;ctx.lineWidth=2;ctx.lineJoin='round';ctx.strokeText(mlabel,moonX,moonY-mrV-7);
+      ctx.fillStyle=lblColor('moon');ctx.fillText(mlabel,moonX,moonY-mrV-7);
     }
+  }
+
+
+  // 地面・地平線はシルエットの後ろに来るよう、シルエット描画前に描く
+  if(horizon < H){
+    {const gr=Math.round(12+skyBrightness*30),gg=Math.round(18+skyBrightness*50),gb=Math.round(32+skyBrightness*20);ctx.fillStyle=`rgba(${gr},${gg},${gb},.95)`;ctx.fillRect(0,horizon,W,H-horizon);}
+    ctx.strokeStyle='rgba(200,169,110,.4)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
+    ctx.beginPath();ctx.moveTo(0,horizon);ctx.lineTo(W,horizon);ctx.stroke();ctx.setLineDash([]);
+  }
+
+  // 対象シルエット
+  // tY（頂点）・bY（根本）: α_cam基準gnomonic投影
+  const tY=targetTopY;  // = toY_cam(vaTop) と一致
+  // 根本Y：仰角vaBaseの位置（俯瞰時は地平線より下 = horizonより大きいY）
+  // vaBaseがvaTopより大きい場合（撮影地点より城根本が高い地形等）はvaTopを根本として扱う
+  const bY_raw=toY_cam(vaBase);
+  const bY=Math.max(bY_raw, tY);             // 根本は頂点より必ず下（逆転防止）
+  const thTrue=bY-tY;                         // 実描画高さ（vaTop〜vaBase間のpx）
+  const physW=T[cur].physW;
+  const tAngW=angS(physW, dist);              // 対象幅の角度（度）
+  const tw=Math.max(gnoH(tAngW), 2);          // gnomonic投影後の幅（px）
+
+  ctx.fillStyle='#0e172a';ctx.strokeStyle='rgba(200,169,110,.35)';ctx.lineWidth=.8;
+
+  if(T[cur].silhouette==='pl'){
+    // PLの塔シルエット正規化座標（dx/H, dy/H）中心x=0, 上端y=0, 下端y=1
+    const PL_PTS=[[-0.0130,0.0000],[-0.0026,0.0104],[-0.0026,0.0208],[-0.0026,0.0312],[-0.0026,0.0416],[0.0000,0.0519],[0.0026,0.0623],[0.0078,0.0727],[0.0182,0.0831],[0.0260,0.0935],[0.0286,0.1039],[0.0286,0.1143],[0.0286,0.1247],[0.0312,0.1351],[0.0338,0.1455],[0.0338,0.1558],[0.0364,0.1662],[0.0390,0.1766],[0.0390,0.1870],[0.0390,0.1974],[0.0390,0.2078],[0.0312,0.2182],[0.0286,0.2286],[0.0260,0.2390],[0.0260,0.2494],[0.0260,0.2597],[0.0260,0.2701],[0.0260,0.2805],[0.0260,0.2909],[0.0260,0.3013],[0.0260,0.3117],[0.0286,0.3221],[0.0286,0.3325],[0.0312,0.3429],[0.0312,0.3532],[0.0390,0.3636],[0.0390,0.3740],[0.0442,0.3844],[0.0442,0.3948],[0.0442,0.4052],[0.0468,0.4156],[0.0468,0.4260],[0.0494,0.4364],[0.0545,0.4468],[0.0571,0.4571],[0.0623,0.4675],[0.0675,0.4779],[0.0675,0.4883],[0.0675,0.4987],[0.0675,0.5091],[0.0675,0.5195],[0.0675,0.5299],[0.0675,0.5403],[0.0675,0.5506],[0.0727,0.5610],[0.0779,0.5714],[0.0805,0.5818],[0.0831,0.5922],[0.0883,0.6026],[0.0909,0.6130],[0.0961,0.6234],[0.1013,0.6338],[0.1065,0.6442],[0.1091,0.6545],[0.1117,0.6649],[0.1169,0.6753],[0.1221,0.6857],[0.1247,0.6961],[0.1273,0.7065],[0.1299,0.7169],[0.1325,0.7273],[0.1351,0.7377],[0.1377,0.7481],[0.1429,0.7584],[0.1455,0.7688],[0.1506,0.7792],[0.1558,0.7896],[0.1584,0.8000],[0.1610,0.8104],[0.1584,0.8208],[0.1584,0.8312],[0.1610,0.8416],[0.1610,0.8519],[0.1610,0.8623],[0.1636,0.8727],[0.1688,0.8831],[0.1740,0.8935],[0.1896,0.9039],[0.2130,0.9143],[0.2338,0.9247],[0.2416,0.9351],[0.2519,0.9455],[0.2519,0.9558],[0.2468,0.9662],[0.2468,0.9766],[0.2468,0.9870],[0.2468,0.9974],[0.2468,0.9974],[0.2468,1.0000],[-0.2468,1.0000],[-0.2468,0.9974],[-0.2468,0.9974],[-0.2468,0.9870],[-0.2468,0.9766],[-0.2494,0.9662],[-0.2390,0.9558],[-0.2338,0.9455],[-0.2286,0.9351],[-0.2234,0.9247],[-0.2182,0.9143],[-0.2130,0.9039],[-0.2078,0.8935],[-0.2078,0.8831],[-0.2078,0.8727],[-0.2052,0.8623],[-0.2052,0.8519],[-0.2052,0.8416],[-0.2000,0.8312],[-0.1974,0.8208],[-0.1974,0.8104],[-0.1948,0.8000],[-0.1922,0.7896],[-0.1896,0.7792],[-0.1922,0.7688],[-0.1896,0.7584],[-0.1766,0.7481],[-0.1740,0.7377],[-0.1688,0.7273],[-0.1636,0.7169],[-0.1584,0.7065],[-0.1558,0.6961],[-0.1481,0.6857],[-0.1429,0.6753],[-0.1455,0.6649],[-0.1455,0.6545],[-0.1481,0.6442],[-0.1455,0.6338],[-0.1377,0.6234],[-0.1325,0.6130],[-0.1299,0.6026],[-0.1195,0.5922],[-0.1143,0.5818],[-0.1195,0.5714],[-0.1221,0.5610],[-0.1195,0.5506],[-0.1117,0.5403],[-0.1039,0.5299],[-0.0961,0.5195],[-0.0935,0.5091],[-0.0935,0.4987],[-0.0935,0.4883],[-0.0935,0.4779],[-0.0935,0.4675],[-0.0909,0.4571],[-0.0883,0.4468],[-0.0831,0.4364],[-0.0779,0.4260],[-0.0753,0.4156],[-0.0701,0.4052],[-0.0701,0.3948],[-0.0675,0.3844],[-0.0675,0.3740],[-0.0675,0.3636],[-0.0649,0.3532],[-0.0623,0.3429],[-0.0597,0.3325],[-0.0597,0.3221],[-0.0545,0.3117],[-0.0519,0.3013],[-0.0519,0.2909],[-0.0519,0.2805],[-0.0494,0.2701],[-0.0494,0.2597],[-0.0468,0.2494],[-0.0468,0.2390],[-0.0519,0.2286],[-0.0571,0.2182],[-0.0623,0.2078],[-0.0649,0.1974],[-0.0675,0.1870],[-0.0675,0.1766],[-0.0701,0.1662],[-0.0701,0.1558],[-0.0675,0.1455],[-0.0623,0.1351],[-0.0494,0.1247],[-0.0416,0.1143],[-0.0442,0.1039],[-0.0416,0.0935],[-0.0312,0.0831],[-0.0286,0.0727],[-0.0286,0.0623],[-0.0260,0.0519],[-0.0234,0.0416],[-0.0234,0.0312],[-0.0234,0.0208],[-0.0208,0.0104],[-0.0130,0.0000]];
+    const plH=thTrue; // 高さ方向スケール(px): tY〜bY
+    // 幅方向スケール: tw = gnoH(angS(62, dist)) は62m全幅px
+    // PL_PTSのdxは全幅比率0.5038で正規化（max_dx=0.2519が半幅）
+    // → X = cx + dx * (tw / 0.5038)  でdx=0.2519のとき cx + tw/2（半幅）
+    const plW = tw / 0.5038; // dx=1.0相当のスケール係数
+    // ポリゴン描画
+    ctx.fillStyle='#0e172a';
+    ctx.strokeStyle='rgba(200,169,110,.6)';
+    ctx.lineWidth=1.2;
+    ctx.beginPath();
+    PL_PTS.forEach(([dx,dy],i)=>{
+      const plx=cx+dx*plW;
+      // Y: dy比率で vaTop〜vaBase を線形補間 → toY_camで物理的に正確なY
+      const alt_dy = vaTop + dy*(vaBase-vaTop);
+      const ply = toY_cam(alt_dy);
+      i===0?ctx.moveTo(plx,ply):ctx.lineTo(plx,ply);
+    });
+    ctx.closePath();ctx.fill();ctx.stroke();
+    // 縦三分割の横線（塔幅内のみ）
+    ctx.strokeStyle='rgba(200,169,110,.4)';ctx.lineWidth=0.7;ctx.setLineDash([3,3]);
+    [1/3,2/3].forEach(ratio=>{
+      const lineY=toY_cam(vaTop+ratio*(vaBase-vaTop));
+      let lx=cx,rx=cx;
+      for(let i=0;i<PL_PTS.length-1;i++){
+        const [dx0,dy0]=PL_PTS[i],[dx1,dy1]=PL_PTS[i+1];
+        const y0=toY_cam(vaTop+dy0*(vaBase-vaTop));
+        const y1=toY_cam(vaTop+dy1*(vaBase-vaTop));
+        if((y0<=lineY&&lineY<=y1)||(y1<=lineY&&lineY<=y0)){
+          const t2=(lineY-y0)/(y1-y0||1e-9);
+          const ix=cx+(dx0+(dx1-dx0)*t2)*plW;
+          if(ix>rx)rx=ix; if(ix<lx)lx=ix;
+        }
+      }
+      ctx.beginPath();ctx.moveTo(lx,lineY);ctx.lineTo(rx,lineY);ctx.stroke();
+    });
+    ctx.setLineDash([]);
+  }else{
+    // ━━━ 和歌山城・台形の山（先に描いて城を手前に重ねる）━━━
+    {
+      const mTopY = bY;
+      const mBaseY = Math.min(horizon < H ? horizon : H, H);
+
+      if(mTopY < mBaseY){
+        const sekW = tw * (T[cur].sekWidthScale || 1.10);
+        const flatHalf = sekW * 2.5 / 2;
+
+        const mH = mBaseY - mTopY;
+        const slope = mH * 1.5;
+        const baseLeft  = Math.max(0, cx - flatHalf - slope);
+        const baseRight = Math.min(W, cx + flatHalf + slope);
+        ctx.save();
+        ctx.beginPath();ctx.rect(0,0,W,H);ctx.clip();
+        ctx.fillStyle='#1a3020';
+        ctx.strokeStyle='rgba(200,169,110,0.55)';
+        ctx.lineWidth=1.2;
+        ctx.beginPath();
+        ctx.moveTo(baseLeft,  mBaseY);
+        ctx.lineTo(cx - flatHalf, mTopY);
+        ctx.lineTo(cx + flatHalf, mTopY);
+        ctx.lineTo(baseRight, mBaseY);
+        ctx.closePath();
+        ctx.fill();ctx.stroke();
+        ctx.restore();
+      }
+    }
+    // ━━━ 城郭 3D投影シルエット ━━━
+    // frontAz: 棟の走る方向（度）。T[cur].frontAzで城ごとに設定。
+    // 値はすべてGoogle衛星画像から棟ラインを実測して算出。未定義時は岐阜城のデフォルト203°。
+    const FRONT_AZ=T[cur].frontAz||203;
+    const viewDir=(tAz+180+360)%360;
+    const relDeg=((viewDir-FRONT_AZ)+360)%360;
+    const gAngle=relDeg*Math.PI/180;
+    const gSinA=Math.sin(gAngle), gCosA=Math.cos(gAngle);
+
+    // スケール：thTrueが全体高さ（石垣+天守）に対応
+    const G_TOTAL=thTrue;
+    const G_SEK=G_TOTAL*(T[cur].sekRatio||0.22);
+    const G_TEN=G_TOTAL-G_SEK;
+    const _lR=T[cur].layerRatios||[0.33,0.38,0.29];
+    const G_ROOF_H=G_TEN*(T[cur].roofRatio||0.23);  // 屋根高さ = 天守本体の内数
+    const G_WALL=G_TEN-G_ROOF_H;                     // 壁体部分
+    const G_L1=G_WALL*_lR[0], G_L2=G_WALL*_lR[1], G_L3=G_WALL*_lR[2];
+    const G_UNIT=G_TOTAL*(T[cur].gUnitRatio||0.43);
+    const G_BW=G_UNIT, G_BD=G_UNIT*(T[cur].depthRatio||0.85);
+    const G_ROOF_OUT=G_UNIT*0.14;
+    const G_SHACHI_R=Math.max(G_TOTAL*0.029,2);
+    const G_SHACHI_H=Math.max(G_TOTAL*0.083,6);
+
+    // 3D→2D投影（gnomonic投影対応）
+    // y: 0=石垣底辺(vaBase), G_TOTAL=頂点(vaTop) のスケール値
+    // 垂直方向: yの比率からalt(仰角)を線形補間 → toY_camで正確なY座標を計算
+    // 水平方向: xをgnoH()でpx変換（rx = x*cosA - z*sinA → gnoH(rx_deg)相当）
+    const gVA=vaTop*Math.PI/180;
+    const gSinVA=Math.sin(gVA), gCosVA=Math.cos(gVA);
+    const gp=(x,y,z)=>{
+      const rx=x*gCosA - z*gSinA;
+      const rz=x*gSinA + z*gCosA;
+      // 垂直方向: y/G_TOTALの比率で vaBase〜vaTop を線形補間してtoY_camで投影
+      const yRatio = G_TOTAL > 0 ? y / G_TOTAL : 0;
+      const alt_y = vaBase + yRatio * (vaTop - vaBase);
+      // rz成分（奥行き）による仰角補正（小角度近似）
+      const rzAngCorr = Math.atan2(rz * gSinVA, dist * 1000) * 180 / Math.PI;
+      const pxCanvas = toY_cam(alt_y + rzAngCorr);
+      // 水平方向: rxはpx単位(G_TOTAL基準) → m換算してからgnomonic投影
+      // rx_m = rx * th / G_TOTAL  (G_TOTALpx : th_m = rx_px : rx_m)
+      const rx_m = rx * T[cur].h / G_TOTAL;
+      const rxAngDeg = Math.atan2(rx_m, dist * 1000) * 180 / Math.PI;
+      return [cx + gnoH(rxAngDeg), pxCanvas];
+    };
+    // depth = zオフセット + yCenter（上の層ほどdepth大=先に描画=奥扱い）
+    // depth = zオフセット + yCenter（上の層ほどdepth大=先に描画=奥扱い）
+    const gDepth=(verts)=>{
+      let sz=0,sy=0;
+      verts.forEach(v=>{sz+=v[0]*gSinA+v[2]*gCosA; sy+=v[1];});
+      return sz/verts.length + sy/verts.length;
+    };
+
+    const gFaces=[];
+    function gAddFace(verts3d,nx,nz,fillFn,stroke,lw=0.8){
+      const dot=nx*gSinA+nz*gCosA;
+      if(dot<=0.02)return; // 裏面カリング：ほぼ真横まで描画
+      const br=0.5+dot*0.45;
+      gFaces.push({
+        verts2d:verts3d.map(v=>gp(v[0],v[1],v[2])),
+        fill:fillFn(br), stroke, lw,
+        depth:gDepth(verts3d)
+      });
+    }
+
+    // 石垣
+    {
+      const sw=G_BW*(T[cur].sekWidthScale||1.10), sd=G_BD*(T[cur].sekWidthScale||1.10), h=G_SEK, tp=G_UNIT*0.05;
+      // 石垣上面 - 見下ろし（根本の仰角が負=カメラが石垣より高い）のときのみ表示
+      if(vaBase < 0){
+        gFaces.push({
+          verts2d:[gp(-sw,h,-sd),gp(sw,h,-sd),gp(sw,h,sd),gp(-sw,h,sd)],
+          fill:'#1e2d42',stroke:'rgba(200,169,110,.2)',lw:0.7,
+          depth:gDepth([[-sw,h,-sd],[sw,h,-sd],[sw,h,sd],[-sw,h,sd]])-50
+        });
+      }
+      // 石垣4側面
+      [
+        {v:[[-sw-tp,0,-sd-tp],[sw+tp,0,-sd-tp],[sw,h,-sd],[-sw,h,-sd]],nx:0, nz:-1},
+        {v:[[sw+tp,0,-sd-tp],[sw+tp,0,sd+tp],[sw,h,sd],[sw,h,-sd]],    nx:1, nz:0},
+        {v:[[-sw-tp,0,sd+tp],[sw+tp,0,sd+tp],[sw,h,sd],[-sw,h,sd]],    nx:0, nz:1},
+        {v:[[-sw-tp,0,-sd-tp],[-sw-tp,0,sd+tp],[-sw,h,sd],[-sw,h,-sd]],nx:-1,nz:0},
+      ].forEach(f=>{
+        gAddFace(f.v,f.nx,f.nz,
+          br=>{const b=Math.round(br*28);return `rgb(${b+3},${b+6},${b+18})`;},
+          'rgba(200,169,110,.3)',0.8);
+      });
+      // 石垣の底辺輪郭線（地面との接地線）- 見える面のみ輪郭を描く
+      gFaces.push({type:'base-edge', sw, sd, tp, depth: gDepth([[-sw,0,-sd],[sw,0,-sd],[sw,0,sd],[-sw,0,sd]])+100});
+    }
+
+    const _wS=T[cur].layerWidthScales||[1.00,1.00,0.52];
+    // 天守3層
+    const gLayers=[
+      {w:G_BW*_wS[0],      d:G_BD*_wS[0],      h:G_L1, hasEave:true},
+      {w:G_BW*_wS[1],      d:G_BD*_wS[1],      h:G_L2, hasEave:true},
+      {w:G_BW*_wS[2],      d:G_BD*_wS[2],      h:G_L3, hasEave:false},
+    ];
+    let gCurY=G_SEK;
+    gLayers.forEach(layer=>{
+      const {w,d,h,hasEave}=layer;
+      const y0=gCurY, y1=gCurY+h;
+      gCurY=y1;
+      [
+        {v:[[-w,y0,-d],[w,y0,-d],[w,y1,-d],[-w,y1,-d]], nx:0, nz:-1,r:16,g:24,b:60},
+        {v:[[w,y0,-d],[w,y0,d],[w,y1,d],[w,y1,-d]],     nx:1, nz:0, r:14,g:20,b:52},
+        {v:[[-w,y0,d],[w,y0,d],[w,y1,d],[-w,y1,d]],     nx:0, nz:1, r:14,g:20,b:52},
+        {v:[[-w,y0,-d],[-w,y0,d],[-w,y1,d],[-w,y1,-d]], nx:-1,nz:0, r:12,g:18,b:48},
+      ].forEach(f=>{
+        gAddFace(f.v,f.nx,f.nz,
+          br=>`rgb(${Math.round(f.r*br)},${Math.round(f.g*br)},${Math.round(f.b*br)})`,
+          'rgba(200,169,110,.38)',0.8);
+      });
+      if(hasEave){
+        const ew=w+G_ROOF_OUT, ed=d+G_ROOF_OUT, eh=G_UNIT*0.025;
+        // 庇上面: 見下ろし（根本の仰角が負=カメラが庇より高い）のときのみ表示
+        if(vaBase < 0){
+          gFaces.push({
+            verts2d:[gp(-ew,y1+eh,-ed),gp(ew,y1+eh,-ed),gp(ew,y1+eh,ed),gp(-ew,y1+eh,ed)],
+            fill:'rgba(140,120,60,.6)',stroke:'rgba(200,169,110,.35)',lw:0.6,
+            depth:gDepth([[-ew,y1+eh,-ed],[ew,y1+eh,-ed],[ew,y1+eh,ed],[-ew,y1+eh,ed]])
+          });
+        }
+        [
+          {v:[[-ew,y1,-ed],[ew,y1,-ed],[ew,y1+eh,-ed],[-ew,y1+eh,-ed]],nx:0, nz:-1},
+          {v:[[ew,y1,-ed],[ew,y1,ed],[ew,y1+eh,ed],[ew,y1+eh,-ed]],    nx:1, nz:0},
+          {v:[[-ew,y1,ed],[ew,y1,ed],[ew,y1+eh,ed],[-ew,y1+eh,ed]],    nx:0, nz:1},
+          {v:[[-ew,y1,-ed],[-ew,y1,ed],[-ew,y1+eh,ed],[-ew,y1+eh,-ed]],nx:-1,nz:0},
+        ].forEach(f=>{
+          gAddFace(f.v,f.nx,f.nz,
+            br=>`rgba(${Math.round(130*br)},${Math.round(110*br)},${Math.round(55*br)},.8)`,
+            'rgba(200,169,110,.45)',0.6);
+        });
+      }
+      if(!hasEave){
+        const rw=w+G_ROOF_OUT, rd=d+G_ROOF_OUT, rH=G_ROOF_H, ry=y1+rH;
+        const rx=w*0.95; // 棟幅（軒先より短い）→鯱鉾はここに載る
+        [
+          {v:[[-rw,y1,-rd],[rw,y1,-rd],[rx,ry,0],[-rx,ry,0]], nx:0, nz:-1,r:12,g:18,b:48},
+          {v:[[-rw,y1,rd],[rw,y1,rd],[rx,ry,0],[-rx,ry,0]],   nx:0, nz:1, r:11,g:16,b:44},
+          {v:[[rw,y1,-rd],[rw,y1,rd],[rx,ry,0]],              nx:1, nz:0, r:10,g:15,b:40},
+          {v:[[-rw,y1,-rd],[-rw,y1,rd],[-rx,ry,0]],           nx:-1,nz:0, r:10,g:15,b:40},
+        ].forEach(f=>{
+          gAddFace(f.v,f.nx,f.nz,
+            br=>`rgb(${Math.round(f.r*br)},${Math.round(f.g*br)},${Math.round(f.b*br)})`,
+            'rgba(200,169,110,.55)',0.9);
+        });
+        const ridgeDepth=gDepth([[-rx,ry,0],[rx,ry,0]])-0.1;
+        // 棟・鯱: 正面または背面が見えるとき（|gCosA|>0.05）のみ描画
+        if(Math.abs(gCosA) > 0.05){
+          gFaces.push({type:'ridge',p1:[-rx,ry,0],p2:[rx,ry,0],depth:ridgeDepth});
+          gFaces.push({type:'shachi',rx,ry,depth:ridgeDepth-0.1});
+        }
+      }
+    });
+
+    // Zソートして描画
+    gFaces.sort((a,b)=>b.depth-a.depth);
+    gFaces.forEach(f=>{
+      if(f.type==='base-edge'){
+        // 石垣底辺：見える辺のみ描画（法線が正の面の底辺）
+        const {sw,sd,tp}=f;
+        ctx.strokeStyle='rgba(200,169,110,.45)';ctx.lineWidth=0.9;
+        // 手前辺（z=-sd-tp側、nz=-1が見えるとき）
+        if(-gCosA > 0.02){
+          const p1=gp(-sw-tp,0,-sd-tp), p2=gp(sw+tp,0,-sd-tp);
+          ctx.beginPath();ctx.moveTo(p1[0],p1[1]);ctx.lineTo(p2[0],p2[1]);ctx.stroke();
+        }
+        // 右辺（x=+sw+tp側、nx=+1が見えるとき）
+        if(gSinA > 0.02){
+          const p1=gp(sw+tp,0,-sd-tp), p2=gp(sw+tp,0,sd+tp);
+          ctx.beginPath();ctx.moveTo(p1[0],p1[1]);ctx.lineTo(p2[0],p2[1]);ctx.stroke();
+        }
+        // 奥辺（z=+sd+tp側、nz=+1が見えるとき）
+        if(gCosA > 0.02){
+          const p1=gp(sw+tp,0,sd+tp), p2=gp(-sw-tp,0,sd+tp);
+          ctx.beginPath();ctx.moveTo(p1[0],p1[1]);ctx.lineTo(p2[0],p2[1]);ctx.stroke();
+        }
+        // 左辺（x=-sw-tp側、nx=-1が見えるとき）
+        if(-gSinA > 0.02){
+          const p1=gp(-sw-tp,0,sd+tp), p2=gp(-sw-tp,0,-sd-tp);
+          ctx.beginPath();ctx.moveTo(p1[0],p1[1]);ctx.lineTo(p2[0],p2[1]);ctx.stroke();
+        }
+        return;
+      }
+      if(f.type==='ridge'){
+        const p1=gp(f.p1[0],f.p1[1],f.p1[2]), p2=gp(f.p2[0],f.p2[1],f.p2[2]);
+        ctx.beginPath();ctx.moveTo(p1[0],p1[1]);ctx.lineTo(p2[0],p2[1]);
+        ctx.strokeStyle='rgba(200,169,110,.75)';ctx.lineWidth=1.3;ctx.stroke();
+        return;
+      }
+      if(f.type==='shachi'){
+        const {rx,ry}=f;
+        const pr=gp(rx,ry,0), pl=gp(-rx,ry,0);
+        const aR=Math.max(0.45,Math.min(1.0,0.55+gSinA*0.45));
+        const aL=Math.max(0.45,Math.min(1.0,0.55+(-gSinA)*0.45));
+        function gDrawShachi(x,y,dir){
+          ctx.fillStyle='rgba(220,190,110,.95)';
+          ctx.strokeStyle='rgba(200,169,110,.8)';ctx.lineWidth=1;
+          ctx.beginPath();ctx.arc(x,y-G_SHACHI_R,G_SHACHI_R,0,Math.PI*2);ctx.fill();ctx.stroke();
+          ctx.beginPath();ctx.moveTo(x,y-G_SHACHI_R*2);ctx.lineTo(x+dir*G_SHACHI_R*0.7,y-G_SHACHI_H);
+          ctx.lineWidth=1.3;ctx.stroke();
+        }
+        if(gSinA>=0){
+          ctx.save();ctx.globalAlpha=aL;gDrawShachi(pl[0],pl[1],-1);ctx.restore();
+          ctx.save();ctx.globalAlpha=aR;gDrawShachi(pr[0],pr[1],1);ctx.restore();
+        }else{
+          ctx.save();ctx.globalAlpha=aR;gDrawShachi(pr[0],pr[1],1);ctx.restore();
+          ctx.save();ctx.globalAlpha=aL;gDrawShachi(pl[0],pl[1],-1);ctx.restore();
+        }
+        return;
+      }
+      ctx.beginPath();
+      ctx.moveTo(f.verts2d[0][0],f.verts2d[0][1]);
+      for(let i=1;i<f.verts2d.length;i++) ctx.lineTo(f.verts2d[i][0],f.verts2d[i][1]);
+      ctx.closePath();
+      if(f.fill){ctx.fillStyle=f.fill;ctx.fill();}
+      if(f.stroke){ctx.strokeStyle=f.stroke;ctx.lineWidth=f.lw||0.8;ctx.stroke();}
+    });
+    ctx.globalAlpha=1;
+
   }
 
   // 軌道描画
@@ -1475,104 +2578,88 @@ function drawView(dist,tAz,va){
       const dt0=new Date(`${ds}T${ts}:00+09:00`);
       const dayStart=new Date(`${ds}T00:00:00+09:00`);
 
-      // ── 1. その日の全軌道（焦点距離連動の刻み）──
-      // 視野角から全軌道の刻みとラベル間隔を決定
-      const dayStep  = fvH<1?0.5 : fvH<2?1 : fvH<4?1 : fvH<8?2 : fvH<20?3 : fvH<60?5 : 10;
-      const dayLabelInterval = fvH<1?2 : fvH<2?3 : fvH<4?5 : fvH<8?5 : fvH<20?10 : fvH<60?30 : 60;
-      const dayTotalSteps=Math.ceil(1440/dayStep);
-      const dayPts=[];
+
+
+      // ── 1. その日の全軌道（グレー線）＋統合ラベル点 ──
+      const isMobCanvas = W < 500;
+      // ラベル間隔：fvH依存（スマホ・PCとも同じ刻み）
+      // 点がある位置には必ずラベルを付ける（スマホは2列表示で間引きなし）
+      const dayLabelInterval = fvH<8?1 : fvH<20?5 : fvH<60?15 : 30;
+      // dayStep：軌道線の計算刻み。dayLabelInterval以下にしないとラベル点がdayPtsに存在しない
+      const dayStep = Math.min(dayLabelInterval, fvH<1?0.5 : fvH<2?1 : fvH<4?1 : fvH<8?1 : fvH<20?2 : fvH<60?5 : 10);
+      // 色分けの前後範囲（焦点距離連動）
+      const maxMinutes = fvH<1?10 : fvH<2?15 : fvH<4?20 : fvH<8?30 : fvH<20?45 : 60;
+      const nowMinutes = (dt0 - dayStart) / 60000; // 今日の0時からの経過分
+
+      const dayTotalSteps = Math.ceil(1440/dayStep);
+      const dayPts = [];
       for(let i=0;i<=dayTotalSteps;i++){
         const m=i*dayStep;
         if(m>1440)break;
         const dt=new Date(dayStart.getTime()+m*60000);
         const bp=sunsetMode?sunPos(dt,sLat,sLng):moonPos(dt,sLat,sLng);
-        const dAz=azDiff(tAz,bp.az);
-        dayPts.push({x:cx+dAz*px, y:horizon-bp.alt*pyV, m, dt, alt:bp.alt});
+        const daz=Math.abs(azDiff(tAz,bp.az));
+        dayPts.push({x:cx+gnoH(azDiff(tAz,bp.az)), y:toY_cam(bp.alt), m, alt:bp.alt, daz});
       }
+
+      // グレー軌道線
       ctx.save();
       ctx.strokeStyle='rgba(255,255,255,0.12)';
       ctx.lineWidth=1;ctx.setLineDash([]);
       let drawing=false;
       for(let i=0;i<dayPts.length;i++){
         const p=dayPts[i];
-        const inView=p.x>-100&&p.x<W+100&&p.y>-100&&p.y<H+100&&p.alt>-3;
+        // daz<89でtan()の±180°折り返しを防ぐ
+        const inView=p.x>-100&&p.x<W+100&&p.y>-100&&p.y<H+100&&p.alt>-3&&p.daz<89;
         if(inView){
           if(!drawing){ctx.beginPath();ctx.moveTo(p.x,p.y);drawing=true;}
           else ctx.lineTo(p.x,p.y);
         }else{ if(drawing){ctx.stroke();drawing=false;} }
       }
       if(drawing)ctx.stroke();
+      ctx.restore();
 
-      // ラベル：dayLabelInterval刻みで表示
-      for(let m=0;m<=1440;m+=dayLabelInterval){
-        const idx=Math.round(m/dayStep);
-        const p=dayPts[idx];
-        if(!p||p.x<0||p.x>W||p.y<0||p.y>H||p.alt<0)continue;
-        const label=new Date(dayStart.getTime()+m*60000+9*3600000).toISOString().substr(11,5);
-        ctx.font=`9px 'Space Mono',monospace`;
-        ctx.textAlign=p.x<cx?'right':'left';
-        const lx=p.x+(p.x<cx?-5:5);
-        const lw=ctx.measureText(label).width;
-        const bx=p.x<cx?lx-lw-2:lx-2;
-        ctx.fillStyle='rgba(13,17,26,0.6)';ctx.fillRect(bx,p.y-14,lw+4,12);
-        ctx.fillStyle='rgba(200,200,220,0.7)';ctx.fillText(label,lx,p.y-4);
-        ctx.beginPath();ctx.arc(p.x,p.y,2,0,Math.PI*2);
-        ctx.fillStyle='rgba(200,200,220,0.5)';ctx.fill();
+      // ── 2. 前後グラデーション線（青/オレンジ）dayPtsから切り出し ──
+      // nowMinutesに最も近いdayPtsのインデックスを探す
+      const nowIdx = dayPts.reduce((best,p,i)=>
+        Math.abs(p.m-nowMinutes)<Math.abs(dayPts[best].m-nowMinutes)?i:best, 0);
+      // 前後maxMinutes分の点を切り出し
+      const pastPts2  = dayPts.filter(p=>p.m<=nowMinutes&&p.m>=nowMinutes-maxMinutes&&p.daz<89);
+      const futurePts2= dayPts.filter(p=>p.m>=nowMinutes&&p.m<=nowMinutes+maxMinutes&&p.daz<89);
+      // 現在点を末尾/先頭に追加
+      const nowPt={x:moonX,y:moonY,m:nowMinutes};
+      const pastFull  =[...pastPts2,  nowPt];
+      const futureFull=[nowPt, ...futurePts2];
+
+      ctx.save();
+      for(let i=0;i<pastFull.length-1;i++){
+        const ratio0=i/(pastFull.length-1), ratio1=(i+1)/(pastFull.length-1);
+        const a0=0.1+ratio0*0.7, a1=0.1+ratio1*0.7;
+        const g=ctx.createLinearGradient(pastFull[i].x,pastFull[i].y,pastFull[i+1].x,pastFull[i+1].y);
+        g.addColorStop(0,`rgba(100,180,255,${a0})`);g.addColorStop(1,`rgba(100,180,255,${a1})`);
+        ctx.beginPath();ctx.moveTo(pastFull[i].x,pastFull[i].y);ctx.lineTo(pastFull[i+1].x,pastFull[i+1].y);
+        ctx.strokeStyle=g;ctx.lineWidth=1.8;ctx.stroke();
+      }
+      for(let i=0;i<futureFull.length-1;i++){
+        const ratio0=i/(futureFull.length-1), ratio1=(i+1)/(futureFull.length-1);
+        const a0=0.7-ratio0*0.55, a1=0.7-ratio1*0.55;
+        const g=ctx.createLinearGradient(futureFull[i].x,futureFull[i].y,futureFull[i+1].x,futureFull[i+1].y);
+        g.addColorStop(0,`rgba(220,160,60,${a0})`);g.addColorStop(1,`rgba(220,160,60,${a1})`);
+        ctx.beginPath();ctx.moveTo(futureFull[i].x,futureFull[i].y);ctx.lineTo(futureFull[i+1].x,futureFull[i+1].y);
+        ctx.strokeStyle=g;ctx.lineWidth=1.8;ctx.stroke();
       }
       ctx.restore();
 
-      // ── 2. 前後トレイル ──
-      const moonSpeedDegPerMin=0.5;
-      const halfFovH=fvH/2;
-      const autoMinutes=Math.floor(halfFovH/moonSpeedDegPerMin*0.8);
-      const minMinutes= fvH<1?10 : fvH<2?12 : fvH<4?15 : fvH<8?20 : fvH<20?30 : fvH<60?45 : 60;
-      const maxMinutes=Math.max(minMinutes, Math.min(60, autoMinutes));
-      const step= fvH<1?0.5 : fvH<2?1 : fvH<4?1 : fvH<8?2 : fvH<20?3 : fvH<60?5 : 10;
-      const trailTimes=[];
-      const trailSteps=Math.ceil(maxMinutes/step);
-      for(let i=-trailSteps;i<=trailSteps;i++){
-        const m=Math.round(i*step*10)/10;
-        if(m===0)continue;
-        trailTimes.push(m);
-      }
-
-      const linePoints=[];
-      for(const m of trailTimes){
-        const dt=new Date(dt0.getTime()+m*60000);
-        const bp=sunsetMode?sunPos(dt,sLat,sLng):moonPos(dt,sLat,sLng);
-        linePoints.push({x:cx+azDiff(tAz,bp.az)*px, y:horizon-bp.alt*pyV, m});
-      }
-      const pastPts=[...linePoints.filter(p=>p.m<0),{x:moonX,y:moonY,m:0}];
-      const futurePts=[{x:moonX,y:moonY,m:0},...linePoints.filter(p=>p.m>0)];
-
-      ctx.save();
-      for(let i=0;i<pastPts.length-1;i++){
-        const a0=0.1+(i/(pastPts.length-1))*0.7;
-        const a1=0.1+((i+1)/(pastPts.length-1))*0.7;
-        const g=ctx.createLinearGradient(pastPts[i].x,pastPts[i].y,pastPts[i+1].x,pastPts[i+1].y);
-        g.addColorStop(0,`rgba(100,180,255,${a0})`);g.addColorStop(1,`rgba(100,180,255,${a1})`);
-        ctx.beginPath();ctx.moveTo(pastPts[i].x,pastPts[i].y);ctx.lineTo(pastPts[i+1].x,pastPts[i+1].y);
-        ctx.strokeStyle=g;ctx.lineWidth=1.8;ctx.stroke();
-      }
-      for(let i=0;i<futurePts.length-1;i++){
-        const a0=0.7-(i/(futurePts.length-1))*0.55;
-        const a1=0.7-((i+1)/(futurePts.length-1))*0.55;
-        const g=ctx.createLinearGradient(futurePts[i].x,futurePts[i].y,futurePts[i+1].x,futurePts[i+1].y);
-        g.addColorStop(0,`rgba(220,160,60,${a0})`);g.addColorStop(1,`rgba(220,160,60,${a1})`);
-        ctx.beginPath();ctx.moveTo(futurePts[i].x,futurePts[i].y);ctx.lineTo(futurePts[i+1].x,futurePts[i+1].y);
-        ctx.strokeStyle=g;ctx.lineWidth=1.8;ctx.stroke();
-      }
-      // 矢頭：未来方向を示す（futurePtsが短くても方向計算で描画）
+      // 矢頭：未来方向
       {
-        const dtFwdA=new Date(dt0.getTime()+step*60000);
-        const dtFwdB=new Date(dt0.getTime()+step*2*60000);
+        const dtFwdA=new Date(dt0.getTime()+dayStep*60000);
+        const dtFwdB=new Date(dt0.getTime()+dayStep*2*60000);
         const bpA=sunsetMode?sunPos(dtFwdA,sLat,sLng):moonPos(dtFwdA,sLat,sLng);
         const bpB=sunsetMode?sunPos(dtFwdB,sLat,sLng):moonPos(dtFwdB,sLat,sLng);
-        const axA=cx+azDiff(tAz,bpA.az)*px, ayA=horizon-bpA.alt*pyV;
-        const axB=cx+azDiff(tAz,bpB.az)*px, ayB=horizon-bpB.alt*pyV;
+        const axA=cx+gnoH(azDiff(tAz,bpA.az)), ayA=toY_cam(bpA.alt);
+        const axB=cx+gnoH(azDiff(tAz,bpB.az)), ayB=toY_cam(bpB.alt);
         const ang=Math.atan2(ayB-ayA, axB-axA);
-        // 月の外縁から少し離れた位置に矢頭
-        const arrowDist=mr+22;
+        const arrowDist=Math.max(mr,mrV)+22;
         const arrowX=moonX+Math.cos(ang)*arrowDist;
         const arrowY=moonY+Math.sin(ang)*arrowDist;
         const hLen=10, hAngle=0.42;
@@ -1588,185 +2675,116 @@ function drawView(dist,tAz,va){
         ctx.restore();
       }
 
-      for(const m of trailTimes){
-        const dt=new Date(dt0.getTime()+m*60000);
-        const bp=sunsetMode?sunPos(dt,sLat,sLng):moonPos(dt,sLat,sLng);
-        const tx2=cx+azDiff(tAz,bp.az)*px;
-        const ty2=horizon-bp.alt*pyV;
-        if(tx2<-20||tx2>W+20||ty2<-20||ty2>H+20)continue;
-        const isPast=m<0;
-        const alpha=0.3+0.4*(1-Math.abs(m)/maxMinutes);
-        ctx.beginPath();ctx.arc(tx2,ty2,2.5,0,Math.PI*2);
-        ctx.fillStyle=isPast?`rgba(126,184,232,${alpha})`:`rgba(200,169,110,${alpha})`;
-        ctx.fill();
-        // 全点にラベル表示
-        const label=new Date(dt.getTime()+9*3600000).toISOString().substr(11,5);
+      // ── 統合ラベル点：dayLabelInterval刻みで固定位置に表示 ──
+      ctx.save();
+      const isMobPv = isMobCanvas; // スマホプレビュー判定（isMobCanvasと同義）
+      // スマホ：右端縦列にラベル、軌跡上には点のみ
+      // PC：従来通り軌跡の横にラベル
+      const labelItems = []; // {m, p, label, isPast, isNear}
+      for(let m=0;m<=1440;m+=dayLabelInterval){
+        const idx=Math.round(m/dayStep);
+        const p=dayPts[idx];
+        if(!p||p.alt<0||p.daz>=89)continue;
+        const diffMin=m-nowMinutes;
+        const isPast=diffMin<0;
+        const isNear=Math.abs(diffMin)<=maxMinutes;
+        const label=new Date(dayStart.getTime()+m*60000+9*3600000).toISOString().substr(11,5);
+        // 軌跡上の点（画面内のみ）
+        if(p.x>=0&&p.x<=W&&p.y>=0&&p.y<=H){
+          const alpha=isNear?(0.5+0.4*(1-Math.abs(diffMin)/maxMinutes)):0.3;
+          const dotColor=isNear?(isPast?`rgba(126,184,232,${alpha})`:`rgba(200,169,110,${alpha})`):'rgba(200,200,220,0.3)';
+          ctx.beginPath();ctx.arc(p.x,p.y,isMobPv?3:2.5,0,Math.PI*2);
+          ctx.fillStyle=dotColor;ctx.fill();
+        }
+        if(p.x>=0&&p.x<=W&&p.y>=0&&p.y<=H){
+          labelItems.push({m,p,label,isPast,isNear,diffMin});
+        }
+      }
+      if(isMobPv){
+        // スマホ：奇数分→右端列、偶数分→右端から内側列の2列交互表示
         ctx.font=`bold 10px 'Space Mono',monospace`;
-        const lx=tx2+(tx2<cx?-5:5);
-        const ly=ty2-6;
-        ctx.textAlign=tx2<cx?'right':'left';
-        const tw2=ctx.measureText(label).width;
-        const bx=tx2<cx?lx-tw2-2:lx-2;
-        ctx.fillStyle='rgba(13,17,26,0.72)';ctx.fillRect(bx,ly-8,tw2+4,11);
-        ctx.fillStyle=isPast?'rgba(160,210,255,0.95)':'rgba(240,200,120,0.95)';
-        ctx.fillText(label,lx,ly);
+        const labelW = ctx.measureText('00:00').width; // 固定幅(5文字)
+        const colPad = 4;   // 右端の余白
+        const colGap = 6;   // 2列間のギャップ
+        // 列X座標（右端基準）
+        // 偶数分：最右列、奇数分：その左隣
+        const colEven = W - colPad;             // 偶数分のラベル右端X
+        const colOdd  = W - colPad - labelW - colGap; // 奇数分のラベル右端X
+
+        for(const item of labelItems){
+          const ly = item.p.y;
+          const isNear = item.isNear, isPast = item.isPast;
+          // 分を取得（HH:MM の MM部分）
+          const minVal = parseInt(item.label.slice(3,5), 10);
+          const isOdd = minVal % 2 !== 0;
+          const lx = (isOdd ? colOdd : colEven) - labelW;
+
+          const textColor = isNear
+            ? (isPast ? lblColor('past') : lblColor('future'))
+            : lblColor('neutral');
+          const lineColor = isNear
+            ? (isPast ? 'rgba(126,184,232,0.22)' : 'rgba(200,169,110,0.22)')
+            : 'rgba(160,160,180,0.10)';
+
+          // 水平ガイドライン（軌跡点 → ラベル左端）
+          ctx.beginPath();
+          ctx.moveTo(item.p.x + 4, ly);
+          ctx.lineTo(lx - 3, ly);
+          ctx.strokeStyle = lineColor;
+          ctx.lineWidth = 0.8; ctx.setLineDash([2,3]); ctx.stroke(); ctx.setLineDash([]);
+
+          // テキスト（半透明白背景＋黒縁取りで視認性とシルエット透過性を両立）
+          const bgRect = 'rgba(240,240,248,0.72)';
+          const fgRect = isNear
+            ? (isPast ? 'rgba(10,50,140,0.95)' : 'rgba(130,60,0,0.95)')
+            : 'rgba(30,30,60,0.85)';
+          ctx.textAlign = 'left';
+          const _tw = ctx.measureText(item.label).width;
+          ctx.fillStyle = bgRect;
+          ctx.fillRect(lx-2, ly-9, _tw+4, 11);
+          ctx.strokeStyle = 'rgba(255,255,255,0.6)';
+          ctx.lineWidth = 2; ctx.lineJoin = 'round';
+          ctx.strokeText(item.label, lx, ly-1);
+          ctx.fillStyle = fgRect;
+          ctx.fillText(item.label, lx, ly-1);
+        }
+      } else {
+        // PC：軌跡横にラベル（白背景＋黒テキストで全時間帯視認性確保）
+        ctx.font=`9px 'Space Mono',monospace`;
+        for(const item of labelItems){
+          if(!item.isNear && item.p.x<0||item.p.x>W||item.p.y<0||item.p.y>H)continue;
+          const lx=item.p.x+(item.p.x<cx?-5:5);
+          ctx.textAlign=item.p.x<cx?'right':'left';
+          const col=item.isNear?(item.isPast?'rgba(10,50,140,0.95)':'rgba(130,60,0,0.95)'):'rgba(30,30,60,0.80)';
+          const _tw2=ctx.measureText(item.label).width;
+          const _bx=item.p.x<cx?lx-_tw2-2:lx-2;
+          ctx.fillStyle='rgba(240,240,248,0.72)'; ctx.fillRect(_bx,item.p.y-9,_tw2+4,11);
+          ctx.strokeStyle='rgba(255,255,255,0.6)';ctx.lineWidth=2;ctx.lineJoin='round';
+          ctx.strokeText(item.label,lx,item.p.y-1);
+          ctx.fillStyle=col;
+          ctx.fillText(item.label,lx,item.p.y-1);
+        }
       }
       ctx.restore();
 
       // ── 3. 現在時刻マーカー（固定の◎）──
       ctx.save();
-      ctx.beginPath();ctx.arc(moonX,moonY,mr+5,0,Math.PI*2);
+      ctx.beginPath();ctx.arc(moonX,moonY,Math.max(mr,mrV)+5,0,Math.PI*2);
       ctx.strokeStyle='rgba(255,255,255,0.6)';ctx.lineWidth=1.5;
       ctx.setLineDash([3,3]);ctx.stroke();ctx.setLineDash([]);
       ctx.restore();
 
     }catch(e){}
   }
-
-  // 対象シルエット
-  // 塔の見かけの高さは距離から計算（仰角に依存しない）
-  const tAngH=angS(T[cur].h, dist);
-  const thTrue=tAngH*pyV; // 距離ベースの塔の高さピクセル
-  const physW=cur==='pl'?60:180;
-  const tAngW=angS(physW, dist);
-
-  // 頂点は仰角vaTopの位置、底辺は頂点からthTrue分下（地面クリップはcanvasに任せる）
-  const tY=horizon-vaTop*pyV;
-  const bY=tY+thTrue;
-
-  // twはthTrueに対する比率で計算（焦点距離・距離によらず角度一定）
-  const tw=Math.max(thTrue*(tAngW/Math.max(tAngH,0.001)),2);
-  const thDrawn=bY-tY; // =thTrue（描画はcanvasのclipに任せる）
-
-  ctx.fillStyle='#0e172a';ctx.strokeStyle='rgba(200,169,110,.35)';ctx.lineWidth=.8;
-
-  if(cur==='pl'){
-    // PLの塔シルエット正規化座標（dx/H, dy/H）中心x=0, 上端y=0, 下端y=1
-    const PL_PTS=[[-0.0130,0.0000],[-0.0026,0.0104],[-0.0026,0.0208],[-0.0026,0.0312],[-0.0026,0.0416],[0.0000,0.0519],[0.0026,0.0623],[0.0078,0.0727],[0.0182,0.0831],[0.0260,0.0935],[0.0286,0.1039],[0.0286,0.1143],[0.0286,0.1247],[0.0312,0.1351],[0.0338,0.1455],[0.0338,0.1558],[0.0364,0.1662],[0.0390,0.1766],[0.0390,0.1870],[0.0390,0.1974],[0.0390,0.2078],[0.0312,0.2182],[0.0286,0.2286],[0.0260,0.2390],[0.0260,0.2494],[0.0260,0.2597],[0.0260,0.2701],[0.0260,0.2805],[0.0260,0.2909],[0.0260,0.3013],[0.0260,0.3117],[0.0286,0.3221],[0.0286,0.3325],[0.0312,0.3429],[0.0312,0.3532],[0.0390,0.3636],[0.0390,0.3740],[0.0442,0.3844],[0.0442,0.3948],[0.0442,0.4052],[0.0468,0.4156],[0.0468,0.4260],[0.0494,0.4364],[0.0545,0.4468],[0.0571,0.4571],[0.0623,0.4675],[0.0675,0.4779],[0.0675,0.4883],[0.0675,0.4987],[0.0675,0.5091],[0.0675,0.5195],[0.0675,0.5299],[0.0675,0.5403],[0.0675,0.5506],[0.0727,0.5610],[0.0779,0.5714],[0.0805,0.5818],[0.0831,0.5922],[0.0883,0.6026],[0.0909,0.6130],[0.0961,0.6234],[0.1013,0.6338],[0.1065,0.6442],[0.1091,0.6545],[0.1117,0.6649],[0.1169,0.6753],[0.1221,0.6857],[0.1247,0.6961],[0.1273,0.7065],[0.1299,0.7169],[0.1325,0.7273],[0.1351,0.7377],[0.1377,0.7481],[0.1429,0.7584],[0.1455,0.7688],[0.1506,0.7792],[0.1558,0.7896],[0.1584,0.8000],[0.1610,0.8104],[0.1584,0.8208],[0.1584,0.8312],[0.1610,0.8416],[0.1610,0.8519],[0.1610,0.8623],[0.1636,0.8727],[0.1688,0.8831],[0.1740,0.8935],[0.1896,0.9039],[0.2130,0.9143],[0.2338,0.9247],[0.2416,0.9351],[0.2519,0.9455],[0.2519,0.9558],[0.2468,0.9662],[0.2468,0.9766],[0.2468,0.9870],[0.2468,0.9974],[0.2468,0.9974],[0.2468,1.0000],[-0.2468,1.0000],[-0.2468,0.9974],[-0.2468,0.9974],[-0.2468,0.9870],[-0.2468,0.9766],[-0.2494,0.9662],[-0.2390,0.9558],[-0.2338,0.9455],[-0.2286,0.9351],[-0.2234,0.9247],[-0.2182,0.9143],[-0.2130,0.9039],[-0.2078,0.8935],[-0.2078,0.8831],[-0.2078,0.8727],[-0.2052,0.8623],[-0.2052,0.8519],[-0.2052,0.8416],[-0.2000,0.8312],[-0.1974,0.8208],[-0.1974,0.8104],[-0.1948,0.8000],[-0.1922,0.7896],[-0.1896,0.7792],[-0.1922,0.7688],[-0.1896,0.7584],[-0.1766,0.7481],[-0.1740,0.7377],[-0.1688,0.7273],[-0.1636,0.7169],[-0.1584,0.7065],[-0.1558,0.6961],[-0.1481,0.6857],[-0.1429,0.6753],[-0.1455,0.6649],[-0.1455,0.6545],[-0.1481,0.6442],[-0.1455,0.6338],[-0.1377,0.6234],[-0.1325,0.6130],[-0.1299,0.6026],[-0.1195,0.5922],[-0.1143,0.5818],[-0.1195,0.5714],[-0.1221,0.5610],[-0.1195,0.5506],[-0.1117,0.5403],[-0.1039,0.5299],[-0.0961,0.5195],[-0.0935,0.5091],[-0.0935,0.4987],[-0.0935,0.4883],[-0.0935,0.4779],[-0.0935,0.4675],[-0.0909,0.4571],[-0.0883,0.4468],[-0.0831,0.4364],[-0.0779,0.4260],[-0.0753,0.4156],[-0.0701,0.4052],[-0.0701,0.3948],[-0.0675,0.3844],[-0.0675,0.3740],[-0.0675,0.3636],[-0.0649,0.3532],[-0.0623,0.3429],[-0.0597,0.3325],[-0.0597,0.3221],[-0.0545,0.3117],[-0.0519,0.3013],[-0.0519,0.2909],[-0.0519,0.2805],[-0.0494,0.2701],[-0.0494,0.2597],[-0.0468,0.2494],[-0.0468,0.2390],[-0.0519,0.2286],[-0.0571,0.2182],[-0.0623,0.2078],[-0.0649,0.1974],[-0.0675,0.1870],[-0.0675,0.1766],[-0.0701,0.1662],[-0.0701,0.1558],[-0.0675,0.1455],[-0.0623,0.1351],[-0.0494,0.1247],[-0.0416,0.1143],[-0.0442,0.1039],[-0.0416,0.0935],[-0.0312,0.0831],[-0.0286,0.0727],[-0.0286,0.0623],[-0.0260,0.0519],[-0.0234,0.0416],[-0.0234,0.0312],[-0.0234,0.0208],[-0.0208,0.0104],[-0.0130,0.0000]];
-    const plH=thTrue; // 実際の高さ180mをベースにスケーリング済み
-    // ポリゴン描画
-    ctx.fillStyle='#0e172a';
-    ctx.strokeStyle='rgba(200,169,110,.6)';
-    ctx.lineWidth=1.2;
-    ctx.beginPath();
-    PL_PTS.forEach(([dx,dy],i)=>{
-      const px=cx+dx*plH, py=tY+dy*plH;
-      i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
-    });
-    ctx.closePath();ctx.fill();ctx.stroke();
-    // 縦三分割の横線（塔幅内のみ）
-    ctx.strokeStyle='rgba(200,169,110,.4)';ctx.lineWidth=0.7;ctx.setLineDash([3,3]);
-    [1/3,2/3].forEach(ratio=>{
-      const lineY=tY+plH*ratio;
-      // その割合でのポリゴンの左右端を線形補間で求める
-      let lx=cx,rx=cx;
-      for(let i=0;i<PL_PTS.length-1;i++){
-        const [dx0,dy0]=PL_PTS[i],[dx1,dy1]=PL_PTS[i+1];
-        const y0=tY+dy0*plH,y1=tY+dy1*plH;
-        if((y0<=lineY&&lineY<=y1)||(y1<=lineY&&lineY<=y0)){
-          const t2=(lineY-y0)/(y1-y0||1e-9);
-          const ix=cx+(dx0+(dx1-dx0)*t2)*plH;
-          if(ix>rx)rx=ix; if(ix<lx)lx=ix;
-        }
-      }
-      ctx.beginPath();ctx.moveTo(lx,lineY);ctx.lineTo(rx,lineY);ctx.stroke();
-    });
-    ctx.setLineDash([]);
-  }else{
-    const viewDir=(tAz+180+360)%360;
-    const FRONT_AZ=225;
-    const rel=((viewDir-FRONT_AZ)+360)%360;
-    const idx=Math.round(rel/22.5)%16;
-    const mountainH=thTrue;         // 距離ベースの高さ
-    const castleH=mountainH*0.42;
-    const mountainH2=mountainH*0.58;
-    const mBaseY=bY;                // 地上線
-    const mTopY=mBaseY-mountainH2;
-    const cBaseY=mTopY;
-    const mLeft=tw*(2.5+0.8*Math.cos(rel*Math.PI/180));
-    const mRight=tw*(2.5+0.8*Math.sin((rel+90)*Math.PI/180));
-    ctx.fillStyle='#0a1320';ctx.strokeStyle='rgba(200,169,110,.15)';ctx.lineWidth=.8;
-    ctx.beginPath();
-    ctx.moveTo(cx-Math.abs(mLeft),mBaseY);
-    ctx.quadraticCurveTo(cx-Math.abs(mLeft)*0.3,mTopY+mountainH*0.25,cx,mTopY);
-    ctx.quadraticCurveTo(cx+Math.abs(mRight)*0.3,mTopY+mountainH*0.25,cx+Math.abs(mRight),mBaseY);
-    ctx.closePath();ctx.fill();ctx.stroke();
-    const LONG=tw*1.0,SHORT=tw*0.78;
-    const relR=rel*Math.PI/180;
-    const projW=Math.abs(LONG*Math.cos(relR))+Math.abs(SHORT*Math.sin(relR));
-    const isFront=idx<=2||idx>=14,isBack=idx>=6&&idx<=10;
-    const isSideR=idx>=3&&idx<=5,isSideL=idx>=11&&idx<=13;
-    const isDiagFR=idx===2||idx===3,isDiagFL=idx===13||idx===14;
-    const isDiagBR=idx===5||idx===6;
-    const layers=[
-      {yRatio:0,   hRatio:0.38,wScale:1.00},
-      {yRatio:0.38,hRatio:0.30,wScale:0.82},
-      {yRatio:0.68,hRatio:0.32,wScale:0.65},
-    ];
-    ctx.fillStyle='#0e172a';ctx.strokeStyle='rgba(200,169,110,.4)';ctx.lineWidth=0.8;
-    layers.forEach((layer,li)=>{
-      const lyBase=cBaseY-castleH*layer.yRatio;
-      const lyTop=cBaseY-castleH*(layer.yRatio+layer.hRatio);
-      const lw=projW*layer.wScale;
-      const lh=lyBase-lyTop;
-      ctx.fillStyle='#0e172a';ctx.fillRect(cx-lw/2,lyTop,lw,lh);
-      ctx.strokeRect(cx-lw/2,lyTop,lw,lh);
-      const roofH=lh*(li===2?0.55:0.45);
-      ctx.fillStyle='#0c1525';
-      const roofW=lw*1.15;
-      if(isFront||isBack){
-        ctx.beginPath();
-        ctx.moveTo(cx-roofW/2,lyTop);ctx.lineTo(cx,lyTop-roofH);ctx.lineTo(cx+roofW/2,lyTop);
-        ctx.closePath();ctx.fill();ctx.strokeStyle='rgba(200,169,110,.45)';ctx.stroke();
-        if(li===2){
-          const sx=roofW/2*0.85,sy=lyTop-roofH*0.15;
-          ctx.fillStyle='rgba(200,169,110,.7)';
-          ctx.beginPath();ctx.arc(cx-sx,sy,Math.max(lh*0.07,1.5),0,Math.PI*2);ctx.fill();
-          ctx.beginPath();ctx.moveTo(cx-sx,sy);ctx.lineTo(cx-sx-lh*0.05,sy-lh*0.13);ctx.strokeStyle='rgba(200,169,110,.6)';ctx.lineWidth=1;ctx.stroke();
-          ctx.beginPath();ctx.arc(cx+sx,sy,Math.max(lh*0.07,1.5),0,Math.PI*2);ctx.fill();
-          ctx.beginPath();ctx.moveTo(cx+sx,sy);ctx.lineTo(cx+sx+lh*0.05,sy-lh*0.13);ctx.stroke();
-        }
-      }else if(isSideR||isSideL){
-        ctx.beginPath();
-        ctx.moveTo(cx-roofW/2,lyTop);ctx.lineTo(cx-roofW*0.12,lyTop-roofH);
-        ctx.lineTo(cx+roofW*0.12,lyTop-roofH);ctx.lineTo(cx+roofW/2,lyTop);
-        ctx.closePath();ctx.fill();ctx.strokeStyle='rgba(200,169,110,.35)';ctx.stroke();
-        ctx.beginPath();ctx.moveTo(cx-roofW*0.12,lyTop-roofH);ctx.lineTo(cx+roofW*0.12,lyTop-roofH);
-        ctx.strokeStyle='rgba(200,169,110,.5)';ctx.lineWidth=0.8;ctx.stroke();
-      }else{
-        const diagShift=(isSideR||isDiagFR||isDiagBR)?projW*0.08:-projW*0.08;
-        ctx.beginPath();
-        ctx.moveTo(cx-roofW/2,lyTop);ctx.lineTo(cx+diagShift,lyTop-roofH);ctx.lineTo(cx+roofW/2,lyTop);
-        ctx.closePath();ctx.fill();ctx.strokeStyle='rgba(200,169,110,.4)';ctx.stroke();
-        if(li===2&&(isDiagFR||isDiagFL)){
-          const sx=(isDiagFR?1:-1)*roofW/2*0.8,sy=lyTop-roofH*0.12;
-          ctx.fillStyle='rgba(200,169,110,.65)';
-          ctx.beginPath();ctx.arc(cx+sx,sy,Math.max(lh*0.07,1.5),0,Math.PI*2);ctx.fill();
-        }
-      }
-    });
-    const swH=castleH*0.12;
-    ctx.fillStyle='#131d30';ctx.strokeStyle='rgba(200,169,110,.25)';ctx.lineWidth=0.8;
-    ctx.beginPath();
-    ctx.moveTo(cx-projW*0.6,cBaseY);ctx.lineTo(cx-projW*0.55,cBaseY-swH);
-    ctx.lineTo(cx+projW*0.55,cBaseY-swH);ctx.lineTo(cx+projW*0.6,cBaseY);
-    ctx.closePath();ctx.fill();ctx.stroke();
-  }
-
-  // 水平線
-  ctx.strokeStyle='rgba(200,169,110,.15)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
-  ctx.beginPath();ctx.moveTo(0,horizon);ctx.lineTo(W,horizon);ctx.stroke();ctx.setLineDash([]);
-  // 地面
-  ctx.fillStyle='rgba(12,18,32,.95)';ctx.fillRect(0,horizon,W,H-horizon);
-
-  // 月/太陽がFOV外
+  // 月/太陽がFOV外（pvAzOfsによるカメラ向きオフセットを加味）
   if(bodyVisible&&mAz!==null){
     const dAz=azDiff(tAz,mAz);
-    if(Math.abs(dAz)>fvH/2){
+    const dAzInCam=dAz-pvAzOfs; // カメラ座標系での方位角ずれ
+    if(Math.abs(dAzInCam)>fvH/2){
       const label=sunsetMode?'太陽':'月';
       ctx.fillStyle=sunsetMode?'#ffaa44':'#7eb8e8';
       ctx.font=`10px 'Space Mono',monospace`;ctx.textAlign='center';
-      ctx.fillText(`${dAz>0?label+' →':'← '+label} (${Math.abs(dAz).toFixed(1)}° FOV外)`,cx,H*0.4);
+      ctx.fillText(`${dAzInCam>0?label+' →':'← '+label} (${Math.abs(dAzInCam).toFixed(1)}° FOV外)`,cx,H*0.4);
     }
   }
   if(!bodyVisible&&mAz!==null){
@@ -1775,24 +2793,42 @@ function drawView(dist,tAz,va){
     ctx.font=`9px 'Space Mono',monospace`;ctx.textAlign='center';
     ctx.fillText(label,cx,horizon-20);
   }
-  // 情報ラベル
-  const fovLabel=`FOV ${fvH.toFixed(1)}°  月 ${MOON}°  ${T[cur].name}頂 ${angS(T[cur].h,dist).toFixed(1)}°  仰角 ${vaTop.toFixed(2)}°`;
-  ctx.font=`10px 'Space Mono',monospace`;ctx.textAlign='left';
-  const flw=ctx.measureText(fovLabel).width;
-  ctx.fillStyle='rgba(10,15,28,0.75)';ctx.fillRect(0,H-18,flw+10,18);
-  ctx.fillStyle='rgba(200,169,110,.9)';ctx.fillText(fovLabel,5,H-5);
+  // 情報ラベル（オフセット外：canvas固定位置に表示）
+  ctx.restore();
+  const bodyName=sunsetMode?'太陽':'月';
+  const fovLabel=`FOV ${fvH.toFixed(1)}°  ${bodyName} ${bodyAngDiam.toFixed(3)}°  ${T[cur].name}頂 ${angS(T[cur].h,dist).toFixed(1)}°  仰角 ${vaTop.toFixed(2)}°`;
+  // canvas幅に収まるようフォントサイズを自動縮小（8px→最小6px）
+  let fovFs=8;
+  ctx.font=`${fovFs}px 'Space Mono',monospace`;
+  while(ctx.measureText(fovLabel).width>W-10&&fovFs>6){ fovFs--; ctx.font=`${fovFs}px 'Space Mono',monospace`; }
+  ctx.textAlign='left';
+  {
+    const fovW=ctx.measureText(fovLabel).width;
+    ctx.fillStyle='rgba(240,240,248,0.30)';ctx.fillRect(4,H-fovFs-5,fovW+6,fovFs+4);
+  }
+  ctx.fillStyle='rgba(20,20,50,0.95)';ctx.fillText(fovLabel,7,H-4);
 
-  // 左上に設定日時を大きく表示
+  // 左上に設定日時を大きく表示（canvas幅に収まるようフォントサイズ自動調整）
   if(ds&&ts){
     const dtLabel=`${ds} ${ts}`;
-    ctx.font=`bold 22px 'Space Mono',monospace`;
+    let dtFs=14;
+    ctx.font=`bold ${dtFs}px 'Space Mono',monospace`;
+    while(ctx.measureText(dtLabel).width>W*0.92&&dtFs>9){
+      dtFs--;
+      ctx.font=`bold ${dtFs}px 'Space Mono',monospace`;
+    }
     ctx.textAlign='left';
-    const dtW=ctx.measureText(dtLabel).width;
-    ctx.fillStyle='rgba(10,15,28,0.72)';
-    ctx.fillRect(6,6,dtW+14,32);
-    ctx.fillStyle='rgba(240,230,200,0.95)';
-    ctx.fillText(dtLabel,13,30);
+    {
+      const dtW=ctx.measureText(dtLabel).width;
+      ctx.fillStyle='rgba(240,240,248,0.72)';ctx.fillRect(6,4,dtW+6,dtFs+4);
+    }
+    ctx.fillStyle='rgba(20,20,50,0.95)';
+    ctx.fillText(dtLabel,9,dtFs+5);
   }
+  // canvas外周枠線（スマホでcanvasと余白の境界を明示）
+  ctx.strokeStyle='rgba(200,169,110,0.30)';
+  ctx.lineWidth=1;
+  ctx.strokeRect(0.5,0.5,W-1,H-1);
 }
 
 function drawCompass(tAz,va){
@@ -1806,16 +2842,26 @@ function drawCompass(tAz,va){
   ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
 
   if(sLat===null){
-    ctx.fillStyle='rgba(122,130,160,.6)';ctx.font=`11px 'Space Mono',monospace`;
     ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText('地図をクリックしてください',W/2,H/2);
+    const msg='地図をクリックしてください';
+    let fs=11;
+    ctx.font=`${fs}px 'Space Mono',monospace`;
+    while(ctx.measureText(msg).width>W-12&&fs>6){fs--;ctx.font=`${fs}px 'Space Mono',monospace`;}
+    ctx.fillStyle='rgba(122,130,160,.6)';
+    ctx.fillText(msg,W/2,H/2);
     ctx.textBaseline='alphabetic';return;
   }
 
   // コンパス円：左寄せ
-  const R=Math.min(H*0.38,W*0.22);
-  const margin=R+16;
-  const cx=margin,cy=H/2;
+  // スマホ（canvas幅600未満）は縦レイアウト、PCは横レイアウト
+  const isMobCanvas=W<600;
+  const isMobLand=isMobCanvas&&(W>H); // スマホ横向き
+  const isMobPort=isMobCanvas&&(W<=H); // スマホ縦向き
+  // 横向き：コンパス円を左上に小さく
+  // 縦向き：コンパス円を上部中央に
+  const R=isMobLand?Math.min(H*0.32,W*0.18):isMobPort?Math.min(H*0.20,W*0.22):Math.min(H*0.38,W*0.22);
+  const cx=isMobLand?R+10:isMobPort?W/2:R+16;
+  const cy=isMobLand?R+10:isMobPort?R+12:H/2;
 
   ctx.strokeStyle='rgba(200,169,110,.35)';ctx.lineWidth=1;
   ctx.beginPath();ctx.arc(cx,cy,R,0,6.28);ctx.stroke();
@@ -1872,78 +2918,436 @@ function drawCompass(tAz,va){
 
   ctx.fillStyle='#c8a96e';ctx.beginPath();ctx.arc(cx,cy,3,0,6.28);ctx.fill();
 
-  // 右側に情報テキスト（背景付き）
-  const infoX=cx+R+22;
   const infoLines=[
     {text:`AZ ${tAz.toFixed(1)}°`, color:'rgba(220,190,120,0.95)', size:'bold 11px'},
     {text:`ELEV ${Math.max(0,va).toFixed(2)}°`, color:'rgba(160,210,255,0.95)', size:'bold 11px'},
     {text:T[cur].name, color:'rgba(160,170,200,0.8)', size:'9px'},
   ];
-  ctx.textAlign='left';ctx.textBaseline='alphabetic';
-  infoLines.forEach((line,i)=>{
-    ctx.font=`${line.size} 'Space Mono',monospace`;
-    const lw=ctx.measureText(line.text).width;
-    const ly=cy-16+i*18;
-    ctx.fillStyle='rgba(10,15,28,0.65)';ctx.fillRect(infoX-3,ly-12,lw+8,14);
-    ctx.fillStyle=line.color;ctx.fillText(line.text,infoX,ly);
-  });
 
-  // 仰角ダイアグラム（右下）
-  const ex=infoX,ey=H-20,ew=Math.min(W-infoX-8,R*1.2),eh=Math.min(H*0.45,R*1.1);
-  if(ew>20&&eh>20){
-    ctx.strokeStyle='rgba(200,169,110,.3)';ctx.lineWidth=1;
-    ctx.beginPath();ctx.moveTo(ex,ey-eh);ctx.lineTo(ex,ey);ctx.lineTo(ex+ew,ey);ctx.stroke();
-    const ar=Math.max(0,va)*Math.PI/180;
-    ctx.strokeStyle='#c8a96e';ctx.lineWidth=2;ctx.shadowColor='#c8a96e';ctx.shadowBlur=4;
-    ctx.beginPath();ctx.moveTo(ex,ey);ctx.arc(ex,ey,ew*.68,0,-ar,true);ctx.stroke();ctx.shadowBlur=0;
-    const ll=ew*.74;
-    ctx.strokeStyle='rgba(200,169,110,.5)';ctx.lineWidth=1.5;
-    ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex+ll*Math.cos(-ar),ey+ll*Math.sin(-ar));ctx.stroke();
-    ctx.font='13px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText(T[cur].e,ex+ll*Math.cos(-ar),ey+ll*Math.sin(-ar)-5);
-    const elvLabel=`${Math.max(0,va).toFixed(2)}°`;
-    ctx.font=`bold 10px 'Space Mono',monospace`;ctx.textAlign='left';ctx.textBaseline='alphabetic';
-    const elw=ctx.measureText(elvLabel).width;
-    ctx.fillStyle='rgba(10,15,28,0.65)';ctx.fillRect(ex+18,ey-20,elw+6,13);
-    ctx.fillStyle='rgba(200,220,160,0.95)';ctx.fillText(elvLabel,ex+20,ey-9);
+  if(isMobCanvas){
+    if(isMobLand){
+      // ━━ スマホ横向き：左上にコンパス円、右側に縦積み（AZ/ELEV→仰角→月齢）━━
+      const rightX=cx+R+14;
+      ctx.textAlign='left';ctx.textBaseline='alphabetic';
+      infoLines.forEach((line,i)=>{
+        ctx.font=`${line.size} 'Space Mono',monospace`;
+        const lw=ctx.measureText(line.text).width;
+        const ly=14+i*16;
+        ctx.fillStyle='rgba(10,15,28,0.65)';ctx.fillRect(rightX-2,ly-12,lw+6,14);
+        ctx.fillStyle=line.color;ctx.fillText(line.text,rightX,ly);
+      });
+      const elvTop=14+infoLines.length*16+8;
+      const phaseAreaH=40;
+      const ew=Math.min(W-rightX-10, H*0.50);
+      const eh=Math.min(H-elvTop-phaseAreaH-8, ew*0.65);
+      const ex=rightX, ey=elvTop+Math.max(eh,0);
+      if(ew>20&&eh>8){
+        ctx.strokeStyle='rgba(200,169,110,.3)';ctx.lineWidth=1;
+        ctx.beginPath();ctx.moveTo(ex,ey-eh);ctx.lineTo(ex,ey);ctx.lineTo(ex+ew,ey);ctx.stroke();
+        const ar=Math.max(0,va)*Math.PI/180;
+        ctx.strokeStyle='#c8a96e';ctx.lineWidth=2;ctx.shadowColor='#c8a96e';ctx.shadowBlur=4;
+        ctx.beginPath();ctx.moveTo(ex,ey);ctx.arc(ex,ey,ew*.65,0,-ar,true);ctx.stroke();ctx.shadowBlur=0;
+        const ll=ew*.70;
+        ctx.strokeStyle='rgba(200,169,110,.5)';ctx.lineWidth=1.5;
+        ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex+ll*Math.cos(-ar),ey+ll*Math.sin(-ar));ctx.stroke();
+        ctx.font='11px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText(T[cur].e,ex+ll*Math.cos(-ar),ey+ll*Math.sin(-ar)-4);
+        const elvLabel=`${Math.max(0,va).toFixed(2)}°`;
+        ctx.font=`bold 9px 'Space Mono',monospace`;ctx.textAlign='left';ctx.textBaseline='alphabetic';
+        const elw=ctx.measureText(elvLabel).width;
+        ctx.fillStyle='rgba(10,15,28,0.65)';ctx.fillRect(ex+10,ey-16,elw+4,11);
+        ctx.fillStyle='rgba(200,220,160,0.95)';ctx.fillText(elvLabel,ex+11,ey-7);
+      }
+      const phaseY0=H-phaseAreaH+4;
+      const ds2=document.getElementById('idate').value;
+      if(ds2){
+        const age2=moonAge(new Date(ds2+'T03:00:00Z'));
+        const pname=moonPhaseName(age2);
+        const pr=Math.min(16,Math.floor(phaseAreaH*0.42));
+        const pmx=rightX+pr+2, pmy=phaseY0+pr;
+        drawMoonIcon(ctx,pmx,pmy,pr,age2,sunsetMode?0:gMoonTilt);
+        const tx2=pmx+pr+6;
+        ctx.textAlign='left';ctx.textBaseline='alphabetic';
+        ctx.font=`bold 12px 'Space Mono',monospace`;ctx.fillStyle='rgba(200,169,110,0.95)';ctx.fillText(`${age2.toFixed(1)}日`,tx2,pmy+2);
+        ctx.font=`9px 'Noto Sans JP',sans-serif`;ctx.fillStyle='rgba(200,200,220,0.85)';ctx.fillText(pname,tx2,pmy+14);
+      }
+    } else {
+      // ━━ スマホ縦向き：上部中央コンパス → AZ/ELEV → 仰角（左端から）→ 月齢（下部固定）━━
+      const infoY0=cy+R+14;
+      ctx.textAlign='center';ctx.textBaseline='alphabetic';
+      infoLines.forEach((line,i)=>{
+        ctx.font=`${line.size} 'Space Mono',monospace`;
+        const lw=ctx.measureText(line.text).width;
+        const ly=infoY0+i*15;
+        ctx.fillStyle='rgba(10,15,28,0.65)';ctx.fillRect(cx-lw/2-3,ly-12,lw+6,14);
+        ctx.fillStyle=line.color;ctx.fillText(line.text,cx,ly);
+      });
+      const elvTop=infoY0+infoLines.length*15+10;
+      const phaseAreaH=52, margin=10;
+      const ew=Math.min(W-margin*2, H*0.30);
+      const eh=Math.min(H-elvTop-phaseAreaH-10, ew*0.70);
+      const ex=margin, ey=elvTop+Math.max(eh,0);
+      if(ew>20&&eh>10){
+        ctx.strokeStyle='rgba(200,169,110,.3)';ctx.lineWidth=1;
+        ctx.beginPath();ctx.moveTo(ex,ey-eh);ctx.lineTo(ex,ey);ctx.lineTo(ex+ew,ey);ctx.stroke();
+        const ar=Math.max(0,va)*Math.PI/180;
+        ctx.strokeStyle='#c8a96e';ctx.lineWidth=2;ctx.shadowColor='#c8a96e';ctx.shadowBlur=4;
+        ctx.beginPath();ctx.moveTo(ex,ey);ctx.arc(ex,ey,ew*.65,0,-ar,true);ctx.stroke();ctx.shadowBlur=0;
+        const ll=ew*.70;
+        ctx.strokeStyle='rgba(200,169,110,.5)';ctx.lineWidth=1.5;
+        ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex+ll*Math.cos(-ar),ey+ll*Math.sin(-ar));ctx.stroke();
+        ctx.font='12px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText(T[cur].e,ex+ll*Math.cos(-ar),ey+ll*Math.sin(-ar)-4);
+        const elvLabel=`${Math.max(0,va).toFixed(2)}°`;
+        ctx.font=`bold 10px 'Space Mono',monospace`;ctx.textAlign='left';ctx.textBaseline='alphabetic';
+        const elw=ctx.measureText(elvLabel).width;
+        ctx.fillStyle='rgba(10,15,28,0.65)';ctx.fillRect(ex+14,ey-18,elw+6,13);
+        ctx.fillStyle='rgba(200,220,160,0.95)';ctx.fillText(elvLabel,ex+16,ey-7);
+      }
+      const phaseY0=H-phaseAreaH+4;
+      const ds2=document.getElementById('idate').value;
+      if(ds2){
+        const age2=moonAge(new Date(ds2+'T03:00:00Z'));
+        const pname=moonPhaseName(age2);
+        const pr=16, pmx=margin+pr+2, pmy=phaseY0+pr+2;
+        drawMoonIcon(ctx,pmx,pmy,pr,age2,sunsetMode?0:gMoonTilt);
+        const tx2=pmx+pr+7;
+        ctx.textAlign='left';ctx.textBaseline='alphabetic';
+        ctx.font=`bold 13px 'Space Mono',monospace`;ctx.fillStyle='rgba(200,169,110,0.95)';ctx.fillText(`${age2.toFixed(1)}日`,tx2,pmy-2);
+        ctx.font=`10px 'Noto Sans JP',sans-serif`;ctx.fillStyle='rgba(200,200,220,0.85)';ctx.fillText(pname,tx2,pmy+12);
+      }
+    }
+
+  } else {
+    // PC：右側に情報テキスト＋仰角ダイアグラム（元のレイアウト）
+    const infoX=cx+R+22;
+    ctx.textAlign='left';ctx.textBaseline='alphabetic';
+    infoLines.forEach((line,i)=>{
+      ctx.font=`${line.size} 'Space Mono',monospace`;
+      const lw=ctx.measureText(line.text).width;
+      const ly=cy-16+i*18;
+      ctx.fillStyle='rgba(10,15,28,0.65)';ctx.fillRect(infoX-3,ly-12,lw+8,14);
+      ctx.fillStyle=line.color;ctx.fillText(line.text,infoX,ly);
+    });
+    const availW=W-infoX-12;
+    const ex=infoX,ey=H-20,ew=Math.min(availW,R*0.85),eh=Math.min(H*0.38,ew*0.9);
+    if(ew>20&&eh>20){
+      ctx.strokeStyle='rgba(200,169,110,.3)';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(ex,ey-eh);ctx.lineTo(ex,ey);ctx.lineTo(ex+ew,ey);ctx.stroke();
+      const ar=Math.max(0,va)*Math.PI/180;
+      ctx.strokeStyle='#c8a96e';ctx.lineWidth=2;ctx.shadowColor='#c8a96e';ctx.shadowBlur=4;
+      ctx.beginPath();ctx.moveTo(ex,ey);ctx.arc(ex,ey,ew*.68,0,-ar,true);ctx.stroke();ctx.shadowBlur=0;
+      const ll=ew*.74;
+      ctx.strokeStyle='rgba(200,169,110,.5)';ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex+ll*Math.cos(-ar),ey+ll*Math.sin(-ar));ctx.stroke();
+      ctx.font='13px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(T[cur].e,ex+ll*Math.cos(-ar),ey+ll*Math.sin(-ar)-5);
+      const elvLabel=`${Math.max(0,va).toFixed(2)}°`;
+      ctx.font=`bold 10px 'Space Mono',monospace`;ctx.textAlign='left';ctx.textBaseline='alphabetic';
+      const elw=ctx.measureText(elvLabel).width;
+      ctx.fillStyle='rgba(10,15,28,0.65)';ctx.fillRect(ex+18,ey-20,elw+6,13);
+      ctx.fillStyle='rgba(200,220,160,0.95)';ctx.fillText(elvLabel,ex+20,ey-9);
+    }
   }
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// SUGGESTION
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function suggest(dist,tAz,va){
+// 撮影地点 保存・一覧
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 15スロット固定。nullは空き。
+const SPOT_COLORS=[
+  '#e74c3c','#e67e22','#f1c40f','#2ecc71','#1abc9c',
+  '#3498db','#9b59b6','#e91e8c','#00bcd4','#8bc34a',
+  '#ff5722','#607d8b','#795548','#ff9800','#cddc39'
+];
+const SPOT_MAX=15;
+let spotPinLayers=[]; // 地図上のピンレイヤー
+
+function _emptySlots(){
+  // savedSpotsをSPOT_MAX長の固定配列として扱う
+  while(savedSpots.length<SPOT_MAX) savedSpots.push(null);
+  savedSpots.length=SPOT_MAX;
+}
+
+function saveSpot(){
+  if(sLat===null){
+    showHint('先に地図をクリックして撮影地点を選択してください。');
+    return;
+  }
+  _emptySlots();
+  const idx=savedSpots.findIndex(s=>s===null);
+  if(idx===-1){
+    showHint('保存スロットが満杯です（最大15件）。一覧から不要な地点を削除してください。');
+    openSpotPanel();
+    return;
+  }
   const t=T[cur];
-  const ta=angS(t.h,dist);
-  const opt=Math.max(9,Math.min(1600,Math.round(MOON/ta*focal)));
+  const distH=hav(sLat,sLng,t.lat,t.lng);
+  const tAz=brng(sLat,sLng,t.lat,t.lng);
+  const va=elAng(distH,sElev,t.elev,t.h);
   const ds=document.getElementById('idate').value;
-  const lat=sLat!==null?sLat:t.lat;
-  const lng=sLng!==null?sLng:t.lng;
-  const moon=ds?moonTCached(ds,lat,lng):{rise:null,set:null};
-  let s='';
-  if(dist<1){s=`⚠️ 近すぎます（${dist.toFixed(2)}km）\n月と対象を同フレームに収めるには最低3km以上離れてください。`;}
-  else if(dist>80){s=`⚠️ 遠すぎます（${dist.toFixed(1)}km）\n${t.name}が非常に小さくなります。`;}
-  else{
-    s+=`📍 ${t.name}まで ${dist.toFixed(1)}km\n`;
-    s+=`📷 推奨焦点距離: 約 ${opt}mm\n`;
-    s+=`🧭 対象方位: ${tAz.toFixed(1)}° ${cdir(tAz)}\n`;
-    if(va>-1&&va<4)s+=`✅ 仰角${va.toFixed(1)}° — 月の出入りのタイミングが最適\n`;
-    else if(va>=4)s+=`📐 仰角${va.toFixed(1)}° — 月が同高度に来る時刻を狙う\n`;
-    s+=moon.rise?`🌕 月の出: ${jst(moon.rise)} 前後が撮影チャンス`:`🌑 この日この地点では月の出なし`;
-  }
-  const sugEl=document.getElementById('sug');if(sugEl)sugEl.textContent=s;
+  const ts=document.getElementById('itime').value;
+  const spot={
+    lat:sLat, lng:sLng,
+    target:cur,
+    focal,
+    orientation,
+    tripodH,
+    elevOffset,
+    sunsetMode,
+    pvAzOfs,
+    pvAltOfs,
+    date:ds,
+    time:ts,
+    az:tAz, va, dist:distH,
+    savedAt:new Date().toISOString()
+  };
+  savedSpots[idx]=spot;
+  _saveToLocalStorage();
+  renderSpotPins();
+  renderSpotPanel();
+  showHint(`スロット${idx+1}に保存しました。`);
 }
+
+function deleteSpot(idx){
+  _emptySlots();
+  savedSpots[idx]=null;
+  _saveToLocalStorage();
+  renderSpotPins();
+  renderSpotPanel();
+}
+
+function loadSpot(idx){
+  _emptySlots();
+  const spot=savedSpots[idx];
+  if(!spot)return;
+  sLat=spot.lat;
+  sLng=spot.lng;
+  if(spot.target&&spot.target!==cur) selTarget(spot.target);
+  if(spot.focal) setF(spot.focal);
+  if(spot.orientation) setOrientation(spot.orientation);
+  if(spot.tripodH!=null){
+    tripodH=spot.tripodH;
+    const el=document.getElementById('tripod-disp');
+    if(el)el.innerHTML=`${tripodH}<span style="font-size:8px;color:var(--sub);">cm</span>`;
+  }
+  if(spot.elevOffset!=null){
+    elevOffset=spot.elevOffset;
+  }
+  if(spot.sunsetMode!=null) setSunsetMode(spot.sunsetMode);
+  if(spot.pvAzOfs!=null) pvAzOfs=spot.pvAzOfs;
+  if(spot.pvAltOfs!=null) pvAltOfs=spot.pvAltOfs;
+  if(spot.date){
+    document.getElementById('idate').value=spot.date;
+    document.getElementById('idate').dispatchEvent(new Event('change'));
+  }
+  if(spot.time){
+    document.getElementById('itime').value=spot.time;
+    const td=document.getElementById('tbtn-time-disp');
+    if(td)td.textContent=spot.time;
+  }
+  syncMobileUI();
+  if(map) map.setView([sLat,sLng],15);
+  closeSpotPanel();
+  onPick();
+}
+
+function _spotLabel(spot){
+  if(!spot)return'';
+  const icon=spot.sunsetMode?'🌅':'🌕';
+  const tname=T[spot.target]?T[spot.target].name:'—';
+  const ds=spot.date||'';
+  const ts=spot.time||'';
+  let dow='';
+  if(ds){
+    dow=new Date(ds+'T12:00:00+09:00').toLocaleDateString('ja-JP',{weekday:'short'});
+    dow=`(${dow})`;
+  }
+  return`${icon} ${tname} ${ds}${dow} ${ts}`;
+}
+
+function renderSpotPanel(){
+  const el=document.getElementById('spot-panel-list');
+  if(!el)return;
+  _emptySlots();
+  el.innerHTML=savedSpots.map((spot,i)=>{
+    const color=SPOT_COLORS[i];
+    const numBadge=`<span style="display:inline-block;width:18px;height:18px;border-radius:50%;
+      background:${color};color:#fff;font-size:9px;font-weight:700;
+      text-align:center;line-height:18px;flex-shrink:0;">${i+1}</span>`;
+    if(!spot){
+      return`<div style="display:flex;align-items:center;gap:8px;padding:5px 4px;
+        border-bottom:1px solid var(--bd);opacity:0.35;">
+        ${numBadge}
+        <span style="font-size:10px;color:var(--sub);font-family:'Space Mono',monospace;flex:1;">— 空き —</span>
+      </div>`;
+    }
+    const label=_spotLabel(spot);
+    return`<div style="display:flex;align-items:center;gap:6px;padding:6px 4px;
+      border-bottom:1px solid var(--bd);">
+      ${numBadge}
+      <span style="flex:1;font-size:11px;color:var(--tx);min-width:0;
+        overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;"
+        onclick="loadSpot(${i})" title="読み込む">${label}</span>
+      <span onclick="exportOneSpot(${i})"
+        style="color:var(--sub);font-size:13px;padding:2px 5px;cursor:pointer;flex-shrink:0;
+        border:1px solid var(--bd);border-radius:3px;"
+        title="このスロットのURLをコピー">🔗</span>
+      <span onclick="deleteSpot(${i})"
+        style="color:var(--sub);font-size:13px;padding:2px 5px;cursor:pointer;flex-shrink:0;
+        border:1px solid var(--bd);border-radius:3px;"
+        title="削除">✕</span>
+    </div>`;
+  }).join('');
+}
+
+function renderSpotPins(){
+  // 既存ピンを削除
+  spotPinLayers.forEach(l=>{try{map.removeLayer(l);}catch(e){}});
+  spotPinLayers=[];
+  if(!map)return;
+  _emptySlots();
+  savedSpots.forEach((spot,i)=>{
+    if(!spot)return;
+    const color=SPOT_COLORS[i];
+    const dateStr=spot.date||'';
+    const icon=spot.sunsetMode?'🌅':'🌕';
+    const label=dateStr?`${icon} ${dateStr}`:'';
+    const marker=L.marker([spot.lat,spot.lng],{
+      icon:L.divIcon({
+        html:`<div style="display:flex;align-items:center;gap:4px;pointer-events:none;">
+          <div style="width:10px;height:10px;border-radius:50%;flex-shrink:0;
+            background:${color};border:2px solid rgba(255,255,255,.8);
+            box-shadow:0 0 4px rgba(0,0,0,.5);"></div>
+          ${label?`<div style="background:rgba(10,12,20,.75);border-radius:2px;
+            padding:1px 4px;font-family:'Space Mono',monospace;font-size:9px;
+            color:${color};white-space:nowrap;line-height:1.4;">${label}</div>`:''}
+        </div>`,
+        className:'',iconAnchor:[5,5]
+      }),
+      interactive:false
+    }).addTo(map);
+    spotPinLayers.push(marker);
+  });
+}
+
+function openSpotPanel(){
+  renderSpotPanel();
+  document.getElementById('spot-panel').style.display='block';
+  document.getElementById('spot-overlay-bg').style.display='block';
+}
+
+function closeSpotPanel(){
+  document.getElementById('spot-panel').style.display='none';
+  document.getElementById('spot-overlay-bg').style.display='none';
+}
+
+function exportOneSpot(idx){
+  _emptySlots();
+  const spot=savedSpots[idx];
+  if(!spot)return;
+  try{
+    // そのスロット1件だけを15スロット配列のidx位置に入れてエンコード
+    const single=new Array(SPOT_MAX).fill(null);
+    single[idx]=spot;
+    const encoded=btoa(encodeURIComponent(JSON.stringify(single)));
+    const base=location.href.split('#')[0].split('?')[0];
+    const url=base+'?spots='+encoded;
+    navigator.clipboard.writeText(url).then(()=>{
+      showHint(`スロット${idx+1}のURLをコピーしました。`);
+    }).catch(()=>{
+      prompt('このURLをコピーしてください：',url);
+    });
+  }catch(e){
+    showHint('URLの生成に失敗しました。');
+  }
+}
+
+function _saveToLocalStorage(){
+  try{ localStorage.setItem('moon_planner_spots', JSON.stringify(savedSpots)); }catch(e){}
+}
+
+function _loadFromLocalStorage(){
+  try{
+    const raw=localStorage.getItem('moon_planner_spots');
+    if(raw){
+      const parsed=JSON.parse(raw);
+      if(Array.isArray(parsed)){
+        savedSpots=parsed;
+        _emptySlots();
+      }
+    }
+  }catch(e){ savedSpots=[]; }
+}
+
+function _loadFromURLHash(){
+  try{
+    const search=location.search;
+    const hash=location.hash;
+    const src=search.includes('spots=')?(search.slice(1)):(hash.slice(1));
+    const m=src.match(/spots=([^&]+)/);
+    if(!m)return;
+    const data=JSON.parse(decodeURIComponent(atob(m[1])));
+    if(!Array.isArray(data))return;
+    const spot=data.find(s=>s!==null);
+    if(!spot)return;
+    if(spot.lat!=null&&spot.lng!=null){ sLat=spot.lat; sLng=spot.lng; }
+    if(spot.target&&T[spot.target]) selTarget(spot.target);
+    if(spot.focal) setF(spot.focal);
+    if(spot.orientation) setOrientation(spot.orientation);
+    if(spot.tripodH!=null){
+      tripodH=spot.tripodH;
+      const el=document.getElementById('tripod-disp');
+      if(el)el.innerHTML=`${tripodH}<span style="font-size:8px;color:var(--sub);">cm</span>`;
+    }
+    if(spot.elevOffset!=null) elevOffset=spot.elevOffset;
+    if(spot.sunsetMode!=null) setSunsetMode(spot.sunsetMode);
+    if(spot.pvAzOfs!=null) pvAzOfs=spot.pvAzOfs;
+    if(spot.pvAltOfs!=null) pvAltOfs=spot.pvAltOfs;
+    if(spot.date){
+      document.getElementById('idate').value=spot.date;
+      document.getElementById('idate').dispatchEvent(new Event('change'));
+    }
+    if(spot.time){
+      document.getElementById('itime').value=spot.time;
+      const td=document.getElementById('tbtn-time-disp');
+      if(td)td.textContent=spot.time;
+    }
+    syncMobileUI();
+    // 地図準備後に反映（initMapのsetTimeout 400msより長く取る）
+    setTimeout(()=>{
+      if(map&&sLat!==null) map.setView([sLat,sLng],15);
+      if(sLat!==null) onPick();
+    },700);
+  }catch(e){}
+}
+// suggest()はUIコメントアウト中につき無効化（07撮影提案セクション復活時に再実装）
+// function suggest(dist,tAz,va){ ... }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // CONTROLS
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function setSunsetMode(v){
-  if(cur!=='pl'){v=false;}
+  if(!T[cur].sunsetOk){v=false;}
   sunsetMode=v;
   const cb=document.getElementById('cb-sunset');
   const lb=document.getElementById('lb-sunset');
   if(cb)cb.checked=v;
   if(lb)lb.style.color=v?'var(--ac)':'var(--sub)';
+  // バグ3修正: ラベル・チャンスボタンをモードに合わせて更新
+  const pvLabel=document.getElementById('pv-label-text');
+  if(pvLabel)pvLabel.textContent=v?'◎ プレビュー（対象 + 太陽）':'◎ プレビュー（対象 + 月）';
+  const btnChance=document.getElementById('btn-chance');
+  if(btnChance)btnChance.textContent=v?'📅 選択日から90日を検索（太陽）':'📅 選択日から90日を検索';
+  // 満月ボタン：夕日モード時は非表示、リストもクリア
+  const btnFM=document.getElementById('btn-fullmoon');
+  const fmList=document.getElementById('fullmoon-list');
+  if(btnFM)btnFM.style.display=v?'none':'';
+  if(fmList&&v)fmList.innerHTML='';
+  // 満ち欠けカレンダーボタン：夕日モード時は非表示
+  const btnMC=document.getElementById('btn-mooncal');
+  if(btnMC)btnMC.style.display=v?'none':'';
   calcSunMoon();
   if(sLat!==null){
     const t=T[cur];
@@ -1952,28 +3356,26 @@ function setSunsetMode(v){
     try{drawView(dD,az,elAng(dH,sElev,t.elev,t.h));}catch(e){}
     try{drawCompass(az,elAng(dH,sElev,t.elev,t.h));}catch(e){}
   }
+  updateDrawerIfOpen();
 }
 
 function selTarget(k){
   if(!T[k])return;
   cur=k;
-  ['pl','gifu'].forEach(id=>{
+  Object.keys(T).forEach(id=>{
     const el=document.getElementById('c-'+id);
     if(el)el.classList.toggle('on',id===k);
   });
-  // 岐阜城選択時は夕日モード強制オフ＆disabled
-  const cb=document.getElementById('cb-sunset');
-  const lb=document.getElementById('lb-sunset');
-  if(k==='gifu'){
-    sunsetMode=false;
-    if(cb){cb.checked=false;cb.disabled=true;cb.style.opacity='0.3';cb.style.cursor='not-allowed';}
-    if(lb)lb.style.color='var(--sub)';
-  }else{
-    if(cb){cb.disabled=false;cb.style.opacity='1';cb.style.cursor='pointer';}
-  }
+
   if(map){map.setView([T[k].lat,T[k].lng],T[k].zoom);addTargetPin();}
   clearFans();
-  if(sLat!==null)onPick();else calcSunMoon();
+  if(sLat!==null)onPick();
+  else{
+    calcSunMoon();
+    try{drawView(5,180,3.30);}catch(e){}
+    try{drawCompass(180,3.30);}catch(e){}
+  }
+  updateDrawerIfOpen();
 }
 
 function shiftTripod(v, reset=false){
@@ -1982,43 +3384,232 @@ function shiftTripod(v, reset=false){
   if(el)el.innerHTML=`${tripodH}<span style="font-size:8px;color:var(--sub);">cm</span>`;
   syncMobileUI();
   if(sLat!==null) onPick();
+  updateDrawerIfOpen();
+}
+
+function _syncFromDrawer(){
+  // ドロワー内で変更された入力値を元の#pnlに反映
+  const dst=document.getElementById('mob-drawer-content');
+  const src=document.getElementById('pnl');
+  dst.querySelectorAll('input').forEach(el=>{
+    const orig=src.querySelector('#'+el.id);
+    if(!orig)return;
+    if(el.type==='checkbox'){
+      if(orig.checked!==el.checked){
+        orig.checked=el.checked;
+        orig.dispatchEvent(new Event('change'));
+      }
+    } else {
+      if(orig.value!==el.value){
+        orig.value=el.value;
+        orig.dispatchEvent(new Event('change'));
+      }
+    }
+  });
 }
 
 function toggleDrawer(){
   const drawer=document.getElementById('mob-drawer');
   const overlay=document.getElementById('mob-overlay');
   const isOpen=drawer.classList.contains('open');
-  const pnl=document.getElementById('pnl');
-  const dst=document.getElementById('mob-drawer-content');
-  const wrap=document.getElementById('wrap');
 
   if(!isOpen){
-    // #pnlをドロワーに物理移動（値・イベントリスナー保持）
-    dst.appendChild(pnl);
-    // ドロワー内では幅・スクロール調整＋表示
-    pnl.style.display='flex';
-    pnl.style.width='100%';
-    pnl.style.height='auto';
-    pnl.style.overflow='visible';
-    pnl.style.borderRight='none';
+    // 開く：#pnlのHTMLをそのままミラーリング（DOM物理移動しない）
+    _syncDrawerContent();
   } else {
-    // #pnlをwrapの先頭に戻して非表示に戻す
-    wrap.insertBefore(pnl, wrap.firstChild);
-    pnl.style.display='';
-    pnl.style.width='';
-    pnl.style.height='';
-    pnl.style.overflow='';
-    pnl.style.borderRight='';
+    // 閉じる：ドロワー内の変更を元の#pnlに同期
+    _syncFromDrawer();
   }
   drawer.classList.toggle('open');
   overlay.classList.toggle('open');
 }
 
+// ドロワーが開いている場合、元pnlの状態をドロワーに同期
+function updateDrawerIfOpen(){
+  const drawer=document.getElementById('mob-drawer');
+  if(!drawer||!drawer.classList.contains('open'))return;
+  const dst=document.getElementById('mob-drawer-content');
+  const src=document.getElementById('pnl');
+  if(!dst||!src)return;
+
+  // ① input値・チェックボックス
+  src.querySelectorAll('input').forEach(el=>{
+    if(!el.id)return;
+    const d=dst.querySelector('#'+el.id);
+    if(!d)return;
+    if(el.type==='checkbox'){d.checked=el.checked;d.disabled=el.disabled;}
+    else d.value=el.value;
+  });
+
+  // ② innerHTML更新が必要なテキスト表示要素
+  ['i-d','i-e','i-a','i-v','t-sr','t-ss','t-mr','t-ms','p-age','p-name',
+   'i-dow','tripod-disp','fn','chance-list','fullmoon-list'].forEach(id=>{
+    const s=src.querySelector('#'+id);
+    const d=dst.querySelector('#'+id);
+    if(s&&d) d.innerHTML=s.innerHTML;
+  });
+
+  // ③ className同期（.on切替など）
+  const syncIds = [...Object.keys(T).map(k=>'c-'+k), 'btn-land','btn-port','btn-chance'];
+  syncIds.forEach(id=>{
+    const s=src.querySelector('#'+id);
+    const d=dst.querySelector('#'+id);
+    if(s&&d) d.className=s.className;
+  });
+  // .ps内の.pb（焦点距離プリセット）
+  src.querySelectorAll('.ps .pb').forEach(s=>{
+    if(!s.textContent)return;
+    dst.querySelectorAll('.ps .pb').forEach(d=>{
+      if(d.textContent===s.textContent) d.className=s.className;
+    });
+  });
+  // 縦横ボタン
+  src.querySelectorAll('.orient-row .pb').forEach(s=>{
+    dst.querySelectorAll('.orient-row .pb').forEach(d=>{
+      if(d.textContent===s.textContent) d.className=s.className;
+    });
+  });
+
+  // ④ style属性の同期（lb-sunsetの色など）
+  ['lb-sunset'].forEach(id=>{
+    const s=src.querySelector('#'+id);
+    const d=dst.querySelector('#'+id);
+    if(s&&d) d.style.cssText=s.style.cssText;
+  });
+  // cb-sunsetのstyle（opacity/cursor）
+  const cbS=src.querySelector('#cb-sunset');
+  const cbD=dst.querySelector('#cb-sunset');
+  if(cbS&&cbD){cbD.style.opacity=cbS.style.opacity;cbD.style.cursor=cbS.style.cursor;}
+
+  // ⑤ ヘッダー日時表示
+  const ds=document.getElementById('idate').value;
+  const ts=document.getElementById('itime').value;
+  const dtEl=document.getElementById('mob-drawer-datetime');
+  if(dtEl) dtEl.textContent=(ds&&ts)?ds+' '+ts:'—';
+
+  // ⑥ 月相canvas
+  const srcCanvas=src.querySelector('#cv-phase');
+  const dstCanvas=dst.querySelector('#cv-phase');
+  if(srcCanvas&&dstCanvas){
+    try{
+      const dstCtx=dstCanvas.getContext('2d');
+      const img=new Image();
+      img.onload=()=>dstCtx.drawImage(img,0,0);
+      img.src=srcCanvas.toDataURL();
+    }catch(e){}
+  }
+}
+
+function _syncDrawerContent(){
+  const dst=document.getElementById('mob-drawer-content');
+  const src=document.getElementById('pnl');
+  dst.innerHTML=src.innerHTML;
+  _mirrorValues(src, dst);
+  // ヘッダー日時表示を即時更新
+  const _ds=document.getElementById('idate').value;
+  const _ts=document.getElementById('itime').value;
+  const _dtEl=document.getElementById('mob-drawer-datetime');
+  if(_dtEl) _dtEl.textContent=(_ds&&_ts)?_ds+' '+_ts:'—';
+  // ドロワー内のidate・itimeの変更を元の要素に転送してイベントを発火
+  ['idate','itime'].forEach(id=>{
+    const dEl=dst.querySelector('#'+id);
+    const sEl=document.getElementById(id);
+    if(!dEl||!sEl)return;
+    ['change','input'].forEach(evName=>{
+      dEl.addEventListener(evName,()=>{
+        if(dEl.value===sEl.value)return; // 無限ループ防止
+        sEl.value=dEl.value;
+        // ヘッダー日時表示を更新
+        const dtEl=document.getElementById('mob-drawer-datetime');
+        const ds2=document.getElementById('idate').value;
+        const ts2=document.getElementById('itime').value;
+        if(dtEl) dtEl.textContent=(ds2&&ts2)?ds2+' '+ts2:'—';
+        syncMobileUI();
+        if(id==='idate'){
+          // 日付変更：月の出入り・扇形・プレビュー全再描画
+          calcSunMoon();
+          if(sLat!==null) onPick();
+          else{ try{drawView(5,180,3.30);}catch(e){} try{drawCompass(180,3.30);}catch(e){} }
+        } else {
+          // 時刻変更：プレビュー再描画のみ
+          if(sLat!==null){
+            try{
+              const t=T[cur];
+              const dH=hav(sLat,sLng,t.lat,t.lng);
+              const dD=dist3D(sLat,sLng,sElev,t.lat,t.lng,t.elev);
+              const az=brng(sLat,sLng,t.lat,t.lng);
+              drawView(dD,az,elAng(dH,sElev,t.elev,t.h));
+              drawCompass(az,elAng(dH,sElev,t.elev,t.h));
+            }catch(e){}
+          } else {
+            try{drawView(5,180,3.30);}catch(e){}
+            try{drawCompass(180,3.30);}catch(e){}
+          }
+        }
+        // ドロワー表示を同期
+        updateDrawerIfOpen();
+      });
+    });
+  });
+}
+
+function _mirrorValues(src, dst){
+  // input値・チェックボックスを同期
+  src.querySelectorAll('input').forEach(el=>{
+    const mirror=dst.querySelector('#'+el.id);
+    if(!mirror)return;
+    if(el.type==='checkbox') mirror.checked=el.checked;
+    else mirror.value=el.value;
+  });
+  // テキスト表示系を同期（idで特定できるもの）
+  ['i-d','i-e','i-a','i-v','t-sr','t-ss','t-mr','t-ms','p-age','p-name',
+   'i-dow','tripod-disp','fn','chance-list'].forEach(id=>{
+    const s=src.querySelector('#'+id);
+    const d=dst.querySelector('#'+id);
+    if(s&&d) d.innerHTML=s.innerHTML;
+  });
+  // 月相canvasをdataURLで転写
+  const srcCanvas=src.querySelector('#cv-phase');
+  const dstCanvas=dst.querySelector('#cv-phase');
+  if(srcCanvas&&dstCanvas){
+    const dstCtx=dstCanvas.getContext('2d');
+    const img=new Image();
+    img.onload=()=>dstCtx.drawImage(img,0,0);
+    img.src=srcCanvas.toDataURL();
+  }
+  // .on クラスを同期
+  src.querySelectorAll('[class]').forEach(el=>{
+    if(!el.id)return;
+    const d=dst.querySelector('#'+el.id);
+    if(d) d.className=el.className;
+  });
+}
+
+let _hintTimer=null;
+function showHint(msg, durationMs=5000){
+  const h=document.getElementById('hint');
+  if(!h)return;
+  h.textContent=msg;
+  h.style.display='block';
+  h.style.color='#ff8866';
+  clearTimeout(_hintTimer);
+  _hintTimer=setTimeout(()=>{
+    h.style.color='';
+    // 撮影地点未設定なら元のメッセージに戻す
+    if(sLat===null) h.textContent='📍 地図をクリックして撮影地点を選択';
+    else h.style.display='none';
+  }, durationMs);
+}
+
 function promptFocal(){
-  const v=prompt('焦点距離を入力（mm）', focal);
-  if(v===null)return;
-  const n=parseInt(v,10);
-  if(isFinite(n)&&n>=1)setF(n);
+  if(window.innerWidth<=600){
+    openFocalPad();
+  } else {
+    const v=prompt('焦点距離を入力（mm）', focal);
+    if(v===null)return;
+    const n=parseInt(v,10);
+    if(isFinite(n)&&n>=1)setF(n);
+  }
 }
 
 // ━━━ Google Maps URL共通パーサー ━━━
@@ -2034,83 +3625,155 @@ async function extractAndApplyMapsURL(rawText){
     return true;
   }
   function extractCoords(text){
-    let dec=text;try{dec=decodeURIComponent(text);}catch(e){dec=text;}
-    // 1. @lat,lng
-    let m=/@(-?\d+\.?\d+),(-?\d+\.?\d+)/.exec(dec);
-    if(m)return[+m[1],+m[2]];
-    // 2. !3d...!4d...
-    m=/!3d(-?\d+\.?\d+)!4d(-?\d+\.?\d+)/.exec(dec);
-    if(m)return[+m[1],+m[2]];
-    // 3. !8m2!3d...!4d...
-    m=/!8m2!3d(-?\d+\.?\d+)!4d(-?\d+\.?\d+)/.exec(dec);
-    if(m)return[+m[1],+m[2]];
-    // 4. ?q=lat,lng
-    m=/[?&]q=(-?\d+\.?\d+),(-?\d+\.?\d+)/.exec(dec);
-    if(m)return[+m[1],+m[2]];
-    // 5. /place/lat,lng
-    m=/\/place\/(-?\d+\.?\d+),(-?\d+\.?\d+)/.exec(dec);
-    if(m)return[+m[1],+m[2]];
-    // 6. HTML内高精度座標ペア（日本: lat 30-46, lng 129-146）
-    m=/\b(3[0-6]\.\d{5,}),(13[0-9]\.\d{5,})\b/.exec(dec);
-    if(m)return[+m[1],+m[2]];
-    // 7. より広い高精度ペア
-    const allCoords=[...dec.matchAll(/(-?\d{1,3}\.\d{6,})/g)].map(x=>+x[1]);
-    for(let i=0;i<allCoords.length-1;i++){
-      const lat=allCoords[i],lng=allCoords[i+1];
-      if(isValidCoord(lat,lng)&&Math.abs(lng)>90)return[lat,lng];
+    // URLデコードを2段階で試みる（%25エンコード対策）
+    let dec=text;
+    try{dec=decodeURIComponent(text);}catch(e){dec=text;}
+    let dec2=dec;
+    try{dec2=decodeURIComponent(dec);}catch(e){dec2=dec;}
+
+    // 両方の文字列を検索対象にする
+    function search(pattern, ...texts){
+      for(const t of texts){
+        const m=pattern.exec(t);
+        if(m)return m;
+      }
+      return null;
+    }
+
+    // 度分秒パーサー（共通）
+    // 区切りに + (URLエンコード後のスペース)・スペース・カンマを許容
+    // 全角記号 °′″ にも対応
+    const dmsRe=/(\d+)[°º]\s*(\d+)['\u2019\u2032]\s*(\d+(?:\.\d+)?)["\u201d\u2033]\s*([NSns])\s*[,+\uff0c]?\s*(\d+)[°º]\s*(\d+)['\u2019\u2032]\s*(\d+(?:\.\d+)?)["\u201d\u2033]\s*([EWew])/;
+    const dmsConv=(d,m,s,h)=>{const v=+d+(+m)/60+(+s)/3600;return(h==='S'||h==='W')?-v:v;};
+    function tryDms(src){
+      const mm=dmsRe.exec(src);
+      if(!mm)return null;
+      const lat=dmsConv(mm[1],mm[2],mm[3],mm[4].toUpperCase());
+      const lng=dmsConv(mm[5],mm[6],mm[7],mm[8].toUpperCase());
+      return isValidCoord(lat,lng)?[lat,lng]:null;
+    }
+
+    const isURL=text.startsWith('http')||text.includes('goo.gl');
+
+    if(isURL){
+      // URL形式: ピンの座標が確実な !3d!4d を最優先
+      // @lat,lng は地図"中心"座標でピンと異なる場合があるため後回し
+      let m;
+      // 1. !3d...!4d... (ピン座標・最優先)
+      m=search(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/, dec, dec2);
+      if(m)return[+m[1],+m[2]];
+      // 2. !8m2!3d...!4d...
+      m=search(/!8m2!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/, dec, dec2);
+      if(m)return[+m[1],+m[2]];
+      // 3. !3d lat !2d lng (pbパラメータデコード後の形式)
+      m=search(/!3d(-?\d+\.\d+)[^!]*!2d(-?\d+\.\d+)/, dec2);
+      if(m){const lat=+m[1],lng=+m[2];if(isValidCoord(lat,lng))return[lat,lng];}
+      // 4. !2d lng !3d lat (逆順)
+      m=search(/!2d(-?\d+\.\d+)[^!]*!3d(-?\d+\.\d+)/, dec2);
+      if(m){const lng=+m[1],lat=+m[2];if(isValidCoord(lat,lng))return[lat,lng];}
+      // 5. URL内の度分秒 (place/34°13'45.6"N+135°09'06.0"E 形式、+区切り対応)
+      const r5=tryDms(dec)||tryDms(dec2);
+      if(r5)return r5;
+      // 6. ?q=lat,lng
+      m=search(/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/, dec, dec2);
+      if(m)return[+m[1],+m[2]];
+      // 7. /place/lat,lng
+      m=search(/\/place\/(-?\d+\.\d+),(-?\d+\.\d+)/, dec, dec2);
+      if(m)return[+m[1],+m[2]];
+      // 8. ll=lat,lng
+      m=search(/[?&]ll=(-?\d+\.\d+),(-?\d+\.\d+)/, dec, dec2);
+      if(m)return[+m[1],+m[2]];
+      // 9. center=lat,lng
+      m=search(/center=(-?\d+\.\d+),(-?\d+\.\d+)/, dec, dec2);
+      if(m)return[+m[1],+m[2]];
+      // 10. @lat,lng (中心座標・最後)
+      m=search(/@(-?\d+\.\d+),(-?\d+\.\d+)/, dec, dec2);
+      if(m)return[+m[1],+m[2]];
+    }else{
+      // テキスト形式（座標文字列直接入力）: DMS → 小数カンマ の順
+      const r=tryDms(dec)||tryDms(dec2);
+      if(r)return r;
+      // 括弧付き or 素の小数カンマ: 34.229332, 135.151661
+      const m=search(/\(?\s*(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\s*\)?/, dec, dec2);
+      if(m){const lat=+m[1],lng=+m[2];if(isValidCoord(lat,lng))return[lat,lng];}
+    }
+
+    // 共通フォールバック: 高精度数値ペア（日本座標優先）
+    for(const src of [dec, dec2]){
+      const allCoords=[...src.matchAll(/(-?\d{1,3}\.\d{5,})/g)].map(x=>+x[1]);
+      for(let i=0;i<allCoords.length-1;i++){
+        const lat=allCoords[i],lng=allCoords[i+1];
+        if(lat>=24&&lat<=46&&lng>=122&&lng<=154)return[lat,lng];
+      }
+      for(let i=0;i<allCoords.length-1;i++){
+        const lat=allCoords[i],lng=allCoords[i+1];
+        if(isValidCoord(lat,lng)&&Math.abs(lng)>90)return[lat,lng];
+      }
     }
     return null;
   }
 
-  // まず直接パース
+  // まず直接パース（座標テキスト・通常URL）
   const direct=extractCoords(rawText);
   if(direct&&applyCoords(direct[0],direct[1]))return true;
 
-  // 短縮URLをプロキシで展開
+  // 短縮URL以外で直接パース失敗 → 諦める
   if(!rawText.includes('maps.app.goo.gl')&&!rawText.includes('goo.gl'))return false;
 
-  const fetchURL=rawText.replace(/[?&]g_st=[^&]*/g,'').replace(/\?$/,'');
-  const proxies=[
-    {url:'https://api.allorigins.win/get?url='+encodeURIComponent(fetchURL), json:true},
-    {url:'https://corsproxy.io/?'+encodeURIComponent(fetchURL), json:false},
-    {url:'https://api.allorigins.win/raw?url='+encodeURIComponent(fetchURL), json:false},
-  ];
-  // 全プロキシ並列実行、最初に座標取得できたものを採用
-  const result=await Promise.any(proxies.map(async({url,json})=>{
-    const res=await fetch(url,{redirect:'follow'});
-    let body='';
-    if(json){
-      const j=await res.json();
-      body=(j.contents||'')+' '+(j.status&&j.status.url?j.status.url:'');
-    }else{
-      body=await res.text();
-      if(res.url)body=res.url+' '+body;
-    }
-    console.log('[Maps] proxy='+url.slice(0,50)+' len='+body.length);
+  // g_stパラメータを除去してfetchURL生成
+  let fetchURL=rawText.trim();
+  fetchURL=fetchURL.replace(/[?&]g_st=[^&]*/g,'').replace(/[?&]+$/,'');
+
+  // corsproxy.io経由で展開
+  try{
+    const ctrl=new AbortController();
+    const tid=setTimeout(()=>ctrl.abort(),5000);
+    const res=await fetch('https://corsproxy.io/?'+encodeURIComponent(fetchURL),{redirect:'follow',signal:ctrl.signal});
+    clearTimeout(tid);
+    let body=await res.text();
+    if(res.url) body=res.url+' '+body;
+    console.log('[Maps] corsproxy OK len='+body.length,'body[:200]='+body.slice(0,200));
     const coords=extractCoords(body);
-    if(!coords)throw new Error('no coords');
-    return coords;
-  })).catch(()=>null);
-  if(result&&applyCoords(result[0],result[1]))return true;
+    console.log('[Maps] coords=',coords);
+    if(coords&&applyCoords(coords[0],coords[1]))return true;
+    console.warn('[Maps] corsproxy: no coords in body');
+  }catch(e){
+    console.warn('[Maps] corsproxy failed:',e.message||e);
+  }
   return false;
 }
 
-function handleMobURL(val){
-  if(!val||val.length<10)return;
-  const input=document.getElementById('mob-url-input');
-  input.style.borderColor='rgba(200,169,110,0.4)';
-  extractAndApplyMapsURL(val.trim()).then(ok=>{
-    input.style.borderColor='';
-    if(ok){
-      input.value='';
-      input.placeholder='✅ 読み取り成功';
-      setTimeout(()=>{input.placeholder='Google Maps URLを貼り付け…';},2000);
-    }else{
-      input.style.borderColor='rgba(255,80,80,0.6)';
-      input.placeholder='❌ 読み取り失敗';
-      setTimeout(()=>{input.style.borderColor='';input.placeholder='Google Maps URLを貼り付け…';},3000);
+
+async function mobClipRead(){
+  const btn=document.getElementById('mob-clip-btn');
+  if(!btn)return;
+  if(!navigator.clipboard||!navigator.clipboard.readText){
+    btn.textContent='❌ クリップボード非対応';
+    setTimeout(()=>{btn.innerHTML='📋 Googleマップのリンクを読み込む';},2500);
+    return;
+  }
+  btn.textContent='⏳ 読み取り中…';
+  try{
+    const text=await navigator.clipboard.readText();
+    if(!text||text.length<10){
+      btn.textContent='❌ クリップボードが空';
+      setTimeout(()=>{btn.innerHTML='📋 Googleマップのリンクを読み込む';},2500);
+      return;
     }
-  });
+    const ok=await extractAndApplyMapsURL(text.trim());
+    if(ok){
+      btn.textContent='✅ 読み込み成功';
+      setTimeout(()=>{btn.innerHTML='📋 Googleマップのリンクを読み込む';},2500);
+    }else{
+      btn.innerHTML='❌ 失敗';
+      showHint('❌ 読み取り失敗 — Googleマップで地図を長押し → 座標をタップ → コピーして再試行', 6000);
+      setTimeout(()=>{btn.innerHTML='📋 Googleマップのリンクを読み込む';btn.style.whiteSpace='';},3000);
+    }
+  }catch(e){
+    // クリップボード権限拒否など
+    btn.textContent='❌ 許可が必要です';
+    setTimeout(()=>{btn.innerHTML='📋 Googleマップのリンクを読み込む';},2500);
+  }
 }
 
 function syncMobileUI(){
@@ -2130,17 +3793,40 @@ function syncMobileUI(){
 
 function setNow(){
   const now=new Date();
+  // 日付をJSTでセット
+  const dateVal=now.toLocaleDateString('sv-SE',{timeZone:'Asia/Tokyo'});
   const jstTime=now.toLocaleTimeString('ja-JP',{timeZone:'Asia/Tokyo',hour:'2-digit',minute:'2-digit',hour12:false});
   const timeVal=jstTime.slice(0,5);
+  const idate=document.getElementById('idate');
   const itime=document.getElementById('itime');
+  let dateChanged=false;
+  if(idate&&idate.value!==dateVal){
+    idate.value=dateVal;
+    dateChanged=true;
+  }
   if(itime){
     itime.value=timeVal;
+    const td=document.getElementById('tbtn-time-disp');
+    if(td)td.textContent=timeVal;
+    syncMobileUI();
+  }
+  // 日付が変わった場合はcalcSunMoon、そうでなければ時刻変更のchangeイベントのみ
+  if(dateChanged){
+    updatePvDateDisp();
+    calcSunMoon();
+    if(sLat!==null)onPick();
+  } else if(itime){
     itime.dispatchEvent(new Event('change'));
   }
+  updateDrawerIfOpen();
 }
 
 function setTimeFromEl(id){
-  const el=document.getElementById(id);
+  // ドロワーが開いている場合はドロワー内の要素から取得
+  const drawer=document.getElementById('mob-drawer');
+  const isDrawerOpen=drawer&&drawer.classList.contains('open');
+  const container=isDrawerOpen?document.getElementById('mob-drawer-content'):document;
+  const el=container?container.querySelector('#'+id):null;
   if(!el)return;
   const t=el.textContent.trim();
   if(!t||t==='—')return;
@@ -2149,13 +3835,200 @@ function setTimeFromEl(id){
     itime.value=t;
     const td=document.getElementById('tbtn-time-disp');
     if(td)td.textContent=t;
+    syncMobileUI();
     itime.dispatchEvent(new Event('change'));
+    updateDrawerIfOpen();
   }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 月の満ち欠けカレンダー
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let _moonCalYear=0, _moonCalMonth=0;
+
+function openMoonCal(){
+  const ds=document.getElementById('idate').value;
+  const base=ds?new Date(ds+'T12:00:00+09:00'):new Date();
+  _moonCalYear=base.getFullYear();
+  _moonCalMonth=base.getMonth(); // 0-11
+  renderMoonCal();
+  document.getElementById('mooncal-overlay').style.display='block';
+  document.getElementById('mooncal-popup').style.display='block';
+}
+
+function closeMoonCal(){
+  document.getElementById('mooncal-overlay').style.display='none';
+  document.getElementById('mooncal-popup').style.display='none';
+}
+
+function shiftMoonCal(delta){
+  _moonCalMonth+=delta;
+  if(_moonCalMonth>11){_moonCalMonth=0;_moonCalYear++;}
+  if(_moonCalMonth<0){_moonCalMonth=11;_moonCalYear--;}
+  renderMoonCal();
+}
+
+function renderMoonCal(){
+  const y=_moonCalYear, mo=_moonCalMonth;
+  document.getElementById('mooncal-title').textContent=`${y}年 ${mo+1}月`;
+  const grid=document.getElementById('mooncal-grid');
+  grid.innerHTML='';
+
+  // 1日の曜日（0=日）
+  const firstDay=new Date(y,mo,1).getDay();
+  const daysInMonth=new Date(y,mo+1,0).getDate();
+  // 選択中の日付
+  const selDs=document.getElementById('idate').value;
+  // 月の出入り計算に使う座標（撮影地点 or 対象地点）
+  const mlat=sLat!==null?sLat:T[cur].lat;
+  const mlng=sLng!==null?sLng:T[cur].lng;
+
+  // 空白セル
+  for(let i=0;i<firstDay;i++){
+    grid.appendChild(Object.assign(document.createElement('div'),{style:''}));
+  }
+
+  // 月の出入り時刻プレースホルダ要素をまとめて保持
+  const riseEls=[], setEls=[];
+
+  for(let d=1;d<=daysInMonth;d++){
+    const ds=`${y}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dt=new Date(ds+'T00:00:00+09:00');
+    const dow=dt.getDay();
+    const age=moonAge(new Date(ds+'T03:00:00Z'));
+    const phaseName=moonPhaseName(age);
+    const isSel=(ds===selDs);
+
+    // セル
+    const cell=document.createElement('div');
+    cell.style.cssText=`
+      display:flex;flex-direction:column;align-items:center;gap:1px;
+      padding:3px 1px;border-radius:5px;cursor:pointer;
+      border:1px solid ${isSel?'var(--ac)':'var(--bd)'};
+      background:${isSel?'rgba(200,169,110,0.12)':'var(--sur2)'};
+      min-width:0;user-select:none;-webkit-user-select:none;
+    `;
+    cell.dataset.ds=ds;
+
+    // 日付数字
+    const dayEl=document.createElement('div');
+    dayEl.style.cssText=`font-family:'Space Mono',monospace;font-size:10px;font-weight:700;
+      color:${dow===0?'#ff6655':dow===6?'#4488ff':'var(--tx)'};line-height:1.2;pointer-events:none;`;
+    dayEl.textContent=d;
+
+    // 月相canvas（小）
+    const cv=document.createElement('canvas');
+    cv.width=24;cv.height=24;
+    cv.style.cssText='display:block;border-radius:50%;flex-shrink:0;pointer-events:none;';
+    drawMoonPhaseSmall(cv,age);
+
+    // 月齢
+    const ageEl=document.createElement('div');
+    ageEl.style.cssText=`font-family:'Space Mono',monospace;font-size:8px;color:var(--ac);line-height:1.2;pointer-events:none;`;
+    ageEl.textContent=age.toFixed(1);
+
+    // 月相名
+    const nameEl=document.createElement('div');
+    nameEl.style.cssText=`font-size:7px;color:var(--sub);line-height:1.2;text-align:center;word-break:keep-all;pointer-events:none;`;
+    nameEl.textContent=phaseName;
+
+    // 月の出時刻（非同期で埋める）
+    const riseEl=document.createElement('div');
+    riseEl.style.cssText=`font-family:'Space Mono',monospace;font-size:7px;color:#ffcc88;line-height:1.3;pointer-events:none;`;
+    riseEl.textContent='↑…';
+
+    // 月の入り時刻（非同期で埋める）
+    const setEl=document.createElement('div');
+    setEl.style.cssText=`font-family:'Space Mono',monospace;font-size:7px;color:#88ccff;line-height:1.3;pointer-events:none;`;
+    setEl.textContent='↓…';
+
+    cell.appendChild(dayEl);
+    cell.appendChild(cv);
+    cell.appendChild(ageEl);
+    cell.appendChild(nameEl);
+    cell.appendChild(riseEl);
+    cell.appendChild(setEl);
+    grid.appendChild(cell);
+
+    riseEls.push({ds, el:riseEl});
+    setEls.push({ds, el:setEl});
+  }
+
+  // 6行×7列=42セルになるよう末尾を空白セルで埋める（グリッド高さ固定のため）
+  const totalCells=firstDay+daysInMonth;
+  const padCount=(42-totalCells%42)%42;
+  for(let i=0;i<padCount;i++){
+    grid.appendChild(document.createElement('div'));
+  }
+
+  // イベント委譲：grid全体でclickを受けてdata-dsでセル特定
+  grid.onclick=(e)=>{
+    const cell=e.target.closest('[data-ds]');
+    if(cell) setDateFromCal(cell.dataset.ds);
+  };
+
+  // 月の出入りを非同期で1日ずつ計算して埋める
+  let _calIdx=0;
+  function _fillNextDay(){
+    if(_calIdx>=riseEls.length)return;
+    const {ds, el:rEl}=riseEls[_calIdx];
+    const {el:sEl}=setEls[_calIdx];
+    _calIdx++;
+    const mt=moonTCached(ds, mlat, mlng);
+    rEl.textContent=mt.rise?'↑'+jst(mt.rise):'↑—';
+    sEl.textContent=mt.set ?'↓'+jst(mt.set) :'↓—';
+    setTimeout(_fillNextDay, 0);
+  }
+  setTimeout(_fillNextDay, 0);
+}
+
+function drawMoonPhaseSmall(cv,age){
+  const ctx=cv.getContext('2d');
+  const W=24,cx=12,cy=12,r=10;
+  ctx.clearRect(0,0,W,W);
+  ctx.fillStyle='#060810';
+  ctx.beginPath();ctx.arc(cx,cy,r+1,0,Math.PI*2);ctx.fill();
+  const mg=ctx.createRadialGradient(cx-3,cy-3,1,cx,cy,r);
+  mg.addColorStop(0,'#fffde8');mg.addColorStop(0.6,'#e8d5a0');mg.addColorStop(1,'#b89840');
+  ctx.fillStyle=mg;
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();
+  ctx.save();
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.clip();
+  const phase=age/29.53058867;
+  const illum=(1-Math.cos(2*Math.PI*phase))/2;
+  const ex=r*(2*illum-1);
+  ctx.fillStyle='#060810';
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();
+  const mg2=ctx.createRadialGradient(cx-3,cy-3,1,cx,cy,r);
+  mg2.addColorStop(0,'#fffde8');mg2.addColorStop(0.6,'#e8d5a0');mg2.addColorStop(1,'#b89840');
+  ctx.fillStyle=mg2;
+  if(phase<0.5){
+    ctx.beginPath();ctx.arc(cx,cy,r,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();
+    ctx.beginPath();ctx.ellipse(cx,cy,Math.abs(ex),r,0,0,Math.PI*2);
+    if(ex>0){ctx.fill();}else{ctx.fillStyle='#060810';ctx.fill();}
+  }else{
+    ctx.beginPath();ctx.arc(cx,cy,r,Math.PI/2,-Math.PI/2,false);ctx.closePath();ctx.fill();
+    ctx.beginPath();ctx.ellipse(cx,cy,Math.abs(ex),r,0,0,Math.PI*2);
+    if(ex>0){ctx.fill();}else{ctx.fillStyle='#060810';ctx.fill();}
+  }
+  ctx.restore();
+  ctx.strokeStyle='rgba(200,169,110,.25)';ctx.lineWidth=0.8;
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();
+}
+
+function setDateFromCal(ds){
+  const realEl=document.getElementById('idate');
+  if(realEl) realEl.value=ds;
+  const drawerContent=document.getElementById('mob-drawer-content');
+  if(drawerContent){const cp=drawerContent.querySelector('#idate');if(cp)cp.value=ds;}
+  if(realEl) realEl.dispatchEvent(new Event('change'));
+  closeMoonCal();
 }
 
 function calcChances(){
   if(sLat===null){
     document.getElementById('chance-list').textContent='先に撮影地点を選択してください。';
+    updateDrawerIfOpen();
     return;
   }
   const btn=document.getElementById('btn-chance');
@@ -2167,57 +4040,75 @@ function calcChances(){
     const t=T[cur];
     const tAz=brng(sLat,sLng,t.lat,t.lng);
     const distH=hav(sLat,sLng,t.lat,t.lng);
-    const distM=distH*1000; // m換算
-    const baseAlt=elAng(distH,sElev,t.elev,0);   // 根元仰角
-    const topAlt =elAng(distH,sElev,t.elev,t.h); // 頂点仰角
-    const MOON_R=0.265; // 月の半径(°)
-    const AZ_THR=2.5;   // 方位角許容度(°)
-    const STEP=60*1000; // 1分刻み
-
+    const topAlt=elAng(distH,sElev,t.elev,t.h); // 対象頂点の仰角
+    // 対象の見かけ角度（飲み込み判定用）
+    const targetAngDiam=Math.atan2(t.h, distH*1000)*180/Math.PI;
     const results=[];
     const today=new Date(document.getElementById('idate').value+'T00:00:00+09:00');
+    const AZ_THR=2.5;
+    const STEP=60*1000; // 1分刻み
+    const MOON_R=0.265; // 月/太陽の半径(°)
+    const distM=distH*1000; // 撮影地点〜対象の水平距離(m)
+    const baseAlt=elAng(distH,sElev,t.elev,0); // 根元仰角
 
-    for(let d=0;d<30;d++){
+    for(let d=0;d<90;d++){
       const base=new Date(today.getTime()+d*86400000);
       const ds=base.toLocaleDateString('sv-SE',{timeZone:'Asia/Tokyo'});
       const dayStart=new Date(ds+'T00:00:00+09:00');
-
-      // その日の全1440分をスキャンし、チャンス区間を検出
-      // チャンス区間：方位角ずれ<=AZ_THR かつ 仰角が(baseAlt-MOON_R)〜(topAlt+MOON_R)
-      let inChance=false;
-      let bestAzDiff=999, bestAlt=0, bestDt=null;
+      // 月モード：輝面比5%未満（新月前後）はスキップ
+      if(!sunsetMode){
+        const age=moonAge(new Date(ds+'T03:00:00Z'));
+        const illum=(1-Math.cos(2*Math.PI*age/29.53058867))/2;
+        if(illum<0.05) continue;
+      }
+      // 太陽モード：この日の日の出/日没を事前取得（ループ外で1回）
+      let sunRiseMs=null, sunSetMs=null;
+      if(sunsetMode){
+        const sun=sunT(new Date(ds+'T03:00:00Z'),t.lat,t.lng);
+        if(sun){
+          sunRiseMs=sun.rise?sun.rise.getTime():null;
+          sunSetMs=sun.set?sun.set.getTime():null;
+        }
+      }
+      let found=null;
 
       for(let i=0;i<=1440;i++){
         const dt=new Date(dayStart.getTime()+i*STEP);
         const bp=sunsetMode?sunPos(dt,sLat,sLng):moonPos(dt,sLat,sLng);
-        const ad=Math.abs(((bp.az-tAz+180)%360)-180);
+        const azD=Math.abs(((bp.az-tAz+180)%360)-180);
         const inAlt=bp.alt>=(baseAlt-MOON_R) && bp.alt<=(topAlt+MOON_R);
-        const inAz=ad<=AZ_THR;
-
-        if(inAz && inAlt){
-          if(!inChance){inChance=true;bestAzDiff=999;bestAlt=0;bestDt=null;}
-          // 方位角ズレが最小の瞬間を記録
-          if(ad<bestAzDiff){bestAzDiff=ad;bestAlt=bp.alt;bestDt=dt;}
+        // 太陽モード：日の出後30分または日没前30分の範囲のみ
+        let inTimeWindow=true;
+        if(sunsetMode){
+          const tMs=dt.getTime();
+          const afterRise=sunRiseMs&&tMs>=sunRiseMs&&tMs<=sunRiseMs+30*60000;
+          const beforeSet=sunSetMs&&tMs>=sunSetMs-30*60000&&tMs<=sunSetMs;
+          inTimeWindow=!!(afterRise||beforeSet);
+        }
+        if(azD<=AZ_THR && inAlt && inTimeWindow){
+          if(!found) found={dt,az:bp.az,alt:bp.alt,azDiff:azD,angDiam:bp.angDiam||0.53};
+          else if(azD < found.azDiff) found={dt,az:bp.az,alt:bp.alt,azDiff:azD,angDiam:bp.angDiam||0.53};
         } else {
-          if(inChance){
-            // チャンス区間終了 → 記録
-            const age=moonAge(new Date(ds+'T03:00:00Z'));
-            results.push({date:ds,ts:bestDt,azDiff:bestAzDiff,alt:bestAlt,baseAlt,topAlt,distM,age});
-            inChance=false;
+          if(found){
+            const age=sunsetMode?null:moonAge(new Date(ds+'T03:00:00Z'));
+            results.push({date:ds,time:jst(found.dt),azDiff:found.azDiff,
+              alt:found.alt,baseAlt,topAlt,distM,age,ts:found.dt,angDiam:found.angDiam});
+            found=null;
           }
         }
       }
-      // 日をまたいで継続中
-      if(inChance&&bestDt){
-        const age=moonAge(new Date(ds+'T03:00:00Z'));
-        results.push({date:ds,ts:bestDt,azDiff:bestAzDiff,alt:bestAlt,baseAlt,topAlt,distM,age});
+      if(found){
+        const age=sunsetMode?null:moonAge(new Date(ds+'T03:00:00Z'));
+        results.push({date:ds,time:jst(found.dt),azDiff:found.azDiff,
+          alt:found.alt,baseAlt,topAlt,distM,age,ts:found.dt,angDiam:found.angDiam});
       }
     }
 
-    btn.textContent='📅 選択日から30日を検索';
+    btn.textContent=sunsetMode?"📅 選択日から90日を検索（太陽）":"📅 選択日から90日を検索";
 
     if(results.length===0){
-      list.textContent='今後30日以内に条件を満たす日はありません。';
+      list.textContent="今後90日以内に条件を満たす日はありません。（方位角±"+AZ_THR+"°）";
+      updateDrawerIfOpen();
       return;
     }
 
@@ -2226,30 +4117,116 @@ function calcChances(){
     list.innerHTML=results.map(r=>{
       const dow=new Date(r.date+'T12:00:00+09:00').toLocaleDateString('ja-JP',{weekday:'short'});
       const dowColor=dow.includes('日')?'#ff6655':dow.includes('土')?'#4488ff':'var(--sub)';
-      const time=jst(r.ts);
 
-      // ★評価：方位角ズレを横移動距離(m)に換算
+      // ★評価：横移動距離(m)基準
       const moveM=r.distM*Math.tan(r.azDiff*Math.PI/180);
       let star;
-      if(moveM<=2)       star=`🎯${bodyIcon}🎯`;
-      else if(moveM<=10) star='★★★';
-      else if(moveM<=50) star='★★☆';
-      else if(moveM<=100)star='★☆☆';
-      else if(moveM<=200)star='☆☆☆';
-      else               star='―';
+      if(moveM<=2)        star=`🎯${bodyIcon}🎯`;
+      else if(moveM<=10)  star='★★★';
+      else if(moveM<=50)  star='★★☆';
+      else if(moveM<=100) star='★☆☆';
+      else if(moveM<=200) star='☆☆☆';
+      else                star='―';
 
       // 高度%：建物内位置基準（根元=0%、頂点=100%）
       const range=r.topAlt-r.baseAlt;
       const altPct=range>0.001?Math.round((r.alt-r.baseAlt)/range*100):0;
 
-      const ageLabel=sunsetMode?'':` 月齢${r.age.toFixed(1)}日`;
-      return `<div class="chance-item" onclick="setChance('${r.date}','${time}')" title="クリックで日時をセット">
+      // 岐阜城×月：飲み込み表示
+      const swallowMark=(T[cur].silhouette==='castle'&&!sunsetMode&&r.angDiam>=targetAngDiam&&altPct>=30&&altPct<=70)?'🔵':'';
+      const bodyInfo=sunsetMode
+        ?`移${Math.round(moveM)}m 高${altPct}%`
+        :`月齢${r.age.toFixed(1)}日 移${Math.round(moveM)}m 高${altPct}%${swallowMark}`;
+      return `<div class="chance-item" onclick="setChance('${r.date}','${r.time}')" title="クリックで日時をセット">
         <span style="color:${dowColor}">${r.date}(${dow})</span>
-        <span class="chance-time">${time}</span>
+        <span class="chance-time">${r.time}</span>
         <span style="color:var(--ac)">${star}</span>
-        <span style="color:var(--sub)">${ageLabel} 移${Math.round(moveM)}m 高${altPct}%</span>
+        <span style="color:var(--sub)">${bodyInfo}</span>
       </div>`;
     }).join('');
+    updateDrawerIfOpen();
+  },20);
+}
+
+function calcFullMoonChances(){
+  if(sLat===null){
+    document.getElementById('fullmoon-list').textContent='先に撮影地点を選択してください。';
+    updateDrawerIfOpen();
+    return;
+  }
+  const btn=document.getElementById('btn-fullmoon');
+  const list=document.getElementById('fullmoon-list');
+  btn.textContent='⏳ 計算中…';
+  list.innerHTML='';
+
+  setTimeout(()=>{
+    const t=T[cur];
+    const tAz=brng(sLat,sLng,t.lat,t.lng);
+    const distH=hav(sLat,sLng,t.lat,t.lng);
+    const topAlt=elAng(distH,sElev,t.elev,t.h);
+    const AZ_THR=2.5;
+    const STEP=10*60*1000; // 10分刻み
+
+    // 選択日から1年間の満月日を列挙（月齢13〜16日の日）
+    const today=new Date(document.getElementById('idate').value+'T00:00:00+09:00');
+    const fullMoonDays=[];
+    for(let d=0;d<366;d++){
+      const base=new Date(today.getTime()+d*86400000);
+      const ds=base.toLocaleDateString('sv-SE',{timeZone:'Asia/Tokyo'});
+      const age=moonAge(new Date(ds+'T12:00:00+09:00'));
+      // 満月前後±1.5日（月齢13〜16.5日）に絞る
+      if(age>=13.0&&age<=16.5) fullMoonDays.push(ds);
+    }
+
+    const results=[];
+    for(const ds of fullMoonDays){
+      const dayStart=new Date(ds+'T00:00:00+09:00');
+      let found=null;
+      for(let i=0;i<144;i++){
+        const dt=new Date(dayStart.getTime()+i*STEP);
+        const mp=moonPos(dt,sLat,sLng);
+        const azD=Math.abs(((mp.az-tAz+180)%360)-180);
+        if(azD<=AZ_THR&&mp.alt>=0&&mp.alt<=topAlt){
+          if(!found) found={dt,az:mp.az,alt:mp.alt,azDiff:azD};
+        } else {
+          if(found){
+            const age=moonAge(new Date(ds+'T03:00:00Z'));
+            results.push({date:ds,time:jst(found.dt),azDiff:found.azDiff,alt:found.alt,topAlt,age,ts:found.dt});
+            found=null;
+          }
+        }
+      }
+      if(found){
+        const age=moonAge(new Date(ds+'T03:00:00Z'));
+        results.push({date:ds,time:jst(found.dt),azDiff:found.azDiff,alt:found.alt,topAlt,age,ts:found.dt});
+      }
+    }
+
+    btn.textContent='🌕 満月チャンス（1年）を検索';
+
+    if(results.length===0){
+      list.innerHTML='<div style="color:var(--sub);padding:4px 0;">今後1年間に条件を満たす満月チャンスはありません。<br>（方位角±'+AZ_THR+'°、仰角0°〜'+topAlt.toFixed(1)+'°）</div>';
+      updateDrawerIfOpen();
+      return;
+    }
+
+    // 日付昇順でソート
+    results.sort((a,b)=>a.ts-b.ts);
+
+    list.innerHTML='<div style="color:var(--sub);font-family:monospace;font-size:8px;margin-bottom:4px;">満月±1.5日 / '+results.length+'件</div>'+
+      results.map(r=>{
+        const dow=new Date(r.date+'T12:00:00+09:00').toLocaleDateString('ja-JP',{weekday:'short'});
+        const dowColor=dow.includes('日')?'#ff6655':dow.includes('土')?'#4488ff':'var(--sub)';
+        const star=r.azDiff<=1?'★★★':r.azDiff<=2?'★★☆':'★☆☆';
+        const altPct=Math.round(r.alt/r.topAlt*100);
+        return `<div class="chance-item" onclick="setChance('${r.date}','${r.time}')" title="クリックで日時をセット">
+          <span style="color:${dowColor}">${r.date}(${dow})</span>
+          <span class="chance-time">${r.time}</span>
+          <span style="color:var(--ac)">${star}</span>
+          <span style="color:var(--sub)">🌕${r.age.toFixed(1)}日 ±${r.azDiff.toFixed(1)}° 高${altPct}%</span>
+        </div>`;
+      }).join('');
+    updateDrawerIfOpen();
   },20);
 }
 
@@ -2258,7 +4235,113 @@ function setChance(ds,ts){
   document.getElementById('idate').dispatchEvent(new Event('change'));
   const itime=document.getElementById('itime');
   itime.value=ts;
+  const td=document.getElementById('tbtn-time-disp');
+  if(td)td.textContent=ts;
+  syncMobileUI();
   itime.dispatchEvent(new Event('change'));
+  updateDrawerIfOpen();
+}
+
+function shiftPvOfs(dAz, dAlt){
+  const fv=fovD(focal);
+  const step = fv<2?0.05 : fv<5?0.1 : fv<15?0.3 : fv<40?0.5 : 1.0;
+  pvAzOfs  = Math.round((pvAzOfs  + dAz  * step)*100)/100;
+  pvAltOfs = Math.round((pvAltOfs + dAlt * step)*100)/100;
+  _updatePvOfsDisp();
+  _triggerPvRedraw();
+}
+function resetPvOfs(){
+  pvAzOfs=0; pvAltOfs=0;
+  _updatePvOfsDisp();
+  _triggerPvRedraw();
+}
+// ━━━ 焦点距離キーパッド ━━━
+let _fkBuf='';
+function openFocalPad(){
+  _fkBuf=String(focal);
+  _fkUpdateDisp();
+  document.getElementById('focal-overlay').classList.add('open');
+}
+function closeFocalPad(){
+  document.getElementById('focal-overlay').classList.remove('open');
+  _fkBuf='';
+}
+function fkInput(k){
+  if(k==='DEL'){
+    _fkBuf=_fkBuf.slice(0,-1);
+    _fkUpdateDisp();
+    return;
+  }
+  if(k==='OK'){
+    const n=parseInt(_fkBuf,10);
+    if(isFinite(n)&&n>=9&&n<=1600) setF(n);
+    closeFocalPad();
+    return;
+  }
+  // 数字
+  if(_fkBuf.length>=4) return; // 最大4桁
+  _fkBuf+=k;
+  _fkUpdateDisp();
+}
+function _fkUpdateDisp(){
+  const el=document.getElementById('focal-input-disp');
+  if(!el) return;
+  const n=parseInt(_fkBuf,10);
+  const valid=_fkBuf===''||(isFinite(n)&&n>=9&&n<=1600);
+  el.textContent=_fkBuf===''?'—':_fkBuf+'mm';
+  el.style.color=valid?'var(--tx)':'#ff6655';
+}
+function resetPvOfsAndClose(){
+  pvAzOfs=0; pvAltOfs=0;
+  _updatePvOfsDisp();
+  _triggerPvRedraw();
+  closeOfsPopup();
+}
+function toggleOfsPopup(){
+  const ov=document.getElementById('ofs-overlay');
+  if(!ov) return;
+  if(ov.classList.contains('open')){
+    closeOfsPopup();
+  } else {
+    ov.classList.add('open');
+    const btn=document.getElementById('pv-ofs-btn');
+    if(btn) btn.classList.add('active');
+    _updatePvOfsDisp();
+  }
+}
+function closeOfsPopup(){
+  const ov=document.getElementById('ofs-overlay');
+  if(ov) ov.classList.remove('open');
+  const btn=document.getElementById('pv-ofs-btn');
+  if(btn) btn.classList.remove('active');
+}
+function _updatePvOfsDisp(){
+  const text=`AZ ${pvAzOfs>=0?'+':''}${pvAzOfs.toFixed(1)}°\nALT ${pvAltOfs>=0?'+':''}${pvAltOfs.toFixed(1)}°`;
+  // PC版
+  const el=document.getElementById('pv-ofs-disp');
+  if(el) el.innerHTML=`AZ${pvAzOfs>=0?'+':''}${pvAzOfs.toFixed(1)}°<br>ALT${pvAltOfs>=0?'+':''}${pvAltOfs.toFixed(1)}°`;
+  const rst=document.getElementById('pv-rst');
+  if(rst) rst.classList.toggle('active', pvAzOfs!==0||pvAltOfs!==0);
+  // スマホポップアップ版
+  const od=document.getElementById('ofs-disp');
+  if(od) od.innerHTML=`AZ ${pvAzOfs>=0?'+':''}${pvAzOfs.toFixed(1)}°<br>ALT ${pvAltOfs>=0?'+':''}${pvAltOfs.toFixed(1)}°`;
+  // 呼び出しボタンのハイライト
+  const btn=document.getElementById('pv-ofs-btn');
+  if(btn) btn.classList.toggle('active', pvAzOfs!==0||pvAltOfs!==0);
+}
+function _triggerPvRedraw(){
+  if(sLat===null){
+    try{drawView(5,180,3.30);}catch(e){}
+    try{drawCompass(180,3.30);}catch(e){}
+    return;
+  }
+  const t=T[cur];
+  const dH=hav(sLat,sLng,t.lat,t.lng);
+  const dD=dist3D(sLat,sLng,sElev,t.lat,t.lng,t.elev);
+  const az=brng(sLat,sLng,t.lat,t.lng);
+  const va=elAng(dH,sElev,t.elev,t.h);
+  try{drawView(dD,az,va);}catch(e){}
+  try{drawCompass(az,va);}catch(e){}
 }
 
 function setF(v){
@@ -2269,11 +4352,19 @@ function setF(v){
   if(sl)sl.value=v;
   const fn=document.getElementById('fn');
   if(fn)fn.innerHTML=`${v}<span>mm</span>`;
+  // PC用プリセットボタン
   document.querySelectorAll('.ps .pb').forEach(b=>{
     b.classList.toggle('on',parseInt(b.textContent)===v);
   });
-  syncMobileUI();
+  // スマホ用ボタン（ボトムバー・ドロワー両方）
+  document.querySelectorAll('.mob-fbtn').forEach(b=>{
+    b.classList.toggle('on',parseInt(b.textContent)===v);
+  });
+  // スマホ用焦点距離表示
+  const fd=document.getElementById('mob-focal-disp');
+  if(fd)fd.innerHTML=`${v}<span style="font-size:9px;color:var(--sub);">mm</span>`;
   scheduleLayout();
+  updateDrawerIfOpen();
 }
 
 function setOrientation(o){
@@ -2283,8 +4374,35 @@ function setOrientation(o){
   const bp=document.getElementById('btn-port');
   if(bl)bl.classList.toggle('on',o==='land');
   if(bp)bp.classList.toggle('on',o==='port');
+  // スマホボタン
+  const mbl=document.getElementById('mob-btn-land');
+  const mbp=document.getElementById('mob-btn-port');
+  if(mbl)mbl.classList.toggle('on',o==='land');
+  if(mbp)mbp.classList.toggle('on',o==='port');
   syncMobileUI();
   scheduleLayout();
+  updateDrawerIfOpen();
+}
+
+function shiftDay(days){
+  const el=document.getElementById('idate');
+  if(!el||!el.value)return;
+  const d=new Date(el.value+'T12:00:00+09:00');
+  d.setDate(d.getDate()+days);
+  el.value=d.toLocaleDateString('sv-SE',{timeZone:'Asia/Tokyo'});
+  el.dispatchEvent(new Event('change'));
+  updatePvDateDisp();
+}
+function updatePvDateDisp(){
+  const el=document.getElementById('idate');
+  const disp=document.getElementById('pv-date-disp');
+  if(!el||!disp)return;
+  if(!el.value){disp.textContent='';return;}
+  const d=new Date(el.value+'T12:00:00+09:00');
+  const dow=d.toLocaleDateString('ja-JP',{timeZone:'Asia/Tokyo',weekday:'short'});
+  const mmdd=el.value.slice(5); // MM-DD
+  const dowColor=dow.includes('日')?'#ff6655':dow.includes('土')?'#4488ff':'var(--ac)';
+  disp.innerHTML=`<span style="color:${dowColor}">${mmdd}(${dow})</span>`;
 }
 
 function shiftTime(minutes){
@@ -2301,6 +4419,26 @@ function shiftTime(minutes){
   // tbtn-time表示更新
   const td=document.getElementById('tbtn-time-disp');
   if(td)td.textContent=el.value;
+
+  // 日またぎ処理：totalが1440以上なら翌日、0未満なら前日
+  const dayShift=Math.floor(total/1440);
+  if(dayShift!==0){
+    const idate=document.getElementById('idate');
+    if(idate&&idate.value){
+      const d=new Date(idate.value+'T12:00:00+09:00');
+      d.setDate(d.getDate()+dayShift);
+      const newDate=d.toLocaleDateString('sv-SE',{timeZone:'Asia/Tokyo'});
+      idate.value=newDate;
+      // 日付が変わった場合：calcSunMoon＋全再描画を行い、以降のchangeイベントはスキップ
+      syncMobileUI();
+      updatePvDateDisp();
+      calcSunMoon();
+      if(sLat!==null)onPick();
+      updateDrawerIfOpen();
+      return;
+    }
+  }
+
   syncMobileUI();
   el.dispatchEvent(new Event('input'));
   el.dispatchEvent(new Event('change'));
@@ -2320,19 +4458,44 @@ window.addEventListener('load',()=>{
   if(td)td.textContent=timeVal;
 
   calcSunMoon();
+  updatePvDateDisp();
   initMap();
   syncMobileUI();
+  // スマホ横/縦ボタンの初期on状態
+  setOrientation(orientation);
+
+  // 保存地点を復元
+  _loadFromLocalStorage();
+  _loadFromURLHash();
 
   setTimeout(()=>{
     if(map)map.invalidateSize();
     layout();
-    calcSunMoon(); // 地図準備完了後に扇形を描画
+    calcSunMoon();
+    renderSpotPins(); // 保存地点ピンを地図に描画
   },400);
+  setTimeout(()=>{ layout(); },900);
+  setTimeout(()=>{ layout(); },1800);
 
   // 日付変更
   document.getElementById('idate').addEventListener('change',()=>{
     calcSunMoon();
-    if(sLat!==null)onPick();
+    updateDrawerIfOpen();
+    updatePvDateDisp();
+    if(sLat!==null){
+      // 地点変わらず標高再取得不要 → 直接再描画
+      const t=T[cur];
+      const dH=hav(sLat,sLng,t.lat,t.lng);
+      const dD=dist3D(sLat,sLng,sElev,t.lat,t.lng,t.elev);
+      const az=brng(sLat,sLng,t.lat,t.lng);
+      const va=elAng(dH,sElev,t.elev,t.h);
+      try{drawView(dD,az,va);}catch(e){}
+      try{drawCompass(az,va);}catch(e){}
+    } else {
+      // ピンなし：デモ描画
+      try{drawView(5,180,3.30);}catch(e){}
+      try{drawCompass(180,3.30);}catch(e){}
+    }
   });
 
   // 時刻変更
@@ -2341,16 +4504,26 @@ window.addEventListener('load',()=>{
     if(el&&el.value){
       const td=document.getElementById('tbtn-time-disp');
       if(td)td.textContent=el.value;
+      // ドロワーが開いていればitime表示も同期
+      const drawer=document.getElementById('mob-drawer');
+      if(drawer&&drawer.classList.contains('open')){
+        const dEl=document.getElementById('mob-drawer-content').querySelector('#itime');
+        if(dEl&&dEl.value!==el.value) dEl.value=el.value;
+      }
     }
-    if(sLat!==null){
-      try{
+    try{
+      if(sLat!==null){
         const t=T[cur];
         const dH=hav(sLat,sLng,t.lat,t.lng),dD=dist3D(sLat,sLng,sElev,t.lat,t.lng,t.elev);
         const az=brng(sLat,sLng,t.lat,t.lng);
         drawView(dD,az,elAng(dH,sElev,t.elev,t.h));
         drawCompass(az,elAng(dH,sElev,t.elev,t.h));
-      }catch(e){console.error('onTimeChange:',e);}
-    }
+      }else{
+        // 撮影地点未設定でも時刻表示を更新するためデフォルト値で再描画
+        drawView(5,180,3.30);
+        drawCompass(180,3.30);
+      }
+    }catch(e){console.error('onTimeChange:',e);}
   };
   document.getElementById('itime').addEventListener('change',onTimeChange);
   document.getElementById('itime').addEventListener('input',onTimeChange);
@@ -2363,6 +4536,37 @@ window.addEventListener('load',()=>{
     _resizeTimer=setTimeout(scheduleLayout,60);
   });
 });
+
+// BFCache（iOS Safari の戻るキャッシュ）対策
+// メモ帳→Safari→別ページ→戻る、の場合にpageshowが発火するがloadは発火しない
+window.addEventListener('pageshow', e=>{
+  if(e.persisted && (location.search.includes('spots=') || location.hash.includes('spots='))){
+    _loadFromURLHash();
+  }
+});
 </script>
+<!-- 保存地点オーバーレイ -->
+<div id="spot-overlay-bg" onclick="closeSpotPanel()"
+  style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:11000;"></div>
+<div id="spot-panel"
+  style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:min(420px,96vw);max-height:80vh;overflow-y:auto;
+  background:var(--sur);border:1px solid var(--bd);border-radius:10px;
+  z-index:11001;padding:14px 12px 16px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;
+    border-bottom:1px solid var(--bd);padding-bottom:8px;">
+    <span style="font-family:'Space Mono',monospace;font-size:11px;color:var(--ac);">🗂 保存地点（最大15件）</span>
+    <div onclick="closeSpotPanel()"
+      style="cursor:pointer;font-size:18px;color:var(--sub);padding:2px 6px;line-height:1;">✕</div>
+  </div>
+  <!-- 保存ボタン -->
+  <button onclick="saveSpot()"
+    style="width:100%;background:var(--sur2);border:1px solid var(--ac);border-radius:5px;
+    color:var(--ac);font-family:'Space Mono',monospace;font-size:11px;padding:7px;
+    cursor:pointer;margin-bottom:10px;">
+    💾 現在の地点・設定を保存
+  </button>
+  <div id="spot-panel-list"></div>
+</div>
 </body>
 </html>
