@@ -425,6 +425,29 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   #mob-drawer-inner input[type=time]{font-size:16px;padding:6px;}
   #mob-drawer-inner .tbtn{width:36px;height:28px;font-size:9px;}
 }
+/* ━━━ 横向きオーバーレイ ━━━ */
+#landscape-overlay{
+  display:none;
+  position:fixed;top:0;left:0;right:0;bottom:0;
+  background:#0a0c14;
+  z-index:99999;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:16px;
+}
+@media (orientation:landscape) and (max-width:932px){
+  #landscape-overlay{display:flex;}
+}
+#landscape-overlay .lo-icon{font-size:48px;}
+#landscape-overlay .lo-msg{
+  font-family:'Space Mono',monospace;
+  font-size:13px;
+  color:var(--ac);
+  letter-spacing:.08em;
+  text-align:center;
+  line-height:1.8;
+}
 </style>
 </head>
 <body>
@@ -4595,6 +4618,10 @@ window.addEventListener('pageshow', e=>{
     💾 現在の地点・設定を保存
   </button>
   <div id="spot-panel-list"></div>
+</div>
+<div id="landscape-overlay">
+  <div class="lo-icon">📱</div>
+  <div class="lo-msg">縦向きでご使用ください<br><span style="font-size:10px;color:var(--sub);">Please rotate to portrait</span></div>
 </div>
 </body>
 </html>
