@@ -1045,7 +1045,7 @@ window.addEventListener('DOMContentLoaded',()=>{
     const el = document.getElementById(id);
     if(el) el.addEventListener('touchstart', blockPinchStart, pinchOpt);
   });
-  document.body.addEventListener('touchstart', e => {
+  document.addEventListener('touchstart', e => {
     if(e.touches.length < 2) return;
     let el = e.target;
     while(el){ if(el.id === 'map') return; el = el.parentElement; }
