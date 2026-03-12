@@ -4025,6 +4025,13 @@ function setDateFromCal(ds){
   closeMoonCal();
 }
 
+function moonPhaseDataURL(age){
+  const size=16,c=document.createElement('canvas');
+  c.width=size;c.height=size;
+  const ctx=c.getContext('2d');
+  drawMoonIcon(ctx,size/2,size/2,size/2-1,age);
+  return c.toDataURL();
+}
 function calcChances(){
   if(sLat===null){
     document.getElementById('chance-list').textContent='先に撮影地点を選択してください。';
@@ -4137,11 +4144,12 @@ function calcChances(){
       const bodyInfo=sunsetMode
         ?`移${Math.round(moveM)}m 高${altPct}%`
         :`月齢${r.age.toFixed(1)}日 移${Math.round(moveM)}m 高${altPct}%${swallowMark}`;
+      const moonImg=(!sunsetMode&&r.age!=null)?`<img src="${moonPhaseDataURL(r.age)}" width="16" height="16" style="vertical-align:middle;margin-right:2px;">`:'';
       return `<div class="chance-item" onclick="setChance('${r.date}','${r.time}')" title="クリックで日時をセット">
         <span style="color:${dowColor}">${r.date}(${dow})</span>
         <span class="chance-time">${r.time}</span>
         <span style="color:var(--ac)">${star}</span>
-        <span style="color:var(--sub)">${bodyInfo}</span>
+        <span style="color:var(--sub)">${moonImg}${bodyInfo}</span>
       </div>`;
     }).join('');
     updateDrawerIfOpen();
@@ -4168,6 +4176,7 @@ function calcFullMoonChances(){
     const AZ_THR=2.5;
     const STEP=60*1000; // 1分刻み
     const MOON_R=0.265;
+    const distM=distH*1000;
 
     // 選択日から1年間の満月日を列挙（月齢13〜16日の日）
     const today=new Date(document.getElementById('idate').value+'T00:00:00+09:00');
@@ -4194,14 +4203,14 @@ function calcFullMoonChances(){
         } else {
           if(found){
             const age=moonAge(new Date(ds+'T03:00:00Z'));
-            results.push({date:ds,time:jst(found.dt),azDiff:found.azDiff,alt:found.alt,topAlt,age,ts:found.dt});
+            results.push({date:ds,time:jst(found.dt),azDiff:found.azDiff,alt:found.alt,baseAlt,topAlt,distM,age,ts:found.dt});
             found=null;
           }
         }
       }
       if(found){
         const age=moonAge(new Date(ds+'T03:00:00Z'));
-        results.push({date:ds,time:jst(found.dt),azDiff:found.azDiff,alt:found.alt,topAlt,age,ts:found.dt});
+        results.push({date:ds,time:jst(found.dt),azDiff:found.azDiff,alt:found.alt,baseAlt,topAlt,distM,age,ts:found.dt});
       }
     }
 
@@ -4220,13 +4229,23 @@ function calcFullMoonChances(){
       results.map(r=>{
         const dow=new Date(r.date+'T12:00:00+09:00').toLocaleDateString('ja-JP',{weekday:'short'});
         const dowColor=dow.includes('日')?'#ff6655':dow.includes('土')?'#4488ff':'var(--sub)';
-        const star=r.azDiff<=1?'★★★':r.azDiff<=2?'★★☆':'★☆☆';
-        const altPct=Math.round(r.alt/r.topAlt*100);
+        const moveM=r.distM*Math.tan(r.azDiff*Math.PI/180);
+        let star;
+        if(moveM<=5)        star='🎯🌕🎯';
+        else if(moveM<=10)  star='★★★';
+        else if(moveM<=50)  star='★★☆';
+        else if(moveM<=100) star='★☆☆';
+        else if(moveM<=200) star='☆☆☆';
+        else                star='―';
+        const range=r.topAlt-r.baseAlt;
+        const altPct=range>0.001?Math.round((r.alt-r.baseAlt)/range*100):0;
+        const moonImg=`<img src="${moonPhaseDataURL(r.age)}" width="16" height="16" style="vertical-align:middle;margin-right:2px;">`;
+        const bodyInfo=`月齢${r.age.toFixed(1)}日 移${Math.round(moveM)}m 高${altPct}%`;
         return `<div class="chance-item" onclick="setChance('${r.date}','${r.time}')" title="クリックで日時をセット">
           <span style="color:${dowColor}">${r.date}(${dow})</span>
           <span class="chance-time">${r.time}</span>
           <span style="color:var(--ac)">${star}</span>
-          <span style="color:var(--sub)">🌕${r.age.toFixed(1)}日 ±${r.azDiff.toFixed(1)}° 高${altPct}%</span>
+          <span style="color:var(--sub)">${moonImg}${bodyInfo}</span>
         </div>`;
       }).join('');
     updateDrawerIfOpen();
