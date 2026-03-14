@@ -3129,42 +3129,14 @@ function drawCompass(tAz,va){
         ctx.font=`9px 'Noto Sans JP',sans-serif`;ctx.fillStyle='rgba(200,200,220,0.85)';ctx.fillText(pname,tx2,pmy+14);
       }
     } else {
-      // ━━ スマホ縦向き：積み上げ計算で全要素を収納 ━━
-      // AZ/ELEV/方位角ラベルは非表示（幅が狭いため）
-      // 要素: コンパス円 → 仰角ダイアグラム → 月相 → 天気
+      // ━━ スマホ縦向き：コンパス円 → 月相 → 天気（仰角ダイアグラムなし）━━
       const margin=6;
-      const gap1=8, gap2=8, gap3=6;
+      const gap1=8, gap2=6;
       const phaseAreaH=52;
-      const fsW=8, lineHW=fsW+3;
-      const weatherH=lineHW*2+8;
+
+      // 月相描画（コンパス円直下）
       const compassBottom=cy+R+14;
-      const elvTop=compassBottom+gap1;
-      const elvH=Math.max(20, H-elvTop-gap2-phaseAreaH-gap3-weatherH);
-      const ey=elvTop+elvH;
-      const ew=Math.min(W-margin*2, elvH*1.3);
-      const ex=margin;
-
-      // 仰角ダイアグラム描画
-      if(ew>12&&elvH>12){
-        ctx.strokeStyle='rgba(200,169,110,.3)';ctx.lineWidth=1;
-        ctx.beginPath();ctx.moveTo(ex,ey-elvH);ctx.lineTo(ex,ey);ctx.lineTo(ex+ew,ey);ctx.stroke();
-        const ar=Math.max(0,va)*Math.PI/180;
-        ctx.strokeStyle='#c8a96e';ctx.lineWidth=2;ctx.shadowColor='#c8a96e';ctx.shadowBlur=4;
-        ctx.beginPath();ctx.moveTo(ex,ey);ctx.arc(ex,ey,ew*.65,0,-ar,true);ctx.stroke();ctx.shadowBlur=0;
-        const ll=ew*.70;
-        ctx.strokeStyle='rgba(200,169,110,.5)';ctx.lineWidth=1.5;
-        ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex+ll*Math.cos(-ar),ey+ll*Math.sin(-ar));ctx.stroke();
-        ctx.font='11px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-        ctx.fillText(T[cur].e,ex+ll*Math.cos(-ar),ey+ll*Math.sin(-ar)-4);
-        const elvLabel=`${Math.max(0,va).toFixed(2)}°`;
-        ctx.font=`bold 9px 'Space Mono',monospace`;ctx.textAlign='left';ctx.textBaseline='alphabetic';
-        const elw=ctx.measureText(elvLabel).width;
-        ctx.fillStyle='rgba(10,15,28,0.65)';ctx.fillRect(ex+10,ey-14,elw+4,11);
-        ctx.fillStyle='rgba(200,220,160,0.95)';ctx.fillText(elvLabel,ex+11,ey-5);
-      }
-
-      // 月相描画
-      const phaseY0=ey+gap2;
+      const phaseY0=compassBottom+gap1;
       const ds2=document.getElementById('idate').value;
       if(ds2){
         const age2=moonAge(new Date(ds2+'T03:00:00Z'));
@@ -3211,7 +3183,7 @@ function drawCompass(tAz,va){
     }
   }
 
-  // ━━ 天気情報2行 ━━
+  // ━━ 天気情報4行 ━━
   if(sLat!==null){
     const ds=document.getElementById('idate')?.value;
     const ts=document.getElementById('itime')?.value;
@@ -3224,44 +3196,65 @@ function drawCompass(tAz,va){
         const w=getWeatherAt(vp.lat,vp.lng,dt);
         if(w){
           const transp=calcTransparency(w.vis,sLat,sLng,az,vaW);
-          const fs=8;
-          ctx.font=`bold ${fs}px 'Space Mono',monospace`;
-          ctx.textBaseline='alphabetic';
-          const lineH=fs+3;
-          const weatherH=lineH*2+8;
-          // isMobPort時は積み上げ計算に合わせたY座標
+          const fs=10;
+          const lineH=fs+4;
+          const weatherH=lineH*4+8;
+          // isMobPort時は月相直下、それ以外はcanvas下端
           let weatherTop;
           if(isMobPort){
-            const gap1=8,gap2=8,gap3=6,phaseAreaH=52;
             const R2=Math.min(H*0.20,W*0.22);
             const cy2=R2+12;
             const compassBottom2=cy2+R2+14;
-            const elvTop2=compassBottom2+gap1;
-            const elvH2=Math.max(20,H-elvTop2-gap2-phaseAreaH-gap3-weatherH);
-            const phaseY0_2=elvTop2+elvH2+gap2;
-            weatherTop=phaseY0_2+phaseAreaH+gap3;
+            const phaseY0_2=compassBottom2+8;
+            weatherTop=phaseY0_2+52+6;
           } else {
             weatherTop=H-weatherH;
           }
-          const y1=weatherTop+lineH;
-          const y2=weatherTop+lineH*2+4;
           // 背景
-          ctx.fillStyle='rgba(10,15,28,0.70)';
+          ctx.fillStyle='rgba(10,15,28,0.75)';
           ctx.fillRect(0,weatherTop,W,weatherH);
-          // 1行目：雨・透
+          ctx.font=`bold ${fs}px 'Space Mono',monospace`;
+          ctx.textBaseline='alphabetic';
+          // 数値右揃えのX座標
+          const valX=W-4;
+          // ラベルX座標
+          const lblX=4;
+          // 1行目：☔雨
           const rain=w.precip!==null?`${w.precip}%`:'--';
           const tr=transp!==null?`${transp}%`:'--';
+          const y1=weatherTop+lineH;
           ctx.textAlign='left';
           ctx.fillStyle='rgba(150,200,255,0.90)';
-          ctx.fillText(`雨 ${rain}`,3,y1);
+          ctx.fillText('☔',lblX,y1);
+          ctx.textAlign='right';
+          ctx.fillText(rain,W/2-2,y1);
+          ctx.textAlign='left';
           ctx.fillStyle='rgba(200,230,180,0.90)';
-          ctx.fillText(`透 ${tr}`,W/2-10,y1);
-          // 2行目：☁低・中・高
+          ctx.fillText('👁',W/2+2,y1);
+          ctx.textAlign='right';
+          ctx.fillText(tr,valX,y1);
+          // 2行目：☁️低
           const low=w.low!==null?`${w.low}%`:'--';
-          const mid=w.mid!==null?`${w.mid}%`:'--';
-          const high=w.high!==null?`${w.high}%`:'--';
+          const y2=weatherTop+lineH*2+2;
+          ctx.textAlign='left';
           ctx.fillStyle='rgba(180,200,220,0.90)';
-          ctx.fillText(`☁低${low} 中${mid} 高${high}`,3,y2);
+          ctx.fillText('☁️低',lblX,y2);
+          ctx.textAlign='right';
+          ctx.fillText(low,valX,y2);
+          // 3行目：中
+          const mid=w.mid!==null?`${w.mid}%`:'--';
+          const y3=weatherTop+lineH*3+4;
+          ctx.textAlign='left';
+          ctx.fillText('　中',lblX,y3);
+          ctx.textAlign='right';
+          ctx.fillText(mid,valX,y3);
+          // 4行目：高
+          const high=w.high!==null?`${w.high}%`:'--';
+          const y4=weatherTop+lineH*4+6;
+          ctx.textAlign='left';
+          ctx.fillText('　高',lblX,y4);
+          ctx.textAlign='right';
+          ctx.fillText(high,valX,y4);
         }
       }
     }
@@ -3635,13 +3628,13 @@ function toggleDrawer(){
   if(!isOpen){
     // 開く：#pnlのHTMLをそのままミラーリング（DOM物理移動しない）
     _syncDrawerContent();
-    triggerWeatherFetch();
   } else {
     // 閉じる：ドロワー内の変更を元の#pnlに同期
     _syncFromDrawer();
   }
   drawer.classList.toggle('open');
   overlay.classList.toggle('open');
+  if(!isOpen) triggerWeatherFetch();
 }
 
 // ドロワーが開いている場合、元pnlの状態をドロワーに同期
@@ -4772,6 +4765,7 @@ window.addEventListener('load',()=>{
         drawView(5,180,3.30);
         drawCompass(180,3.30);
       }
+      updateDrawerIfOpen();
     }catch(e){console.error('onTimeChange:',e);}
   };
   document.getElementById('itime').addEventListener('change',onTimeChange);
