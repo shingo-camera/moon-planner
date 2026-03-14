@@ -936,6 +936,9 @@ async function triggerWeatherFetch(){
   const vp = calcViewPointCoord(sLat, sLng, az, va);
   if(needsRefetch(vp.lat, vp.lng)){
     await fetchWeather(vp.lat, vp.lng);
+    // 取得完了後にダイアグラム・ドロワーを再描画
+    try{ drawCompass(az, va); }catch(e){}
+    updateDrawerIfOpen();
   }
 }
 let pvAzOfs=0, pvAltOfs=0; // プレビュー視点オフセット（度）
