@@ -3738,7 +3738,7 @@ function updateDrawerIfOpen(){
         const low=w.low!==null?`${w.low}%`:'--';
         const mid=w.mid!==null?`${w.mid}%`:'--';
         const high=w.high!==null?`${w.high}%`:'--';
-        wEl.innerHTML=`雨 ${rain} 透 ${tr}<br>☁低${low} 中${mid} 高${high}`;
+        wEl.innerHTML=`☔${rain} 👁${tr}<br>☁️低${low} 中${mid} 高${high}`;
       } else {
         wEl.textContent='';
       }
@@ -4201,7 +4201,7 @@ function renderMoonCal(){
 
     // 月の出天気（常に固定高さで確保・16日以内のみ内容を埋める）
     const riseWEl=document.createElement('div');
-    riseWEl.style.cssText=`font-family:'Space Mono',monospace;font-size:7px;color:rgba(180,210,255,0.85);line-height:1.3;pointer-events:none;`;
+    riseWEl.style.cssText=`font-family:'Space Mono',monospace;font-size:6px;color:rgba(180,210,255,0.85);line-height:1.3;pointer-events:none;`;
 
     // 月の入り時刻（非同期で埋める）
     const setEl=document.createElement('div');
@@ -4210,7 +4210,7 @@ function renderMoonCal(){
 
     // 月の入り天気（常に固定高さで確保・16日以内のみ内容を埋める）
     const setWEl=document.createElement('div');
-    setWEl.style.cssText=`font-family:'Space Mono',monospace;font-size:7px;color:rgba(180,210,255,0.85);line-height:1.3;pointer-events:none;`;
+    setWEl.style.cssText=`font-family:'Space Mono',monospace;font-size:6px;color:rgba(180,210,255,0.85);line-height:1.3;pointer-events:none;`;
 
     cell.appendChild(dayEl);
     cell.appendChild(cv);
@@ -4261,7 +4261,7 @@ function renderMoonCal(){
         const tr=calcTransparency(wr.vis,sLat,sLng,az,vaW);
         const rain=wr.precip!==null?`${wr.precip}%`:'--';
         const trStr=tr!==null?`${tr}%`:'--';
-        rWEl.textContent=`雨${rain} 透${trStr}`;
+        rWEl.textContent=`雨${rain}透${trStr}`;
       } else {
         // キャッシュなし→取得してから再描画
         fetchWeather(vp.lat,vp.lng).then(()=>{
@@ -4270,7 +4270,7 @@ function renderMoonCal(){
             const tr2=calcTransparency(wr2.vis,sLat,sLng,az,vaW);
             const rain2=wr2.precip!==null?`${wr2.precip}%`:'--';
             const tr2Str=tr2!==null?`${tr2}%`:'--';
-            rWEl.textContent=`雨${rain2} 透${tr2Str}`;
+            rWEl.textContent=`雨${rain2}透${tr2Str}`;
           }
         });
       }
@@ -4285,7 +4285,7 @@ function renderMoonCal(){
         const tr=calcTransparency(ws.vis,sLat,sLng,az,vaW);
         const rain=ws.precip!==null?`${ws.precip}%`:'--';
         const trStr=tr!==null?`${tr}%`:'--';
-        sWEl.textContent=`雨${rain} 透${trStr}`;
+        sWEl.textContent=`雨${rain}透${trStr}`;
       } else {
         fetchWeather(vp.lat,vp.lng).then(()=>{
           const ws2=getWeatherAt(vp.lat,vp.lng,mt.set);
@@ -4293,7 +4293,7 @@ function renderMoonCal(){
             const tr2=calcTransparency(ws2.vis,sLat,sLng,az,vaW);
             const rain2=ws2.precip!==null?`${ws2.precip}%`:'--';
             const tr2Str=tr2!==null?`${tr2}%`:'--';
-            sWEl.textContent=`雨${rain2} 透${tr2Str}`;
+            sWEl.textContent=`雨${rain2}透${tr2Str}`;
           }
         });
       }
