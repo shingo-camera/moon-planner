@@ -3153,9 +3153,7 @@ function drawCompass(tAz,va){
       const gap1=8, gap2=4;
       const phaseAreaH=52;
 
-      // [DEBUG] AZ・tilt表示（月相の下）
-      const _dbgCompBottom=cy+R+14;
-      const dbgY=_dbgCompBottom+gap1+8+phaseAreaH+gap2+30;
+      // [DEBUG] AZ・χ・q・tilt表示（canvas下部固定）
       ctx.font=`bold 8px 'Space Mono',monospace`;
       ctx.textAlign='left';ctx.textBaseline='alphabetic';
       ctx.fillStyle='rgba(255,200,100,0.95)';
@@ -3175,11 +3173,10 @@ function drawCompass(tAz,va){
           Math.tan(latr_dbg)*Math.cos(bp_dbg.dec)-Math.sin(bp_dbg.dec)*Math.cos(bp_dbg.Hr)
         );
         const tilt_dbg=(chi_dbg-q_dbg)*180/Math.PI;
-        ctx.fillText(`AZ:${bp_dbg.az.toFixed(1)}°`,margin,dbgY);
-        ctx.fillText(`χ:${(chi_dbg*180/Math.PI).toFixed(1)}°`,margin,dbgY+10);
-        ctx.fillText(`q:${(q_dbg*180/Math.PI).toFixed(1)}°`,margin,dbgY+20);
-        ctx.fillText(`tilt:${tilt_dbg.toFixed(1)}°`,margin,dbgY+30);
-        ctx.fillText(`H:${(bp_dbg.Hr*180/Math.PI).toFixed(1)}°`,margin,dbgY+40);
+        const dbgY=H-45;
+        ctx.fillText(`AZ:${bp_dbg.az.toFixed(1)} χ:${(chi_dbg*180/Math.PI).toFixed(1)}`,margin,dbgY);
+        ctx.fillText(`q:${(q_dbg*180/Math.PI).toFixed(1)} tilt:${tilt_dbg.toFixed(1)}`,margin,dbgY+12);
+        ctx.fillText(`H:${(bp_dbg.Hr*180/Math.PI).toFixed(1)}`,margin,dbgY+24);
       }
 
       // 月相描画（コンパス円直下）
