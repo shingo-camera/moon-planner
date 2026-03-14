@@ -4182,21 +4182,31 @@ function renderMoonCal(){
     riseEl.style.cssText=`font-family:'Space Mono',monospace;font-size:7px;color:#ffcc88;line-height:1.3;pointer-events:none;`;
     riseEl.textContent='↑…';
 
+    // 月の出天気（16日以内のみ・非同期で埋める）
+    const riseWEl=document.createElement('div');
+    riseWEl.style.cssText=`font-family:'Space Mono',monospace;font-size:7px;color:rgba(180,210,255,0.85);line-height:1.3;pointer-events:none;`;
+
     // 月の入り時刻（非同期で埋める）
     const setEl=document.createElement('div');
     setEl.style.cssText=`font-family:'Space Mono',monospace;font-size:7px;color:#88ccff;line-height:1.3;pointer-events:none;`;
     setEl.textContent='↓…';
+
+    // 月の入り天気（16日以内のみ・非同期で埋める）
+    const setWEl=document.createElement('div');
+    setWEl.style.cssText=`font-family:'Space Mono',monospace;font-size:7px;color:rgba(180,210,255,0.85);line-height:1.3;pointer-events:none;`;
 
     cell.appendChild(dayEl);
     cell.appendChild(cv);
     cell.appendChild(ageEl);
     cell.appendChild(nameEl);
     cell.appendChild(riseEl);
+    cell.appendChild(riseWEl);
     cell.appendChild(setEl);
+    cell.appendChild(setWEl);
     grid.appendChild(cell);
 
-    riseEls.push({ds, el:riseEl});
-    setEls.push({ds, el:setEl});
+    riseEls.push({ds, el:riseEl, wEl:riseWEl});
+    setEls.push({ds, el:setEl, wEl:setWEl});
   }
 
   // 6行×7列=42セルになるよう末尾を空白セルで埋める（グリッド高さ固定のため）
@@ -4216,12 +4226,62 @@ function renderMoonCal(){
   let _calIdx=0;
   function _fillNextDay(){
     if(_calIdx>=riseEls.length)return;
-    const {ds, el:rEl}=riseEls[_calIdx];
-    const {el:sEl}=setEls[_calIdx];
+    const {ds, el:rEl, wEl:rWEl}=riseEls[_calIdx];
+    const {el:sEl, wEl:sWEl}=setEls[_calIdx];
     _calIdx++;
     const mt=moonTCached(ds, mlat, mlng);
     rEl.textContent=mt.rise?'↑'+jst(mt.rise):'↑—';
     sEl.textContent=mt.set ?'↓'+jst(mt.set) :'↓—';
+
+    // 16日以内かつ撮影地点あり・月の出入り時刻がある場合のみ天気表示
+    if(sLat!==null && mt.rise && isInForecastRange(mt.rise)){
+      const az=brng(sLat,sLng,T[cur].lat,T[cur].lng);
+      const vaW=elAng(hav(sLat,sLng,T[cur].lat,T[cur].lng),sElev,T[cur].elev,T[cur].h);
+      const vp=calcViewPointCoord(sLat,sLng,az,vaW);
+      // キャッシュから取得（なければ非同期で取得して後で再描画）
+      const wr=getWeatherAt(vp.lat,vp.lng,mt.rise);
+      if(wr){
+        const tr=calcTransparency(wr.vis,sLat,sLng,az,vaW);
+        const rain=wr.precip!==null?`${wr.precip}%`:'--';
+        const trStr=tr!==null?`${tr}%`:'--';
+        rWEl.textContent=`☔${rain} 👁${trStr}`;
+      } else {
+        // キャッシュなし→取得してから再描画
+        fetchWeather(vp.lat,vp.lng).then(()=>{
+          const wr2=getWeatherAt(vp.lat,vp.lng,mt.rise);
+          if(wr2){
+            const tr2=calcTransparency(wr2.vis,sLat,sLng,az,vaW);
+            const rain2=wr2.precip!==null?`${wr2.precip}%`:'--';
+            const tr2Str=tr2!==null?`${tr2}%`:'--';
+            rWEl.textContent=`☔${rain2} 👁${tr2Str}`;
+          }
+        });
+      }
+    }
+
+    if(sLat!==null && mt.set && isInForecastRange(mt.set)){
+      const az=brng(sLat,sLng,T[cur].lat,T[cur].lng);
+      const vaW=elAng(hav(sLat,sLng,T[cur].lat,T[cur].lng),sElev,T[cur].elev,T[cur].h);
+      const vp=calcViewPointCoord(sLat,sLng,az,vaW);
+      const ws=getWeatherAt(vp.lat,vp.lng,mt.set);
+      if(ws){
+        const tr=calcTransparency(ws.vis,sLat,sLng,az,vaW);
+        const rain=ws.precip!==null?`${ws.precip}%`:'--';
+        const trStr=tr!==null?`${tr}%`:'--';
+        sWEl.textContent=`☔${rain} 👁${trStr}`;
+      } else {
+        fetchWeather(vp.lat,vp.lng).then(()=>{
+          const ws2=getWeatherAt(vp.lat,vp.lng,mt.set);
+          if(ws2){
+            const tr2=calcTransparency(ws2.vis,sLat,sLng,az,vaW);
+            const rain2=ws2.precip!==null?`${ws2.precip}%`:'--';
+            const tr2Str=tr2!==null?`${tr2}%`:'--';
+            sWEl.textContent=`☔${rain2} 👁${tr2Str}`;
+          }
+        });
+      }
+    }
+
     setTimeout(_fillNextDay, 0);
   }
   setTimeout(_fillNextDay, 0);
