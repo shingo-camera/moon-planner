@@ -3215,46 +3215,54 @@ function drawCompass(tAz,va){
           ctx.fillRect(0,weatherTop,W,weatherH);
           ctx.font=`bold ${fs}px 'Space Mono',monospace`;
           ctx.textBaseline='alphabetic';
-          // 数値右揃えのX座標
-          const valX=W-4;
-          // ラベルX座標
-          const lblX=4;
-          // 1行目：☔雨
+          // 座標定義
+          // 1行目：左半分=☔+数値、右半分=👁+数値
+          const half=Math.floor(W/2);
+          const rainIconX=4;         // ☔左端
+          const rainValX=half-4;     // 雨%右揃え
+          const visIconX=half+4;     // 👁左端
+          const visValX=W-4;         // 透%右揃え
+          // 2〜4行目：☁️固定左端、低中高固定X、数値右揃え
+          const cloudIconX=4;        // ☁️左端
+          const cloudLblX=26;        // 低中高の左端（☁️の右）
+          const cloudValX=W-4;       // %右揃え
           const rain=w.precip!==null?`${w.precip}%`:'--';
           const tr=transp!==null?`${transp}%`:'--';
+          const low=w.low!==null?`${w.low}%`:'--';
+          const mid=w.mid!==null?`${w.mid}%`:'--';
+          const high=w.high!==null?`${w.high}%`:'--';
           const y1=weatherTop+lineH;
+          const y2=weatherTop+lineH*2+2;
+          const y3=weatherTop+lineH*3+4;
+          const y4=weatherTop+lineH*4+6;
+          // 1行目
           ctx.textAlign='left';
           ctx.fillStyle='rgba(150,200,255,0.90)';
-          ctx.fillText('☔',lblX,y1);
+          ctx.fillText('☔',rainIconX,y1);
           ctx.textAlign='right';
-          ctx.fillText(rain,W/2-2,y1);
+          ctx.fillText(rain,rainValX,y1);
           ctx.textAlign='left';
           ctx.fillStyle='rgba(200,230,180,0.90)';
-          ctx.fillText('👁',W/2+2,y1);
+          ctx.fillText('👁',visIconX,y1);
           ctx.textAlign='right';
-          ctx.fillText(tr,valX,y1);
+          ctx.fillText(tr,visValX,y1);
           // 2行目：☁️低
-          const low=w.low!==null?`${w.low}%`:'--';
-          const y2=weatherTop+lineH*2+2;
           ctx.textAlign='left';
           ctx.fillStyle='rgba(180,200,220,0.90)';
-          ctx.fillText('☁️低',lblX,y2);
+          ctx.fillText('☁️',cloudIconX,y2);
+          ctx.fillText('低',cloudLblX,y2);
           ctx.textAlign='right';
-          ctx.fillText(low,valX,y2);
+          ctx.fillText(low,cloudValX,y2);
           // 3行目：中
-          const mid=w.mid!==null?`${w.mid}%`:'--';
-          const y3=weatherTop+lineH*3+4;
           ctx.textAlign='left';
-          ctx.fillText('　中',lblX,y3);
+          ctx.fillText('中',cloudLblX,y3);
           ctx.textAlign='right';
-          ctx.fillText(mid,valX,y3);
+          ctx.fillText(mid,cloudValX,y3);
           // 4行目：高
-          const high=w.high!==null?`${w.high}%`:'--';
-          const y4=weatherTop+lineH*4+6;
           ctx.textAlign='left';
-          ctx.fillText('　高',lblX,y4);
+          ctx.fillText('高',cloudLblX,y4);
           ctx.textAlign='right';
-          ctx.fillText(high,valX,y4);
+          ctx.fillText(high,cloudValX,y4);
         }
       }
     }
