@@ -3131,7 +3131,7 @@ function drawCompass(tAz,va){
     } else {
       // ━━ スマホ縦向き：コンパス円 → 月相 → 天気（仰角ダイアグラムなし）━━
       const margin=6;
-      const gap1=8, gap2=6;
+      const gap1=8, gap2=4;
       const phaseAreaH=52;
 
       // 月相描画（コンパス円直下）
@@ -3206,7 +3206,7 @@ function drawCompass(tAz,va){
             const cy2=R2+12;
             const compassBottom2=cy2+R2+14;
             const phaseY0_2=compassBottom2+8;
-            weatherTop=phaseY0_2+52+6;
+            weatherTop=phaseY0_2+52+4;
           } else {
             weatherTop=H-weatherH;
           }
@@ -3215,17 +3215,14 @@ function drawCompass(tAz,va){
           ctx.fillRect(0,weatherTop,W,weatherH);
           ctx.font=`bold ${fs}px 'Space Mono',monospace`;
           ctx.textBaseline='alphabetic';
-          // 座標定義
-          // 1行目：左半分=☔+数値、右半分=👁+数値
-          const half=Math.floor(W/2);
-          const rainIconX=4;         // ☔左端
-          const rainValX=half-4;     // 雨%右揃え
-          const visIconX=half+4;     // 👁左端
-          const visValX=W-4;         // 透%右揃え
-          // 2〜4行目：☁️固定左端、低中高固定X、数値右揃え
-          const cloudIconX=4;        // ☁️左端
-          const cloudLblX=26;        // 低中高の左端（☁️の右）
-          const cloudValX=W-4;       // %右揃え
+          // 座標定義（W=79px基準）
+          const rainIconX=3;   // ☔左端
+          const rainValX=40;   // 雨%右揃え
+          const visIconX=44;   // 👁左端
+          const visValX=76;    // 透%右揃え
+          const cloudIconX=4;  // ☁️左端
+          const cloudLblX=26;  // 低中高の左端
+          const cloudValX=60;  // 雲%右揃え
           const rain=w.precip!==null?`${w.precip}%`:'--';
           const tr=transp!==null?`${transp}%`:'--';
           const low=w.low!==null?`${w.low}%`:'--';
