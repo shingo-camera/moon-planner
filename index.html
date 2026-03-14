@@ -782,7 +782,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   </div>
 </div>
 <div id="mooncal-overlay" onclick="if(event.target===this)closeMoonCal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10100;"></div>
-<div id="mooncal-popup" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+<div id="mooncal-popup" style="display:none;position:fixed;top:5%;left:50%;transform:translateX(-50%);
   z-index:10200;background:var(--sur);border:1px solid var(--bd);border-radius:10px;
   padding:14px;width:min(96vw,480px);max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.6);">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
@@ -800,7 +800,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
     <div style="text-align:center;font-family:'Space Mono',monospace;font-size:9px;color:var(--sub);padding:2px;">金</div>
     <div style="text-align:center;font-family:'Space Mono',monospace;font-size:9px;color:#4488ff;padding:2px;">土</div>
   </div>
-  <div id="mooncal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);grid-template-rows:repeat(6,1fr);gap:3px;"></div>
+  <div id="mooncal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);grid-template-rows:repeat(6,auto);gap:3px;"></div>
 </div>
 
 <div id="mob-overlay" onclick="toggleDrawer()"></div>
