@@ -324,6 +324,18 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   #pv-ofs-btn{display:flex;}
 }
 
+/* ━━━ スマホ横向き禁止オーバーレイ ━━━ */
+#landscape-overlay{display:none;}
+@media (max-width:600px) and (orientation:landscape){
+  #landscape-overlay{
+    display:flex;
+    position:fixed;inset:0;z-index:99999;
+    background:rgba(8,12,24,0.97);
+    flex-direction:column;align-items:center;justify-content:center;
+    gap:16px;pointer-events:all;
+  }
+}
+
 /* ━━━ スマホレイアウト ━━━ */
 @media (max-width:600px){
   :root{--hdr:0px;--mob-bar:104px;}
@@ -442,6 +454,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 <div id="hdr">
   <div class="moon"></div>
   <div><h1>MOON × LANDMARK PLANNER</h1><p>PLの塔・岐阜城と月の撮影計画支援ツール</p></div>
+</div>
+
+<div id="landscape-overlay">
+  <div style="font-size:48px;">📱</div>
+  <div style="font-family:'Space Mono',monospace;font-size:13px;color:#c8a96e;letter-spacing:.08em;text-align:center;">縦向きにしてください</div>
 </div>
 
 <div id="wrap">
