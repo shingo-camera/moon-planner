@@ -901,13 +901,15 @@ function getWeatherAt(lat, lng, datetime){
   const key = _weatherCacheKey(lat, lng);
   const c = weatherCache[key];
   if(!c||!c.data) return null;
-  // 1時間単位に丸める（HH:00）
+  // JST（UTC+9）で時刻を1時間単位に丸める
   const d = new Date(datetime);
-  const hh = String(d.getHours()).padStart(2,'0');
-  const mm = d.getMonth()+1;
-  const dd = d.getDate();
-  const yyyy = d.getFullYear();
-  const tkey = `${yyyy}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}T${hh}:00`;
+  const jstMs = d.getTime() + 9*60*60*1000;
+  const jstDate = new Date(jstMs);
+  const yyyy = jstDate.getUTCFullYear();
+  const mm = String(jstDate.getUTCMonth()+1).padStart(2,'0');
+  const dd = String(jstDate.getUTCDate()).padStart(2,'0');
+  const hh = String(jstDate.getUTCHours()).padStart(2,'0');
+  const tkey = `${yyyy}-${mm}-${dd}T${hh}:00`;
   return c.data[tkey] || null;
 }
 
@@ -4459,11 +4461,29 @@ function calcChances(){
       const bodyInfo=sunsetMode
         ?`移${Math.round(moveM)}m 高${altPct}%`
         :`月齢${r.age.toFixed(1)}日 移${Math.round(moveM)}m 高${altPct}%${swallowMark}`;
+
+      // 天気情報（16日以内のみ）
+      let weatherStr='';
+      if(isInForecastRange(r.ts)){
+        const vp=calcViewPointCoord(sLat,sLng,tAz,r.alt);
+        const w=getWeatherAt(vp.lat,vp.lng,r.ts);
+        if(w){
+          const transp=calcTransparency(w.vis,sLat,sLng,tAz,r.alt);
+          const rain=w.precip!==null?`${w.precip}%`:'--';
+          const tr=transp!==null?`${transp}%`:'--';
+          const low=w.low!==null?`${w.low}`:'--';
+          const mid=w.mid!==null?`${w.mid}`:'--';
+          const high=w.high!==null?`${w.high}`:'--';
+          weatherStr=`☔${rain}👁${tr}☁️低${low}中${mid}高${high}`;
+        }
+      }
+
       return `<div class="chance-item" onclick="setChance('${r.date}','${r.time}')" title="クリックで日時をセット">
         <span style="color:${dowColor}">${r.date}(${dow})</span>
         <span class="chance-time">${r.time}</span>
         <span style="color:var(--ac)">${star}</span>
         <span style="color:var(--sub)">${bodyInfo}</span>
+        ${weatherStr?`<span style="color:rgba(180,210,255,0.85)">${weatherStr}</span>`:''}
       </div>`;
     }).join('');
     updateDrawerIfOpen();
@@ -4544,11 +4564,29 @@ function calcFullMoonChances(){
         const dowColor=dow.includes('日')?'#ff6655':dow.includes('土')?'#4488ff':'var(--sub)';
         const star=r.azDiff<=1?'★★★':r.azDiff<=2?'★★☆':'★☆☆';
         const altPct=Math.round(r.alt/r.topAlt*100);
+
+        // 天気情報（16日以内のみ）
+        let weatherStr='';
+        if(isInForecastRange(r.ts)){
+          const vp=calcViewPointCoord(sLat,sLng,tAz,r.alt);
+          const w=getWeatherAt(vp.lat,vp.lng,r.ts);
+          if(w){
+            const transp=calcTransparency(w.vis,sLat,sLng,tAz,r.alt);
+            const rain=w.precip!==null?`${w.precip}%`:'--';
+            const tr=transp!==null?`${transp}%`:'--';
+            const low=w.low!==null?`${w.low}`:'--';
+            const mid=w.mid!==null?`${w.mid}`:'--';
+            const high=w.high!==null?`${w.high}`:'--';
+            weatherStr=`☔${rain}👁${tr}☁️低${low}中${mid}高${high}`;
+          }
+        }
+
         return `<div class="chance-item" onclick="setChance('${r.date}','${r.time}')" title="クリックで日時をセット">
           <span style="color:${dowColor}">${r.date}(${dow})</span>
           <span class="chance-time">${r.time}</span>
           <span style="color:var(--ac)">${star}</span>
           <span style="color:var(--sub)">🌕${r.age.toFixed(1)}日 ±${r.azDiff.toFixed(1)}° 高${altPct}%</span>
+          ${weatherStr?`<span style="color:rgba(180,210,255,0.85)">${weatherStr}</span>`:''}
         </div>`;
       }).join('');
     updateDrawerIfOpen();
