@@ -4438,55 +4438,60 @@ function calcChances(){
 
     const bodyIcon=sunsetMode?'☀️':'🌕';
 
-    list.innerHTML=results.map(r=>{
-      const dow=new Date(r.date+'T12:00:00+09:00').toLocaleDateString('ja-JP',{weekday:'short'});
-      const dowColor=dow.includes('日')?'#ff6655':dow.includes('土')?'#4488ff':'var(--sub)';
-
-      // ★評価：横移動距離(m)基準
-      const moveM=r.distM*Math.tan(r.azDiff*Math.PI/180);
-      let star;
-      if(moveM<=5)        star=`🎯${bodyIcon}🎯`;
-      else if(moveM<=10)  star='★★★';
-      else if(moveM<=50)  star='★★☆';
-      else if(moveM<=100) star='★☆☆';
-      else if(moveM<=200) star='☆☆☆';
-      else                star='―';
-
-      // 高度%：建物内位置基準（根元=0%、頂点=100%）
-      const range=r.topAlt-r.baseAlt;
-      const altPct=range>0.001?Math.round((r.alt-r.baseAlt)/range*100):0;
-
-      // 岐阜城×月：飲み込み表示
-      const swallowMark=(T[cur].silhouette==='castle'&&!sunsetMode&&r.angDiam>=targetAngDiam&&altPct>=30&&altPct<=70)?'🔵':'';
-      const bodyInfo=sunsetMode
-        ?`移${Math.round(moveM)}m 高${altPct}%`
-        :`月齢${r.age.toFixed(1)}日 移${Math.round(moveM)}m 高${altPct}%${swallowMark}`;
-
-      // 天気情報（16日以内のみ）
-      let weatherStr='';
-      if(isInForecastRange(r.ts)){
-        const vp=calcViewPointCoord(sLat,sLng,tAz,r.alt);
-        const w=getWeatherAt(vp.lat,vp.lng,r.ts);
-        if(w){
-          const transp=calcTransparency(w.vis,sLat,sLng,tAz,r.alt);
-          const rain=w.precip!==null?`${w.precip}%`:'--';
-          const tr=transp!==null?`${transp}%`:'--';
-          const low=w.low!==null?`${w.low}`:'--';
-          const mid=w.mid!==null?`${w.mid}`:'--';
-          const high=w.high!==null?`${w.high}`:'--';
-          weatherStr=`☔${rain}👁${tr}☁️低${low}中${mid}高${high}`;
+    // 結果描画関数（天気キャッシュがあれば表示）
+    function _renderChanceList(){
+      list.innerHTML=results.map(r=>{
+        const dow=new Date(r.date+'T12:00:00+09:00').toLocaleDateString('ja-JP',{weekday:'short'});
+        const dowColor=dow.includes('日')?'#ff6655':dow.includes('土')?'#4488ff':'var(--sub)';
+        const moveM=r.distM*Math.tan(r.azDiff*Math.PI/180);
+        let star;
+        if(moveM<=5)        star=`🎯${bodyIcon}🎯`;
+        else if(moveM<=10)  star='★★★';
+        else if(moveM<=50)  star='★★☆';
+        else if(moveM<=100) star='★☆☆';
+        else if(moveM<=200) star='☆☆☆';
+        else                star='―';
+        const range=r.topAlt-r.baseAlt;
+        const altPct=range>0.001?Math.round((r.alt-r.baseAlt)/range*100):0;
+        const swallowMark=(T[cur].silhouette==='castle'&&!sunsetMode&&r.angDiam>=targetAngDiam&&altPct>=30&&altPct<=70)?'🔵':'';
+        const bodyInfo=sunsetMode
+          ?`移${Math.round(moveM)}m 高${altPct}%`
+          :`月齢${r.age.toFixed(1)}日 移${Math.round(moveM)}m 高${altPct}%${swallowMark}`;
+        let weatherStr='';
+        if(isInForecastRange(r.ts)){
+          const vp=calcViewPointCoord(sLat,sLng,tAz,r.alt);
+          const w=getWeatherAt(vp.lat,vp.lng,r.ts);
+          if(w){
+            const transp=calcTransparency(w.vis,sLat,sLng,tAz,r.alt);
+            const rain=w.precip!==null?`${w.precip}%`:'--';
+            const tr=transp!==null?`${transp}%`:'--';
+            const low=w.low!==null?`${w.low}`:'--';
+            const mid=w.mid!==null?`${w.mid}`:'--';
+            const high=w.high!==null?`${w.high}`:'--';
+            weatherStr=`☔${rain}👁${tr}☁️低${low}中${mid}高${high}`;
+          }
         }
-      }
+        return `<div class="chance-item" onclick="setChance('${r.date}','${r.time}')" title="クリックで日時をセット">
+          <span style="color:${dowColor}">${r.date}(${dow})</span>
+          <span class="chance-time">${r.time}</span>
+          <span style="color:var(--ac)">${star}</span>
+          <span style="color:var(--sub)">${bodyInfo}</span>
+          ${weatherStr?`<span style="color:rgba(180,210,255,0.85)">${weatherStr}</span>`:''}
+        </div>`;
+      }).join('');
+      updateDrawerIfOpen();
+    }
 
-      return `<div class="chance-item" onclick="setChance('${r.date}','${r.time}')" title="クリックで日時をセット">
-        <span style="color:${dowColor}">${r.date}(${dow})</span>
-        <span class="chance-time">${r.time}</span>
-        <span style="color:var(--ac)">${star}</span>
-        <span style="color:var(--sub)">${bodyInfo}</span>
-        ${weatherStr?`<span style="color:rgba(180,210,255,0.85)">${weatherStr}</span>`:''}
-      </div>`;
-    }).join('');
-    updateDrawerIfOpen();
+    // まず天気なしで描画、次に16日以内の結果があれば天気取得後に再描画
+    _renderChanceList();
+    const hasNearResult = results.some(r=>isInForecastRange(r.ts));
+    if(hasNearResult){
+      const firstNear = results.find(r=>isInForecastRange(r.ts));
+      const vp = calcViewPointCoord(sLat,sLng,tAz,firstNear.alt);
+      fetchWeather(vp.lat,vp.lng).then(()=>{
+        _renderChanceList();
+      });
+    }
   },20);
 }
 
@@ -4558,38 +4563,49 @@ function calcFullMoonChances(){
     // 日付昇順でソート
     results.sort((a,b)=>a.ts-b.ts);
 
-    list.innerHTML='<div style="color:var(--sub);font-family:monospace;font-size:8px;margin-bottom:4px;">満月±1.5日 / '+results.length+'件</div>'+
-      results.map(r=>{
-        const dow=new Date(r.date+'T12:00:00+09:00').toLocaleDateString('ja-JP',{weekday:'short'});
-        const dowColor=dow.includes('日')?'#ff6655':dow.includes('土')?'#4488ff':'var(--sub)';
-        const star=r.azDiff<=1?'★★★':r.azDiff<=2?'★★☆':'★☆☆';
-        const altPct=Math.round(r.alt/r.topAlt*100);
-
-        // 天気情報（16日以内のみ）
-        let weatherStr='';
-        if(isInForecastRange(r.ts)){
-          const vp=calcViewPointCoord(sLat,sLng,tAz,r.alt);
-          const w=getWeatherAt(vp.lat,vp.lng,r.ts);
-          if(w){
-            const transp=calcTransparency(w.vis,sLat,sLng,tAz,r.alt);
-            const rain=w.precip!==null?`${w.precip}%`:'--';
-            const tr=transp!==null?`${transp}%`:'--';
-            const low=w.low!==null?`${w.low}`:'--';
-            const mid=w.mid!==null?`${w.mid}`:'--';
-            const high=w.high!==null?`${w.high}`:'--';
-            weatherStr=`☔${rain}👁${tr}☁️低${low}中${mid}高${high}`;
+    // 結果描画関数（天気キャッシュがあれば表示）
+    function _renderFullMoonList(){
+      list.innerHTML='<div style="color:var(--sub);font-family:monospace;font-size:8px;margin-bottom:4px;">満月±1.5日 / '+results.length+'件</div>'+
+        results.map(r=>{
+          const dow=new Date(r.date+'T12:00:00+09:00').toLocaleDateString('ja-JP',{weekday:'short'});
+          const dowColor=dow.includes('日')?'#ff6655':dow.includes('土')?'#4488ff':'var(--sub)';
+          const star=r.azDiff<=1?'★★★':r.azDiff<=2?'★★☆':'★☆☆';
+          const altPct=Math.round(r.alt/r.topAlt*100);
+          let weatherStr='';
+          if(isInForecastRange(r.ts)){
+            const vp=calcViewPointCoord(sLat,sLng,tAz,r.alt);
+            const w=getWeatherAt(vp.lat,vp.lng,r.ts);
+            if(w){
+              const transp=calcTransparency(w.vis,sLat,sLng,tAz,r.alt);
+              const rain=w.precip!==null?`${w.precip}%`:'--';
+              const tr=transp!==null?`${transp}%`:'--';
+              const low=w.low!==null?`${w.low}`:'--';
+              const mid=w.mid!==null?`${w.mid}`:'--';
+              const high=w.high!==null?`${w.high}`:'--';
+              weatherStr=`☔${rain}👁${tr}☁️低${low}中${mid}高${high}`;
+            }
           }
-        }
+          return `<div class="chance-item" onclick="setChance('${r.date}','${r.time}')" title="クリックで日時をセット">
+            <span style="color:${dowColor}">${r.date}(${dow})</span>
+            <span class="chance-time">${r.time}</span>
+            <span style="color:var(--ac)">${star}</span>
+            <span style="color:var(--sub)">🌕${r.age.toFixed(1)}日 ±${r.azDiff.toFixed(1)}° 高${altPct}%</span>
+            ${weatherStr?`<span style="color:rgba(180,210,255,0.85)">${weatherStr}</span>`:''}
+          </div>`;
+        }).join('');
+      updateDrawerIfOpen();
+    }
 
-        return `<div class="chance-item" onclick="setChance('${r.date}','${r.time}')" title="クリックで日時をセット">
-          <span style="color:${dowColor}">${r.date}(${dow})</span>
-          <span class="chance-time">${r.time}</span>
-          <span style="color:var(--ac)">${star}</span>
-          <span style="color:var(--sub)">🌕${r.age.toFixed(1)}日 ±${r.azDiff.toFixed(1)}° 高${altPct}%</span>
-          ${weatherStr?`<span style="color:rgba(180,210,255,0.85)">${weatherStr}</span>`:''}
-        </div>`;
-      }).join('');
-    updateDrawerIfOpen();
+    // まず天気なしで描画、次に16日以内の結果があれば天気取得後に再描画
+    _renderFullMoonList();
+    const hasNearResult = results.some(r=>isInForecastRange(r.ts));
+    if(hasNearResult){
+      const firstNear = results.find(r=>isInForecastRange(r.ts));
+      const vp = calcViewPointCoord(sLat,sLng,tAz,firstNear.alt);
+      fetchWeather(vp.lat,vp.lng).then(()=>{
+        _renderFullMoonList();
+      });
+    }
   },20);
 }
 
