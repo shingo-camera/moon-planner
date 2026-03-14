@@ -4261,7 +4261,7 @@ function renderMoonCal(){
         const tr=calcTransparency(wr.vis,sLat,sLng,az,vaW);
         const rain=wr.precip!==null?`${wr.precip}%`:'--';
         const trStr=tr!==null?`${tr}%`:'--';
-        rWEl.textContent=`☔${rain} 👁${trStr}`;
+        rWEl.textContent=`雨${rain} 透${trStr}`;
       } else {
         // キャッシュなし→取得してから再描画
         fetchWeather(vp.lat,vp.lng).then(()=>{
@@ -4270,7 +4270,7 @@ function renderMoonCal(){
             const tr2=calcTransparency(wr2.vis,sLat,sLng,az,vaW);
             const rain2=wr2.precip!==null?`${wr2.precip}%`:'--';
             const tr2Str=tr2!==null?`${tr2}%`:'--';
-            rWEl.textContent=`☔${rain2} 👁${tr2Str}`;
+            rWEl.textContent=`雨${rain2} 透${tr2Str}`;
           }
         });
       }
@@ -4285,7 +4285,7 @@ function renderMoonCal(){
         const tr=calcTransparency(ws.vis,sLat,sLng,az,vaW);
         const rain=ws.precip!==null?`${ws.precip}%`:'--';
         const trStr=tr!==null?`${tr}%`:'--';
-        sWEl.textContent=`☔${rain} 👁${trStr}`;
+        sWEl.textContent=`雨${rain} 透${trStr}`;
       } else {
         fetchWeather(vp.lat,vp.lng).then(()=>{
           const ws2=getWeatherAt(vp.lat,vp.lng,mt.set);
@@ -4293,7 +4293,7 @@ function renderMoonCal(){
             const tr2=calcTransparency(ws2.vis,sLat,sLng,az,vaW);
             const rain2=ws2.precip!==null?`${ws2.precip}%`:'--';
             const tr2Str=tr2!==null?`${tr2}%`:'--';
-            sWEl.textContent=`☔${rain2} 👁${tr2Str}`;
+            sWEl.textContent=`雨${rain2} 透${tr2Str}`;
           }
         });
       }
