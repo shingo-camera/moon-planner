@@ -4201,7 +4201,7 @@ function renderMoonCal(){
 
     // 月の出天気（常に固定高さで確保・16日以内のみ内容を埋める）
     const riseWEl=document.createElement('div');
-    riseWEl.style.cssText=`font-family:'Space Mono',monospace;font-size:7px;color:rgba(180,210,255,0.85);line-height:1.3;pointer-events:none;min-height:1.3em;`;
+    riseWEl.style.cssText=`font-family:'Space Mono',monospace;font-size:7px;color:rgba(180,210,255,0.85);line-height:1.3;pointer-events:none;`;
 
     // 月の入り時刻（非同期で埋める）
     const setEl=document.createElement('div');
@@ -4210,7 +4210,7 @@ function renderMoonCal(){
 
     // 月の入り天気（常に固定高さで確保・16日以内のみ内容を埋める）
     const setWEl=document.createElement('div');
-    setWEl.style.cssText=`font-family:'Space Mono',monospace;font-size:7px;color:rgba(180,210,255,0.85);line-height:1.3;pointer-events:none;min-height:1.3em;`;
+    setWEl.style.cssText=`font-family:'Space Mono',monospace;font-size:7px;color:rgba(180,210,255,0.85);line-height:1.3;pointer-events:none;`;
 
     cell.appendChild(dayEl);
     cell.appendChild(cv);
