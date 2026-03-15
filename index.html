@@ -3283,50 +3283,23 @@ function drawCompass(tAz,va){
 
   if(isMobCanvas){
     if(isMobLand){
-      // ━━ スマホ横向き：左上にコンパス円、右側に縦積み（AZ/ELEV→仰角→月齢）━━
-      const rightX=cx+R+14;
-      ctx.textAlign='left';ctx.textBaseline='alphabetic';
-      infoLines.forEach((line,i)=>{
-        ctx.font=`${line.size} 'Space Mono',monospace`;
-        const lw=ctx.measureText(line.text).width;
-        const ly=14+i*16;
-        ctx.fillStyle='rgba(10,15,28,0.65)';ctx.fillRect(rightX-2,ly-12,lw+6,14);
-        ctx.fillStyle=line.color;ctx.fillText(line.text,rightX,ly);
-      });
-      const elvTop=14+infoLines.length*16+8;
-      const phaseAreaH=40;
-      const ew=Math.min(W-rightX-10, H*0.50);
-      const eh=Math.min(H-elvTop-phaseAreaH-8, ew*0.65);
-      const ex=rightX, ey=elvTop+Math.max(eh,0);
-      if(ew>20&&eh>8){
-        ctx.strokeStyle='rgba(200,169,110,.3)';ctx.lineWidth=1;
-        ctx.beginPath();ctx.moveTo(ex,ey-eh);ctx.lineTo(ex,ey);ctx.lineTo(ex+ew,ey);ctx.stroke();
-        const ar=Math.max(0,va)*Math.PI/180;
-        ctx.strokeStyle='#c8a96e';ctx.lineWidth=2;ctx.shadowColor='#c8a96e';ctx.shadowBlur=4;
-        ctx.beginPath();ctx.moveTo(ex,ey);ctx.arc(ex,ey,ew*.65,0,-ar,true);ctx.stroke();ctx.shadowBlur=0;
-        const ll=ew*.70;
-        ctx.strokeStyle='rgba(200,169,110,.5)';ctx.lineWidth=1.5;
-        ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex+ll*Math.cos(-ar),ey+ll*Math.sin(-ar));ctx.stroke();
-        ctx.font='11px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-        ctx.fillText(T[cur].e,ex+ll*Math.cos(-ar),ey+ll*Math.sin(-ar)-4);
-        const elvLabel=`${Math.max(0,va).toFixed(2)}°`;
-        ctx.font=`bold 9px 'Space Mono',monospace`;ctx.textAlign='left';ctx.textBaseline='alphabetic';
-        const elw=ctx.measureText(elvLabel).width;
-        ctx.fillStyle='rgba(10,15,28,0.65)';ctx.fillRect(ex+10,ey-16,elw+4,11);
-        ctx.fillStyle='rgba(200,220,160,0.95)';ctx.fillText(elvLabel,ex+11,ey-7);
-      }
-      const phaseY0=H-phaseAreaH+4;
+      // ━━ スマホ横向き：縦向きと同じ表示（月相のみ）━━
+      const margin=6;
+      const gap1=8;
+      const phaseAreaH=52;
+      const compassBottom=cy+R+14;
+      const phaseY0=compassBottom+gap1;
       const ds2=document.getElementById('idate').value;
       if(ds2){
         const age2=moonAge(new Date(ds2+'T03:00:00Z'));
         const pname=moonPhaseName(age2);
-        const pr=Math.min(16,Math.floor(phaseAreaH*0.42));
-        const pmx=rightX+pr+2, pmy=phaseY0+pr;
+        const pr=Math.min(16,Math.floor(phaseAreaH*0.40));
+        const pmx=margin+pr+2, pmy=phaseY0+pr+2;
         drawMoonIcon(ctx,pmx,pmy,pr,age2,sunsetMode?0:gMoonTilt);
         const tx2=pmx+pr+6;
         ctx.textAlign='left';ctx.textBaseline='alphabetic';
-        ctx.font=`bold 12px 'Space Mono',monospace`;ctx.fillStyle='rgba(200,169,110,0.95)';ctx.fillText(`${age2.toFixed(1)}日`,tx2,pmy+2);
-        ctx.font=`9px 'Noto Sans JP',sans-serif`;ctx.fillStyle='rgba(200,200,220,0.85)';ctx.fillText(pname,tx2,pmy+14);
+        ctx.font=`bold 12px 'Space Mono',monospace`;ctx.fillStyle='rgba(200,169,110,0.95)';ctx.fillText(`${age2.toFixed(1)}日`,tx2,pmy);
+        ctx.font=`9px 'Noto Sans JP',sans-serif`;ctx.fillStyle='rgba(200,200,220,0.85)';ctx.fillText(pname,tx2,pmy+13);
       }
     } else {
       // ━━ スマホ縦向き：コンパス円 → 月相 → 天気（仰角ダイアグラムなし）━━
@@ -3419,7 +3392,7 @@ function drawCompass(tAz,va){
             const fs=10, lineH=14;
             const weatherH=lineH*4+8;
             let weatherTop;
-            if(isMobPort){
+            if(isMobPort||isMobLand){
               const R2=Math.min(H*0.20,W*0.22);
               const cy2=R2+12;
               const compassBottom2=cy2+R2+14;
@@ -3439,7 +3412,7 @@ function drawCompass(tAz,va){
             const high=w.high!==null?`${w.high}%`:'--';
             const y1=weatherTop+lineH, y2=weatherTop+lineH*2+2;
             const y3=weatherTop+lineH*3+4, y4=weatherTop+lineH*4+6;
-            if(isMobPort){
+            if(isMobPort||isMobLand){
               // 縦構図：左詰め、低中高の値は右揃えで桁揃え
               const mx=4, lblX=24, valRX=70;
               ctx.textAlign='left';
@@ -3454,7 +3427,7 @@ function drawCompass(tAz,va){
             } else {
               // 横構図：W比率ベース、右揃え
               const rainIconX=W*0.038, rainValX=W*0.506;
-              const visIconX=W*0.20,   visValX=W*0.60;
+              const visIconX=W*0.50,   visValX=W*0.90;
               const cloudIconX=W*0.051,cloudLblX=W*0.329,cloudValX=W*0.759;
               ctx.textAlign='left';
               ctx.fillStyle='rgba(150,200,255,0.90)'; ctx.fillText('☔',rainIconX,y1);
