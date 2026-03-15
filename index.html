@@ -197,7 +197,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 
 /* 扇形凡例 */
 #fan-legend{
-  position:absolute;bottom:8px;left:8px;z-index:1000;
+  position:absolute;bottom:36px;left:8px;z-index:1000;
   display:flex;flex-direction:column;gap:3px;
   pointer-events:none;
 }
@@ -3919,7 +3919,7 @@ function updateDrawerIfOpen(){
         const low=w.low!==null?`${w.low}%`:'--';
         const mid=w.mid!==null?`${w.mid}%`:'--';
         const high=w.high!==null?`${w.high}%`:'--';
-        wEl.innerHTML=`☔${rain} 👁${tr}<br>☁️低${low} 中${mid} 高${high}`;
+        wEl.innerHTML=`☔${rain} 👁 ${tr}<br>☁️低${low} 中${mid} 高${high}`;
       } else {
         wEl.textContent='';
       }
@@ -4647,7 +4647,7 @@ function calcChances(){
             const low=w.low!==null?`${w.low}`:'--';
             const mid=w.mid!==null?`${w.mid}`:'--';
             const high=w.high!==null?`${w.high}`:'--';
-            weatherStr=`☔${rain}👁${tr}☁️低${low}中${mid}高${high}`;
+            weatherStr=`☔${rain}👁 ${tr}☁️低${low}中${mid}高${high}`;
           }
         }
         return `<div class="chance-item" onclick="setChance('${r.date}','${r.time}')" title="クリックで日時をセット">
@@ -4761,7 +4761,7 @@ function calcFullMoonChances(){
               const low=w.low!==null?`${w.low}`:'--';
               const mid=w.mid!==null?`${w.mid}`:'--';
               const high=w.high!==null?`${w.high}`:'--';
-              weatherStr=`☔${rain}👁${tr}☁️低${low}中${mid}高${high}`;
+              weatherStr=`☔${rain}👁 ${tr}☁️低${low}中${mid}高${high}`;
             }
           }
           return `<div class="chance-item" onclick="setChance('${r.date}','${r.time}')" title="クリックで日時をセット">
