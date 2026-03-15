@@ -826,7 +826,7 @@ const T={
   gifu:{name:'岐阜城',  lat:35.433931,  lng:136.782041,  h:29,   e:'🏯', zoom:14, elev:335,   // 335m: 天守台下地面
         sunsetOk:true,  silhouette:'castle', physW:180, horizonRatio:0.75, topLimitRatio:null,
         frontAz:203},   // 棟の走る方向203°（SSW-NNE）。Google衛星画像から棟ラインを実測して算出。
-  takatsuko:{name:'高津子山展望台', lat:34.187776, lng:135.156103, h:9, e:'🏛️', zoom:14, elev:136.6, // 136.6m: 山頂地面
+  takatsuko:{name:'高津子山展望台', lat:34.187776, lng:135.156103, h:7, e:'🏛️', zoom:14, elev:136.6, // 136.6m: 山頂地面
         sunsetOk:true, silhouette:'tower', physW:8, horizonRatio:0.75, topLimitRatio:null,
         frontAz:23},   // 建物辺の走る方向23°。衛星画像から実測。
   wakayama:{name:'和歌山城', lat:34.227593, lng:135.171508, h:29.62, e:'🏯', zoom:14, elev:42.7, // 42.7m: 石垣下地面
@@ -2518,10 +2518,10 @@ function drawView(dist,tAz,va){
     const TW_TOTAL = thTrue;       // px換算の全体高さ
     const TW_H     = T[cur].h;    // 実寸全高(m) = 9m
     // 各層の実寸高さ(m)と幅(m)
-    const TW_BASE_H  = 4, TW_BASE_W  = 5;   // 基部
+    const TW_BASE_H  = 3, TW_BASE_W  = 4;   // 基部
     const TW_DECK_H  = 1, TW_DECK_W  = 8;   // 展望フロア
-    const TW_MID_H   = 3, TW_MID_W   = 5;   // 中間柱
-    const TW_ROOF_H  = 1, TW_ROOF_W  = 5;   // 屋根
+    const TW_MID_H   = 2, TW_MID_W   = 4;   // 中間柱
+    const TW_ROOF_H  = 1, TW_ROOF_W  = 5.5; // 屋根
 
     // 3D投影関数（城と同様）
     // y: 0=根本(vaBase), TW_TOTAL=頂点(vaTop) のpx値
