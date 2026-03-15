@@ -3426,7 +3426,7 @@ function drawCompass(tAz,va){
               const cy2=R2+12;
               const compassBottom2=cy2+R2+14;
               const phaseY0_2=compassBottom2+8;
-              weatherTop=phaseY0_2+52+4;
+              weatherTop=isMobLand ? 145 : phaseY0_2+52+4;
             } else {
               weatherTop=H-10-weatherH;
             }
@@ -3446,7 +3446,7 @@ function drawCompass(tAz,va){
               const mx=4, lblX=24, valRX=70;
               ctx.textAlign='left';
               ctx.fillStyle='rgba(150,200,255,0.90)'; ctx.fillText(`☔${rain}`,mx,y1);
-              ctx.fillStyle='rgba(200,230,180,0.90)'; ctx.fillText(`👁 ${tr}`,mx+55,y1);
+              ctx.fillStyle='rgba(200,230,180,0.90)'; ctx.fillText(`👁 ${tr}`,isMobLand?mx+22:mx+55,y1);
               ctx.fillStyle='rgba(180,200,220,0.90)';
               ctx.fillText('☁️',mx,y2);
               ctx.fillText('低',lblX,y2); ctx.textAlign='right'; ctx.fillText(low,valRX,y2);
