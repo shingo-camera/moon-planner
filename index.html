@@ -3421,8 +3421,8 @@ function drawCompass(tAz,va){
             const fs=10, lineH=14;
             const weatherH=lineH*4+8;
             let weatherTop;
-            if(isMobPort){
-              const R2=Math.min(H*0.20,W*0.22);
+            if(isMobPort||isMobLand){
+              const R2=Math.min(107*0.20,W*0.22); // 横構図でもH=107px基準で固定
               const cy2=R2+12;
               const compassBottom2=cy2+R2+14;
               const phaseY0_2=compassBottom2+8;
@@ -3441,7 +3441,7 @@ function drawCompass(tAz,va){
             const high=w.high!==null?`${w.high}%`:'--';
             const y1=weatherTop+lineH, y2=weatherTop+lineH*2+2;
             const y3=weatherTop+lineH*3+4, y4=weatherTop+lineH*4+6;
-            if(isMobPort){
+            if(isMobPort||isMobLand){
               // 縦構図：左詰め、低中高の値は右揃えで桁揃え
               const mx=4, lblX=24, valRX=70;
               ctx.textAlign='left';
