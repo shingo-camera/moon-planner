@@ -2752,7 +2752,9 @@ function drawView(dist,tAz,va){
     const gDepth=(verts)=>{
       let sz=0,sy=0;
       verts.forEach(v=>{sz+=v[0]*gSinA+v[2]*gCosA; sy+=v[1];});
-      return sz/verts.length + sy/verts.length;
+      // 見上げ時（vaBase>0）はy成分を反転：下の層を奥（先に描画）にする
+      const ySign = vaBase > 0 ? -1 : 1;
+      return sz/verts.length + ySign * sy/verts.length;
     };
 
     const gFaces=[];
