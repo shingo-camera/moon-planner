@@ -3401,7 +3401,7 @@ function drawCompass(tAz,va){
             let weatherTop;
             if(isMobPort||isMobLand){
               console.log('[wx-top] land/port branch');
-              const R2=Math.min(107*0.20,W*0.22); // H=107px基準で固定
+              const R2=Math.min(H*0.20,W*0.22);
               const cy2=R2+12;
               const compassBottom2=cy2+R2+14;
               const phaseY0_2=compassBottom2+8;
