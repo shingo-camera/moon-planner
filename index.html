@@ -3377,7 +3377,7 @@ function drawCompass(tAz,va){
     const dw = Math.min(rightW_pc * 0.75, (diagBottom_pc - diagTop_pc) * 1.2);
     const eh = Math.min(dw * 0.68 + 20, diagBottom_pc - diagTop_pc); // 弧半径+余白、使える高さ上限
     const ex = infoX;
-    const ey = diagBottom_pc;
+    const ey = (textTop + infoLines.length * textLineH) + diagMargin + eh; // 上から詰める
 
     // ── 中部：仰角ダイアグラム ──
     if(dw > 20 && eh > 20){
@@ -3461,7 +3461,10 @@ function drawCompass(tAz,va){
             const fs=13, lineH=fs+5;
             const weatherH=lineH*2+8;
             const wTop=H-10-weatherH;
-            const wLeft=pc_infoX, wRight=W-8, wW=wRight-wLeft;
+            const pc_infoX2 = cx + R + 24;
+            const pc_rightW = W - pc_infoX2 - 8;
+            const pc_dw = Math.min(pc_rightW * 0.75, H * 0.9);
+            const wLeft=pc_infoX2, wRight=pc_infoX2+pc_dw, wW=pc_dw;
             ctx.fillStyle='rgba(10,15,28,0.75)';
             ctx.fillRect(wLeft,wTop,wW,weatherH);
             ctx.font=`bold ${fs}px 'Space Mono',monospace`;
