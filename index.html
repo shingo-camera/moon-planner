@@ -2602,32 +2602,38 @@ function drawView(dist,tAz,va){
       }
     }
 
-    // ━━━ 各層を奥→手前の順で描画 ━━━
-    // 見上げ（vaBase>0）か見下ろし（vaBase<0）で展望フロアと中間柱の描画順を切り替え
+    // ━━━ 各層の描画関数定義 ━━━
+    // 見上げ（vaBase>0）: 上が奥→屋根→中間柱→展望フロア→基部の順
+    // 見下ろし（vaBase<=0）: 下が奥→基部→展望フロア→中間柱→屋根の順
     const tw_lookingUp = vaBase > 0;
 
-    // ---- 基部 ----
-    // 底面（見上げ時に描画）
-    if(tw_lookingUp){
-      tw_face([[-hw_base,Y0,-hw_base],[ hw_base,Y0,-hw_base],[ hw_base,Y0, hw_base],[-hw_base,Y0, hw_base]], 0,+1, baseCol,'rgba(200,169,110,.25)',0.6);
-    }
-    // 上面
-    tw_face([[-hw_base,Y1,-hw_base],[ hw_base,Y1,-hw_base],[ hw_base,Y1, hw_base],[-hw_base,Y1, hw_base]], 0,-1, baseCol,'rgba(200,169,110,.3)',0.6);
-    // 後面
-    tw_face([[-hw_base,Y0,-hw_base],[ hw_base,Y0,-hw_base],[ hw_base,Y1,-hw_base],[-hw_base,Y1,-hw_base]], 0,-1, baseCol);
-    // 右面
-    tw_face([[ hw_base,Y0,-hw_base],[ hw_base,Y0, hw_base],[ hw_base,Y1, hw_base],[ hw_base,Y1,-hw_base]],+1, 0, baseCol);
-    // 左面
-    tw_face([[-hw_base,Y0, hw_base],[-hw_base,Y0,-hw_base],[-hw_base,Y1,-hw_base],[-hw_base,Y1, hw_base]],-1, 0, baseCol);
-    // 前面
-    tw_face([[-hw_base,Y0, hw_base],[ hw_base,Y0, hw_base],[ hw_base,Y1, hw_base],[-hw_base,Y1, hw_base]], 0,+1, baseCol);
+    // 屋根頂点・底面4隅
+    const apex = [0, Y4, 0];
+    const rFL = [-hw_roof, Y3,  hw_roof];
+    const rFR = [ hw_roof, Y3,  hw_roof];
+    const rBR = [ hw_roof, Y3, -hw_roof];
+    const rBL = [-hw_roof, Y3, -hw_roof];
 
-    // ---- 見上げ時: 中間柱を先に描いて展望フロアで上書き ----
-    // ---- 見下ろし時: 展望フロアを先に描いて中間柱で上書き ----
-    const drawDeck = () => {
-      // 展望フロア底面（見上げ時）
+    const drawRoof = () => {
+      // 底面（見上げ時）
       if(tw_lookingUp){
-        // 張り出し部分の底面（中間柱より外側のみ）を描画
+        tw_face([rBL, rBR, rFR, rFL], 0,+1, roofCol,'rgba(200,169,110,.25)',0.6);
+      }
+      // 斜面: 後面→右面→左面→前面
+      tw_face([rBL, rBR, apex],  0,-1, roofCol,'rgba(200,169,110,.5)',0.8);
+      tw_face([rBR, rFR, apex], +1, 0, roofCol,'rgba(200,169,110,.5)',0.8);
+      tw_face([rBL, apex, rFL], -1, 0, roofCol,'rgba(200,169,110,.6)',0.9);
+      tw_face([rFL, apex, rFR],  0,+1, roofCol,'rgba(200,169,110,.7)',1.0);
+    };
+    const drawMid = () => {
+      tw_face([[-hw_mid,Y2,-hw_mid],[ hw_mid,Y2,-hw_mid],[ hw_mid,Y3,-hw_mid],[-hw_mid,Y3,-hw_mid]], 0,-1, baseCol);
+      tw_face([[ hw_mid,Y2,-hw_mid],[ hw_mid,Y2, hw_mid],[ hw_mid,Y3, hw_mid],[ hw_mid,Y3,-hw_mid]],+1, 0, baseCol);
+      tw_face([[-hw_mid,Y2, hw_mid],[-hw_mid,Y2,-hw_mid],[-hw_mid,Y3,-hw_mid],[-hw_mid,Y3, hw_mid]],-1, 0, baseCol);
+      tw_face([[-hw_mid,Y2, hw_mid],[ hw_mid,Y2, hw_mid],[ hw_mid,Y3, hw_mid],[-hw_mid,Y3, hw_mid]], 0,+1, baseCol);
+    };
+    const drawDeck = () => {
+      // 底面（見上げ時）
+      if(tw_lookingUp){
         tw_face([[-hw_deck,Y1,-hw_deck],[ hw_deck,Y1,-hw_deck],[ hw_deck,Y1, hw_deck],[-hw_deck,Y1, hw_deck]], 0,+1, deckCol,'rgba(200,169,110,.25)',0.6);
       }
       // 側面4面
@@ -2638,36 +2644,35 @@ function drawView(dist,tAz,va){
       // 上面
       tw_face([[-hw_deck,Y2,-hw_deck],[ hw_deck,Y2,-hw_deck],[ hw_deck,Y2, hw_deck],[-hw_deck,Y2, hw_deck]], 0,-1, deckCol,'rgba(200,169,110,.25)',0.6);
     };
-    const drawMid = () => {
-      tw_face([[-hw_mid,Y2,-hw_mid],[ hw_mid,Y2,-hw_mid],[ hw_mid,Y3,-hw_mid],[-hw_mid,Y3,-hw_mid]], 0,-1, baseCol);
-      tw_face([[ hw_mid,Y2,-hw_mid],[ hw_mid,Y2, hw_mid],[ hw_mid,Y3, hw_mid],[ hw_mid,Y3,-hw_mid]],+1, 0, baseCol);
-      tw_face([[-hw_mid,Y2, hw_mid],[-hw_mid,Y2,-hw_mid],[-hw_mid,Y3,-hw_mid],[-hw_mid,Y3, hw_mid]],-1, 0, baseCol);
-      tw_face([[-hw_mid,Y2, hw_mid],[ hw_mid,Y2, hw_mid],[ hw_mid,Y3, hw_mid],[-hw_mid,Y3, hw_mid]], 0,+1, baseCol);
+    const drawBase = () => {
+      // 底面（見上げ時）
+      if(tw_lookingUp){
+        tw_face([[-hw_base,Y0,-hw_base],[ hw_base,Y0,-hw_base],[ hw_base,Y0, hw_base],[-hw_base,Y0, hw_base]], 0,+1, baseCol,'rgba(200,169,110,.25)',0.6);
+      }
+      // 上面
+      tw_face([[-hw_base,Y1,-hw_base],[ hw_base,Y1,-hw_base],[ hw_base,Y1, hw_base],[-hw_base,Y1, hw_base]], 0,-1, baseCol,'rgba(200,169,110,.3)',0.6);
+      // 後面
+      tw_face([[-hw_base,Y0,-hw_base],[ hw_base,Y0,-hw_base],[ hw_base,Y1,-hw_base],[-hw_base,Y1,-hw_base]], 0,-1, baseCol);
+      // 右面
+      tw_face([[ hw_base,Y0,-hw_base],[ hw_base,Y0, hw_base],[ hw_base,Y1, hw_base],[ hw_base,Y1,-hw_base]],+1, 0, baseCol);
+      // 左面
+      tw_face([[-hw_base,Y0, hw_base],[-hw_base,Y0,-hw_base],[-hw_base,Y1,-hw_base],[-hw_base,Y1, hw_base]],-1, 0, baseCol);
+      // 前面
+      tw_face([[-hw_base,Y0, hw_base],[ hw_base,Y0, hw_base],[ hw_base,Y1, hw_base],[-hw_base,Y1, hw_base]], 0,+1, baseCol);
     };
-    if(tw_lookingUp){
-      drawMid(); // 中間柱を先
-      drawDeck(); // 展望フロアで上書き
-    } else {
-      drawDeck(); // 展望フロアを先
-      drawMid(); // 中間柱で上書き
-    }
 
-    // ---- 屋根（寄棟・四角錘）描画順: 奥2面→手前2面 ----
-    // 屋根頂点（中心・Y4）
-    const apex = [0, Y4, 0];
-    // 底面4隅
-    const rFL = [-hw_roof, Y3,  hw_roof]; // 前左
-    const rFR = [ hw_roof, Y3,  hw_roof]; // 前右
-    const rBR = [ hw_roof, Y3, -hw_roof]; // 後右
-    const rBL = [-hw_roof, Y3, -hw_roof]; // 後左
-    // 後面(奥)
-    tw_face([rBL, rBR, apex],  0,-1, roofCol,'rgba(200,169,110,.5)',0.8);
-    // 右面
-    tw_face([rBR, rFR, apex], +1, 0, roofCol,'rgba(200,169,110,.5)',0.8);
-    // 左面
-    tw_face([rBL, apex, rFL], -1, 0, roofCol,'rgba(200,169,110,.6)',0.9);
-    // 前面(手前)
-    tw_face([rFL, apex, rFR],  0,+1, roofCol,'rgba(200,169,110,.7)',1.0);
+    // ━━━ 描画順: 見上げ=屋根→中間柱→展望フロア→基部、見下ろし=基部→展望フロア→中間柱→屋根 ━━━
+    if(tw_lookingUp){
+      drawRoof();
+      drawMid();
+      drawDeck();
+      drawBase();
+    } else {
+      drawBase();
+      drawDeck();
+      drawMid();
+      drawRoof();
+    }
 
   }else if(T[cur].silhouette==='castle'){
     // ━━━ 和歌山城・台形の山（先に描いて城を手前に重ねる）━━━
