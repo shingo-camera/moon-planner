@@ -449,7 +449,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/eruda@3.0.1/eruda.js"></script>
-<script>eruda.init();</script>
 </head>
 <body>
 
@@ -3219,7 +3218,6 @@ function drawCompass(tAz,va){
   const isMobCanvas=gIsMobile;
   const isMobLand=isMobCanvas&&(orientation==='land'); // スマホ横向き
   const isMobPort=isMobCanvas&&(orientation==='port'); // スマホ縦向き
-  console.log('[drawCompass] gIsMobile='+gIsMobile+' orientation='+orientation+' isMobCanvas='+isMobCanvas+' isMobLand='+isMobLand+' isMobPort='+isMobPort+' W='+W+' H='+H);
   // 横向き：コンパス円を左上に小さく
   // 縦向き：コンパス円を上部中央に
   const R=isMobLand?Math.min(107*0.32,W*0.18):isMobPort?Math.min(H*0.20,W*0.22):Math.min(H*0.34,W*0.20);
@@ -3393,14 +3391,12 @@ function drawCompass(tAz,va){
         const w=getWeatherAt(vp.lat,vp.lng,dt);
         if(w){
           const transp=calcTransparency(w.vis,sLat,sLng,az,vaW);
-          console.log('[wx] isMobCanvas='+isMobCanvas+' isMobLand='+isMobLand+' isMobPort='+isMobPort);
           if(isMobCanvas){
             // ━━ スマホ版：4行、W全幅、下端固定 ━━
             const fs=10, lineH=14;
             const weatherH=lineH*4+8;
             let weatherTop;
             if(isMobPort||isMobLand){
-              console.log('[wx-top] land/port branch');
               const R2=Math.min(H*0.20,W*0.22);
               const cy2=R2+12;
               const compassBottom2=cy2+R2+14;
@@ -3421,7 +3417,6 @@ function drawCompass(tAz,va){
             const y1=weatherTop+lineH, y2=weatherTop+lineH*2+2;
             const y3=weatherTop+lineH*3+4, y4=weatherTop+lineH*4+6;
             if(isMobPort||isMobLand){
-              console.log('[wx-text] land/port branch W='+W);
               // 縦横構図：左詰め、低中高の値は右揃えで桁揃え
               const mx=4, lblX=24, valRX=70;
               ctx.textAlign='left';
