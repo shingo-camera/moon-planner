@@ -2603,34 +2603,54 @@ function drawView(dist,tAz,va){
     }
 
     // ━━━ 各層を奥→手前の順で描画 ━━━
-    // 奥行き方向（rz = x*sinA + z*cosA が大きい＝奥）を先に描く
-    // 視点方向から見て「後ろ→右(または左)→前」の順
+    // 見上げ（vaBase>0）か見下ろし（vaBase<0）で展望フロアと中間柱の描画順を切り替え
+    const tw_lookingUp = vaBase > 0;
 
     // ---- 基部 ----
+    // 底面（見上げ時に描画）
+    if(tw_lookingUp){
+      tw_face([[-hw_base,Y0,-hw_base],[ hw_base,Y0,-hw_base],[ hw_base,Y0, hw_base],[-hw_base,Y0, hw_base]], 0,+1, baseCol,'rgba(200,169,110,.25)',0.6);
+    }
     // 上面
     tw_face([[-hw_base,Y1,-hw_base],[ hw_base,Y1,-hw_base],[ hw_base,Y1, hw_base],[-hw_base,Y1, hw_base]], 0,-1, baseCol,'rgba(200,169,110,.3)',0.6);
-    // 後面(nz=-1相当: z=-hw_base側)
+    // 後面
     tw_face([[-hw_base,Y0,-hw_base],[ hw_base,Y0,-hw_base],[ hw_base,Y1,-hw_base],[-hw_base,Y1,-hw_base]], 0,-1, baseCol);
-    // 右面(nx=+1相当)
+    // 右面
     tw_face([[ hw_base,Y0,-hw_base],[ hw_base,Y0, hw_base],[ hw_base,Y1, hw_base],[ hw_base,Y1,-hw_base]],+1, 0, baseCol);
-    // 左面(nx=-1相当)
+    // 左面
     tw_face([[-hw_base,Y0, hw_base],[-hw_base,Y0,-hw_base],[-hw_base,Y1,-hw_base],[-hw_base,Y1, hw_base]],-1, 0, baseCol);
-    // 前面(nz=+1相当)
+    // 前面
     tw_face([[-hw_base,Y0, hw_base],[ hw_base,Y0, hw_base],[ hw_base,Y1, hw_base],[-hw_base,Y1, hw_base]], 0,+1, baseCol);
 
-    // ---- 展望フロア（張り出しスラブ）----
-    tw_face([[-hw_deck,Y1,-hw_deck],[ hw_deck,Y1,-hw_deck],[ hw_deck,Y2,-hw_deck],[-hw_deck,Y2,-hw_deck]], 0,-1, deckCol);
-    tw_face([[ hw_deck,Y1,-hw_deck],[ hw_deck,Y1, hw_deck],[ hw_deck,Y2, hw_deck],[ hw_deck,Y2,-hw_deck]],+1, 0, deckCol);
-    tw_face([[-hw_deck,Y1, hw_deck],[-hw_deck,Y1,-hw_deck],[-hw_deck,Y2,-hw_deck],[-hw_deck,Y2, hw_deck]],-1, 0, deckCol);
-    tw_face([[-hw_deck,Y1, hw_deck],[ hw_deck,Y1, hw_deck],[ hw_deck,Y2, hw_deck],[-hw_deck,Y2, hw_deck]], 0,+1, deckCol);
-    // 上面
-    tw_face([[-hw_deck,Y2,-hw_deck],[ hw_deck,Y2,-hw_deck],[ hw_deck,Y2, hw_deck],[-hw_deck,Y2, hw_deck]], 0,-1, deckCol,'rgba(200,169,110,.25)',0.6);
-
-    // ---- 中間柱 ----
-    tw_face([[-hw_mid,Y2,-hw_mid],[ hw_mid,Y2,-hw_mid],[ hw_mid,Y3,-hw_mid],[-hw_mid,Y3,-hw_mid]], 0,-1, baseCol);
-    tw_face([[ hw_mid,Y2,-hw_mid],[ hw_mid,Y2, hw_mid],[ hw_mid,Y3, hw_mid],[ hw_mid,Y3,-hw_mid]],+1, 0, baseCol);
-    tw_face([[-hw_mid,Y2, hw_mid],[-hw_mid,Y2,-hw_mid],[-hw_mid,Y3,-hw_mid],[-hw_mid,Y3, hw_mid]],-1, 0, baseCol);
-    tw_face([[-hw_mid,Y2, hw_mid],[ hw_mid,Y2, hw_mid],[ hw_mid,Y3, hw_mid],[-hw_mid,Y3, hw_mid]], 0,+1, baseCol);
+    // ---- 見上げ時: 中間柱を先に描いて展望フロアで上書き ----
+    // ---- 見下ろし時: 展望フロアを先に描いて中間柱で上書き ----
+    const drawDeck = () => {
+      // 展望フロア底面（見上げ時）
+      if(tw_lookingUp){
+        // 張り出し部分の底面（中間柱より外側のみ）を描画
+        tw_face([[-hw_deck,Y1,-hw_deck],[ hw_deck,Y1,-hw_deck],[ hw_deck,Y1, hw_deck],[-hw_deck,Y1, hw_deck]], 0,+1, deckCol,'rgba(200,169,110,.25)',0.6);
+      }
+      // 側面4面
+      tw_face([[-hw_deck,Y1,-hw_deck],[ hw_deck,Y1,-hw_deck],[ hw_deck,Y2,-hw_deck],[-hw_deck,Y2,-hw_deck]], 0,-1, deckCol);
+      tw_face([[ hw_deck,Y1,-hw_deck],[ hw_deck,Y1, hw_deck],[ hw_deck,Y2, hw_deck],[ hw_deck,Y2,-hw_deck]],+1, 0, deckCol);
+      tw_face([[-hw_deck,Y1, hw_deck],[-hw_deck,Y1,-hw_deck],[-hw_deck,Y2,-hw_deck],[-hw_deck,Y2, hw_deck]],-1, 0, deckCol);
+      tw_face([[-hw_deck,Y1, hw_deck],[ hw_deck,Y1, hw_deck],[ hw_deck,Y2, hw_deck],[-hw_deck,Y2, hw_deck]], 0,+1, deckCol);
+      // 上面
+      tw_face([[-hw_deck,Y2,-hw_deck],[ hw_deck,Y2,-hw_deck],[ hw_deck,Y2, hw_deck],[-hw_deck,Y2, hw_deck]], 0,-1, deckCol,'rgba(200,169,110,.25)',0.6);
+    };
+    const drawMid = () => {
+      tw_face([[-hw_mid,Y2,-hw_mid],[ hw_mid,Y2,-hw_mid],[ hw_mid,Y3,-hw_mid],[-hw_mid,Y3,-hw_mid]], 0,-1, baseCol);
+      tw_face([[ hw_mid,Y2,-hw_mid],[ hw_mid,Y2, hw_mid],[ hw_mid,Y3, hw_mid],[ hw_mid,Y3,-hw_mid]],+1, 0, baseCol);
+      tw_face([[-hw_mid,Y2, hw_mid],[-hw_mid,Y2,-hw_mid],[-hw_mid,Y3,-hw_mid],[-hw_mid,Y3, hw_mid]],-1, 0, baseCol);
+      tw_face([[-hw_mid,Y2, hw_mid],[ hw_mid,Y2, hw_mid],[ hw_mid,Y3, hw_mid],[-hw_mid,Y3, hw_mid]], 0,+1, baseCol);
+    };
+    if(tw_lookingUp){
+      drawMid(); // 中間柱を先
+      drawDeck(); // 展望フロアで上書き
+    } else {
+      drawDeck(); // 展望フロアを先
+      drawMid(); // 中間柱で上書き
+    }
 
     // ---- 屋根（寄棟・四角錘）描画順: 奥2面→手前2面 ----
     // 屋根頂点（中心・Y4）
