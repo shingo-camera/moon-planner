@@ -3413,14 +3413,14 @@ function drawCompass(tAz,va){
           ctx.fillRect(0,weatherTop,W,weatherH);
           ctx.font=`bold ${fs}px 'Space Mono',monospace`;
           ctx.textBaseline='alphabetic';
-          // 座標定義（W=79px基準）
-          const rainIconX=3;   // ☔左端
-          const rainValX=40;   // 雨%右揃え
-          const visIconX=44;   // 👁左端
-          const visValX=76;    // 透%右揃え
-          const cloudIconX=4;  // ☁️左端
-          const cloudLblX=26;  // 低中高の左端
-          const cloudValX=60;  // 雲%右揃え
+          // 座標定義（W比率ベース、全画面サイズに自動対応）
+          const rainIconX=W*0.038; // ☔左端
+          const rainValX =W*0.506; // 雨%右揃え
+          const visIconX =W*0.557; // 👁左端
+          const visValX  =W*0.962; // 透%右揃え
+          const cloudIconX=W*0.051;// ☁️左端
+          const cloudLblX =W*0.329;// 低中高の左端
+          const cloudValX =W*0.759;// 雲%右揃え
           const rain=w.precip!==null?`${w.precip}%`:'--';
           const tr=transp!==null?`${transp}%`:'--';
           const low=w.low!==null?`${w.low}%`:'--';
