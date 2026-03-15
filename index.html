@@ -448,6 +448,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   #mob-drawer-inner .tbtn{width:36px;height:28px;font-size:9px;}
 }
 </style>
+  <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+  <script>eruda.init();</script>
 </head>
 <body>
 
@@ -843,6 +845,8 @@ const T={
 };
 let cur='pl', focal=400, orientation='land';
 let gIsMobile=false;
+let gDebugLog=[];
+function addDebugLog(msg){ gDebugLog.push(new Date().toISOString().substr(11,8)+' '+msg); if(gDebugLog.length>20)gDebugLog.shift(); }
 let sLat=null, sLng=null, sElev=0;
 let sElevGround=0; // 地面標高（APIから取得）
 let elevOffset=0;  // 標高オフセット（+1/+3/+5m追加分）
@@ -3215,12 +3219,13 @@ function drawCompass(tAz,va){
   // コンパス円：左寄せ
   // スマホ（canvas幅600未満）は縦レイアウト、PCは横レイアウト
   const isMobCanvas=gIsMobile;
+  console.log('[drawCompass] gIsMobile='+gIsMobile+' orientation='+orientation+' isMobCanvas='+isMobCanvas+' isMobLand='+isMobLand+' isMobPort='+isMobPort+' W='+W+' H='+H);
   const isMobLand=isMobCanvas&&(orientation==='land'); // スマホ横向き
   const isMobPort=isMobCanvas&&(orientation==='port'); // スマホ縦向き
   // 横向き：コンパス円を左上に小さく
   // 縦向き：コンパス円を上部中央に
   const R=isMobLand?Math.min(107*0.32,W*0.18):isMobPort?Math.min(H*0.20,W*0.22):Math.min(H*0.34,W*0.20);
-  const cx=isMobLand?R+36:isMobPort?W/2:R+28;
+  const cx=isMobLand?R+10:isMobPort?W/2:R+28;
   const cy=isMobLand?R+20:isMobPort?R+20:H/2;
 
   ctx.strokeStyle='rgba(200,169,110,.35)';ctx.lineWidth=1;
@@ -5152,5 +5157,16 @@ window.addEventListener('pageshow', e=>{
   </button>
   <div id="spot-panel-list"></div>
 </div>
+<div id="dbg-btn" onclick="document.getElementById('dbg-overlay').style.display='flex'" style="position:fixed;bottom:60px;right:8px;z-index:9999;background:#c8a96e;color:#000;font-size:10px;padding:4px 8px;border-radius:4px;cursor:pointer;font-family:monospace;">DBG</div>
+<div id="dbg-overlay" onclick="this.style.display='none'" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:rgba(0,0,20,0.92);align-items:center;justify-content:center;padding:16px;">
+<pre id="dbg-text" style="color:#c8a96e;font-size:11px;font-family:monospace;white-space:pre-wrap;max-height:90vh;overflow:auto;"></pre>
+</div>
+<script>
+document.getElementById('dbg-btn').addEventListener('click',function(e){
+  e.stopPropagation();
+  document.getElementById('dbg-text').textContent=gDebugLog.join('\n')||'(ログなし)';
+  document.getElementById('dbg-overlay').style.display='flex';
+});
+</script>
 </body>
 </html>
