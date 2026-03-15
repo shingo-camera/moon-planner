@@ -3214,8 +3214,8 @@ function drawCompass(tAz,va){
   const isMobPort=isMobCanvas&&(W<=H); // スマホ縦向き
   // 横向き：コンパス円を左上に小さく
   // 縦向き：コンパス円を上部中央に
-  const R=isMobLand?Math.min(H*0.32,W*0.18):isMobPort?Math.min(H*0.20,W*0.22):Math.min(H*0.38,W*0.22);
-  const cx=isMobLand?R+10:isMobPort?W/2:R+16;
+  const R=isMobLand?Math.min(H*0.32,W*0.18):isMobPort?Math.min(H*0.20,W*0.22):Math.min(H*0.34,W*0.20);
+  const cx=isMobLand?R+10:isMobPort?W/2:R+28;
   const cy=isMobLand?R+10:isMobPort?R+12:H/2;
 
   ctx.strokeStyle='rgba(200,169,110,.35)';ctx.lineWidth=1;
@@ -3350,34 +3350,52 @@ function drawCompass(tAz,va){
     }
 
   } else {
-    // PC：右側に情報テキスト＋仰角ダイアグラム（元のレイアウト）
-    const infoX=cx+R+22;
-    ctx.textAlign='left';ctx.textBaseline='alphabetic';
+    // ━━ PC：縦3分割（上=テキスト / 中=仰角ダイアグラム / 下=天気）━━
+    const infoX = cx + R + 24;
+    const rightW_pc = W - infoX - 8;
+
+    // ── 上部：AZ/ELEV/対象名テキスト3行 ──
+    const textLineH = 20;
+    const textTop = 16;
+    ctx.textAlign='left'; ctx.textBaseline='alphabetic';
     infoLines.forEach((line,i)=>{
       ctx.font=`${line.size} 'Space Mono',monospace`;
       const lw=ctx.measureText(line.text).width;
-      const ly=cy-16+i*18;
-      ctx.fillStyle='rgba(10,15,28,0.65)';ctx.fillRect(infoX-3,ly-12,lw+8,14);
-      ctx.fillStyle=line.color;ctx.fillText(line.text,infoX,ly);
+      const ly=textTop + i*textLineH + textLineH - 4;
+      ctx.fillStyle='rgba(10,15,28,0.65)'; ctx.fillRect(infoX-3,ly-12,lw+8,14);
+      ctx.fillStyle=line.color; ctx.fillText(line.text,infoX,ly);
     });
-    const availW=W-infoX-12;
-    const ex=infoX,ey=H-20,ew=Math.min(availW,R*0.85),eh=Math.min(H*0.38,ew*0.9);
-    if(ew>20&&eh>20){
-      ctx.strokeStyle='rgba(200,169,110,.3)';ctx.lineWidth=1;
-      ctx.beginPath();ctx.moveTo(ex,ey-eh);ctx.lineTo(ex,ey);ctx.lineTo(ex+ew,ey);ctx.stroke();
-      const ar=Math.max(0,va)*Math.PI/180;
-      ctx.strokeStyle='#c8a96e';ctx.lineWidth=2;ctx.shadowColor='#c8a96e';ctx.shadowBlur=4;
-      ctx.beginPath();ctx.moveTo(ex,ey);ctx.arc(ex,ey,ew*.68,0,-ar,true);ctx.stroke();ctx.shadowBlur=0;
-      const ll=ew*.74;
-      ctx.strokeStyle='rgba(200,169,110,.5)';ctx.lineWidth=1.5;
-      ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex+ll*Math.cos(-ar),ey+ll*Math.sin(-ar));ctx.stroke();
-      ctx.font='13px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
-      ctx.fillText(T[cur].e,ex+ll*Math.cos(-ar),ey+ll*Math.sin(-ar)-5);
+
+    // ── 中部・下部の座標計算 ──
+    const fs_pc = 13;
+    const lhW_pc = fs_pc + 5;
+    const pcWeatherH = lhW_pc * 2 + 8;
+    const pcWeatherTop = H - 10 - pcWeatherH;
+    const diagMargin = 10;
+    const diagTop_pc = textTop + infoLines.length * textLineH + diagMargin;
+    const diagBottom_pc = pcWeatherTop - diagMargin;
+    const dh = diagBottom_pc - diagTop_pc;
+    const dw = Math.min(rightW_pc * 0.75, dh * 1.2);
+    const ex = infoX;
+    const ey = diagBottom_pc;
+
+    // ── 中部：仰角ダイアグラム ──
+    if(dw > 20 && dh > 20){
+      ctx.strokeStyle='rgba(200,169,110,.3)'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(ex,ey-dh); ctx.lineTo(ex,ey); ctx.lineTo(ex+dw,ey); ctx.stroke();
+      const ar = Math.max(0,va)*Math.PI/180;
+      ctx.strokeStyle='#c8a96e'; ctx.lineWidth=2; ctx.shadowColor='#c8a96e'; ctx.shadowBlur=4;
+      ctx.beginPath(); ctx.moveTo(ex,ey); ctx.arc(ex,ey,dw*.68,0,-ar,true); ctx.stroke(); ctx.shadowBlur=0;
+      const ll = dw * .74;
+      ctx.strokeStyle='rgba(200,169,110,.5)'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.moveTo(ex,ey); ctx.lineTo(ex+ll*Math.cos(-ar),ey+ll*Math.sin(-ar)); ctx.stroke();
+      ctx.font='13px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(T[cur].e, ex+ll*Math.cos(-ar), ey+ll*Math.sin(-ar)-5);
       const elvLabel=`${Math.max(0,va).toFixed(2)}°`;
-      ctx.font=`bold 10px 'Space Mono',monospace`;ctx.textAlign='left';ctx.textBaseline='alphabetic';
+      ctx.font=`bold 11px 'Space Mono',monospace`; ctx.textAlign='left'; ctx.textBaseline='alphabetic';
       const elw=ctx.measureText(elvLabel).width;
-      ctx.fillStyle='rgba(10,15,28,0.65)';ctx.fillRect(ex+18,ey-20,elw+6,13);
-      ctx.fillStyle='rgba(200,220,160,0.95)';ctx.fillText(elvLabel,ex+20,ey-9);
+      ctx.fillStyle='rgba(10,15,28,0.65)'; ctx.fillRect(ex+18,ey-22,elw+6,14);
+      ctx.fillStyle='rgba(200,220,160,0.95)'; ctx.fillText(elvLabel,ex+20,ey-10);
     }
   }
 
@@ -3394,10 +3412,11 @@ function drawCompass(tAz,va){
         const w=getWeatherAt(vp.lat,vp.lng,dt);
         if(w){
           const transp=calcTransparency(w.vis,sLat,sLng,az,vaW);
-          const fs=10;
+          // PC版とスマホ版でfs・weatherTopを分ける
+          const fs = isMobCanvas ? 10 : 13;
           const lineH=fs+4;
-          const weatherH=lineH*4+8;
-          // isMobPort時は月相直下、それ以外はcanvas下端
+          const weatherH=lineH*(isMobCanvas?4:2)+8;
+          // isMobPort時は月相直下、PC時は下端から逆算、それ以外はcanvas下端
           let weatherTop;
           if(isMobPort){
             const R2=Math.min(H*0.20,W*0.22);
@@ -3406,7 +3425,7 @@ function drawCompass(tAz,va){
             const phaseY0_2=compassBottom2+8;
             weatherTop=phaseY0_2+52+4;
           } else {
-            weatherTop=H-weatherH;
+            weatherTop=H-10-weatherH;
           }
           // 背景
           ctx.fillStyle='rgba(10,15,28,0.75)';
