@@ -3159,9 +3159,9 @@ function drawView(dist,tAz,va){
   ctx.textAlign='left';
   {
     const fovW=ctx.measureText(fovLabel).width;
-    ctx.fillStyle='rgba(240,240,248,0.30)';ctx.fillRect(4,H-fovFs-5,fovW+6,fovFs+4);
+    ctx.fillStyle='rgba(240,240,248,0.30)';ctx.fillRect(4,H-fovFs-11,fovW+6,fovFs+4);
   }
-  ctx.fillStyle='rgba(20,20,50,0.95)';ctx.fillText(fovLabel,7,H-4);
+  ctx.fillStyle='rgba(20,20,50,0.95)';ctx.fillText(fovLabel,7,H-10);
 
   // 左上に設定日時を大きく表示（canvas幅に収まるようフォントサイズ自動調整）
   if(ds&&ts){
