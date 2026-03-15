@@ -203,7 +203,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 }
 .fan-legend-item{
   display:flex;align-items:center;gap:5px;
-  background:rgba(10,12,20,.72);
+  background:rgba(10,12,20,.45);
   border-radius:3px;padding:2px 6px 2px 4px;
   border-left:3px solid transparent;
 }
@@ -606,7 +606,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
       <div id="map"></div>
       <div id="hint">📍 地図をクリックして撮影地点を選択</div>
       <div id="fan-legend"></div>
-      <div id="map-btns" style="display:none;position:absolute;bottom:56px;right:8px;z-index:1000;flex-direction:column;gap:4px;">
+      <div id="map-btns" style="display:none;position:absolute;bottom:8px;right:8px;z-index:1000;flex-direction:column;gap:4px;">
         <a id="map-btn-gmap" href="#" target="_blank"
           style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;
           background:#4285f4;border-radius:4px;text-decoration:none;font-size:16px;
@@ -1407,7 +1407,7 @@ function initMap(){
   new SpotCtrl().addTo(map);
 
   // スケールバー（右下・タッチ不可）
-  const scaleCtrl = L.control.scale({position:'bottomright', imperial:false, maxWidth:120});
+  const scaleCtrl = L.control.scale({position:'bottomleft', imperial:false, maxWidth:120});
   scaleCtrl.addTo(map);
   // pointer-events:none でタッチを地図に素通しさせる
   scaleCtrl.getContainer().style.pointerEvents = 'none';
