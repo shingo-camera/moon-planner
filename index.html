@@ -3393,12 +3393,14 @@ function drawCompass(tAz,va){
         const w=getWeatherAt(vp.lat,vp.lng,dt);
         if(w){
           const transp=calcTransparency(w.vis,sLat,sLng,az,vaW);
+          console.log('[wx] isMobCanvas='+isMobCanvas+' isMobLand='+isMobLand+' isMobPort='+isMobPort);
           if(isMobCanvas){
             // ━━ スマホ版：4行、W全幅、下端固定 ━━
             const fs=10, lineH=14;
             const weatherH=lineH*4+8;
             let weatherTop;
             if(isMobPort||isMobLand){
+              console.log('[wx-top] land/port branch');
               const R2=Math.min(107*0.20,W*0.22); // H=107px基準で固定
               const cy2=R2+12;
               const compassBottom2=cy2+R2+14;
@@ -3419,6 +3421,7 @@ function drawCompass(tAz,va){
             const y1=weatherTop+lineH, y2=weatherTop+lineH*2+2;
             const y3=weatherTop+lineH*3+4, y4=weatherTop+lineH*4+6;
             if(isMobPort||isMobLand){
+              console.log('[wx-text] land/port branch W='+W);
               // 縦横構図：左詰め、低中高の値は右揃えで桁揃え
               const mx=4, lblX=24, valRX=70;
               ctx.textAlign='left';
