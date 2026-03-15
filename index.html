@@ -2533,7 +2533,7 @@ function drawView(dist,tAz,va){
       const alt_y  = vaBase + yRatio * (vaTop - vaBase);
       const rzAngCorr = Math.atan2(rz * Math.sin(vaTop * Math.PI / 180), dist * 1000) * 180 / Math.PI;
       const pxY = toY_cam(alt_y + rzAngCorr);
-      const rx_m     = rx * TW_H / TW_TOTAL;
+      const rx_m     = rx;  // xmはm単位で渡しているため変換不要
       const rxAngDeg = Math.atan2(rx_m, dist * 1000) * 180 / Math.PI;
       return [cx + gnoH(rxAngDeg), pxY];
     };
