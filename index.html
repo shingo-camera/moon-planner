@@ -475,6 +475,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
       <div id="c-wakayama" class="tc" onclick="selTarget('wakayama')">
         <div class="nm">和歌山城</div><div class="co">34.2276°N 135.1715°E</div>
       </div>
+      <div id="c-takatsuko" class="tc" onclick="selTarget('takatsuko')">
+        <div class="nm">高津子山展望台</div><div class="co">34.1878°N 135.1561°E</div>
+      </div>
       <div style="margin-top:6px;display:flex;align-items:center;gap:6px;">
         <input type="checkbox" id="cb-sunset" onchange="setSunsetMode(this.checked)"
           style="width:14px;height:14px;accent-color:#c8a96e;cursor:pointer;">
@@ -823,6 +826,9 @@ const T={
   gifu:{name:'岐阜城',  lat:35.433931,  lng:136.782041,  h:29,   e:'🏯', zoom:14, elev:335,   // 335m: 天守台下地面
         sunsetOk:true,  silhouette:'castle', physW:180, horizonRatio:0.75, topLimitRatio:null,
         frontAz:203},   // 棟の走る方向203°（SSW-NNE）。Google衛星画像から棟ラインを実測して算出。
+  takatsuko:{name:'高津子山展望台', lat:34.187776, lng:135.156103, h:9, e:'🗼', zoom:14, elev:136.6, // 136.6m: 山頂地面
+        sunsetOk:true, silhouette:'tower', physW:8, horizonRatio:0.75, topLimitRatio:null,
+        frontAz:23},   // 建物辺の走る方向23°。衛星画像から実測。
   wakayama:{name:'和歌山城', lat:34.227593, lng:135.171508, h:29.62, e:'🏯', zoom:14, elev:42.7, // 42.7m: 石垣下地面
         sunsetOk:true,  silhouette:'castle', physW:120, horizonRatio:0.75, topLimitRatio:null,
         // 実寸: 総高29.62m（天守本体23.42m + 石垣6.20m）
@@ -2497,7 +2503,153 @@ function drawView(dist,tAz,va){
       ctx.beginPath();ctx.moveTo(lx,lineY);ctx.lineTo(rx,lineY);ctx.stroke();
     });
     ctx.setLineDash([]);
-  }else{
+  }else if(T[cur].silhouette==='tower'){
+    // ━━━ 高津子山展望台 3D投影シルエット ━━━
+    // 構造: 基部(5×5×4m) → 展望フロア(8×8×1m) → 中間柱(5×5×3m) → 屋根寄棟(5×5×1m)
+    // 合計高さ9m、全層の平面中心は一致
+    // frontAz: 建物辺の走る方向（度）
+    const TW_FRONT_AZ = T[cur].frontAz || 23;
+    const tw_viewDir = (tAz + 180 + 360) % 360;
+    const tw_relDeg  = ((tw_viewDir - TW_FRONT_AZ) + 360) % 360;
+    const tw_gAngle  = tw_relDeg * Math.PI / 180;
+    const tw_sinA = Math.sin(tw_gAngle), tw_cosA = Math.cos(tw_gAngle);
+
+    // 全高9m基準のスケール
+    const TW_TOTAL = thTrue;       // px換算の全体高さ
+    const TW_H     = T[cur].h;    // 実寸全高(m) = 9m
+    // 各層の実寸高さ(m)と幅(m)
+    const TW_BASE_H  = 4, TW_BASE_W  = 5;   // 基部
+    const TW_DECK_H  = 1, TW_DECK_W  = 8;   // 展望フロア
+    const TW_MID_H   = 3, TW_MID_W   = 5;   // 中間柱
+    const TW_ROOF_H  = 1, TW_ROOF_W  = 5;   // 屋根
+
+    // 3D投影関数（城と同様）
+    // y: 0=根本(vaBase), TW_TOTAL=頂点(vaTop) のpx値
+    // x,z: m単位（中心=0）
+    const tw_gp = (xm, ym_px, zm) => {
+      const rx = xm * tw_cosA - zm * tw_sinA;
+      const rz = xm * tw_sinA + zm * tw_cosA;
+      const yRatio = TW_TOTAL > 0 ? ym_px / TW_TOTAL : 0;
+      const alt_y  = vaBase + yRatio * (vaTop - vaBase);
+      const rzAngCorr = Math.atan2(rz * Math.sin(vaTop * Math.PI / 180), dist * 1000) * 180 / Math.PI;
+      const pxY = toY_cam(alt_y + rzAngCorr);
+      const rx_m     = rx * TW_H / TW_TOTAL;
+      const rxAngDeg = Math.atan2(rx_m, dist * 1000) * 180 / Math.PI;
+      return [cx + gnoH(rxAngDeg), pxY];
+    };
+
+    // m→px変換（高さ方向）
+    const tw_mToPx = m => m / TW_H * TW_TOTAL;
+
+    // 各層のY（根本からのpx）
+    const Y0 = 0;                                   // 基部底面
+    const Y1 = tw_mToPx(TW_BASE_H);                // 基部天端=展望フロア底面
+    const Y2 = tw_mToPx(TW_BASE_H + TW_DECK_H);   // 展望フロア天端=中間柱底面
+    const Y3 = tw_mToPx(TW_BASE_H + TW_DECK_H + TW_MID_H);  // 中間柱天端=屋根底面
+    const Y4 = tw_mToPx(TW_H);                     // 屋根頂点
+
+    // 幅の半分(m)
+    const hw_base = TW_BASE_W / 2;
+    const hw_deck = TW_DECK_W / 2;
+    const hw_mid  = TW_MID_W  / 2;
+    const hw_roof = TW_ROOF_W / 2;
+
+    // 面の描画ヘルパー（裏面カリング付き）
+    // nx,nz: 法線ベクトル（モデル座標）
+    const tw_face = (pts3d, nx, nz, fill, stroke='rgba(200,169,110,.6)', lw=1.0) => {
+      const dot = nx * tw_sinA + nz * tw_cosA;
+      if(dot <= 0.02) return;
+      const br = 0.55 + dot * 0.40;
+      const col = fill(br);
+      ctx.fillStyle = col;
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = lw;
+      ctx.beginPath();
+      pts3d.forEach(([x,y,z], i) => {
+        const [px,py] = tw_gp(x, y, z);
+        i === 0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py);
+      });
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    };
+
+    // 輝度→色変換
+    const baseCol = br => `rgba(${Math.round(30*br)},${Math.round(45*br)},${Math.round(66*br)},1)`;
+    const deckCol = br => `rgba(${Math.round(36*br)},${Math.round(53*br)},${Math.round(80*br)},1)`;
+    const roofCol = br => `rgba(${Math.round(42*br)},${Math.round(58*br)},${Math.round(88*br)},1)`;
+
+    // ━━━ 台形の山（城と同様）━━━
+    {
+      const mTopY  = bY;
+      const mBaseY = Math.min(horizon < H ? horizon : H, H);
+      if(mTopY < mBaseY){
+        const flatHalf = tw * 2.5 / 2;
+        const mH    = mBaseY - mTopY;
+        const slope = mH * 1.5;
+        const baseLeft  = Math.max(0, cx - flatHalf - slope);
+        const baseRight = Math.min(W, cx + flatHalf + slope);
+        ctx.save();
+        ctx.beginPath(); ctx.rect(0,0,W,H); ctx.clip();
+        ctx.fillStyle='#1a3020';
+        ctx.strokeStyle='rgba(200,169,110,0.45)';
+        ctx.lineWidth=1.0;
+        ctx.beginPath();
+        ctx.moveTo(baseLeft, mBaseY);
+        ctx.lineTo(cx - flatHalf, mTopY);
+        ctx.lineTo(cx + flatHalf, mTopY);
+        ctx.lineTo(baseRight, mBaseY);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    // ━━━ 各層を奥→手前の順で描画 ━━━
+    // 奥行き方向（rz = x*sinA + z*cosA が大きい＝奥）を先に描く
+    // 視点方向から見て「後ろ→右(または左)→前」の順
+
+    // ---- 基部 ----
+    // 上面
+    tw_face([[-hw_base,Y1,-hw_base],[ hw_base,Y1,-hw_base],[ hw_base,Y1, hw_base],[-hw_base,Y1, hw_base]], 0,-1, baseCol,'rgba(200,169,110,.3)',0.6);
+    // 後面(nz=-1相当: z=-hw_base側)
+    tw_face([[-hw_base,Y0,-hw_base],[ hw_base,Y0,-hw_base],[ hw_base,Y1,-hw_base],[-hw_base,Y1,-hw_base]], 0,-1, baseCol);
+    // 右面(nx=+1相当)
+    tw_face([[ hw_base,Y0,-hw_base],[ hw_base,Y0, hw_base],[ hw_base,Y1, hw_base],[ hw_base,Y1,-hw_base]],+1, 0, baseCol);
+    // 左面(nx=-1相当)
+    tw_face([[-hw_base,Y0, hw_base],[-hw_base,Y0,-hw_base],[-hw_base,Y1,-hw_base],[-hw_base,Y1, hw_base]],-1, 0, baseCol);
+    // 前面(nz=+1相当)
+    tw_face([[-hw_base,Y0, hw_base],[ hw_base,Y0, hw_base],[ hw_base,Y1, hw_base],[-hw_base,Y1, hw_base]], 0,+1, baseCol);
+
+    // ---- 展望フロア（張り出しスラブ）----
+    tw_face([[-hw_deck,Y1,-hw_deck],[ hw_deck,Y1,-hw_deck],[ hw_deck,Y2,-hw_deck],[-hw_deck,Y2,-hw_deck]], 0,-1, deckCol);
+    tw_face([[ hw_deck,Y1,-hw_deck],[ hw_deck,Y1, hw_deck],[ hw_deck,Y2, hw_deck],[ hw_deck,Y2,-hw_deck]],+1, 0, deckCol);
+    tw_face([[-hw_deck,Y1, hw_deck],[-hw_deck,Y1,-hw_deck],[-hw_deck,Y2,-hw_deck],[-hw_deck,Y2, hw_deck]],-1, 0, deckCol);
+    tw_face([[-hw_deck,Y1, hw_deck],[ hw_deck,Y1, hw_deck],[ hw_deck,Y2, hw_deck],[-hw_deck,Y2, hw_deck]], 0,+1, deckCol);
+    // 上面
+    tw_face([[-hw_deck,Y2,-hw_deck],[ hw_deck,Y2,-hw_deck],[ hw_deck,Y2, hw_deck],[-hw_deck,Y2, hw_deck]], 0,-1, deckCol,'rgba(200,169,110,.25)',0.6);
+
+    // ---- 中間柱 ----
+    tw_face([[-hw_mid,Y2,-hw_mid],[ hw_mid,Y2,-hw_mid],[ hw_mid,Y3,-hw_mid],[-hw_mid,Y3,-hw_mid]], 0,-1, baseCol);
+    tw_face([[ hw_mid,Y2,-hw_mid],[ hw_mid,Y2, hw_mid],[ hw_mid,Y3, hw_mid],[ hw_mid,Y3,-hw_mid]],+1, 0, baseCol);
+    tw_face([[-hw_mid,Y2, hw_mid],[-hw_mid,Y2,-hw_mid],[-hw_mid,Y3,-hw_mid],[-hw_mid,Y3, hw_mid]],-1, 0, baseCol);
+    tw_face([[-hw_mid,Y2, hw_mid],[ hw_mid,Y2, hw_mid],[ hw_mid,Y3, hw_mid],[-hw_mid,Y3, hw_mid]], 0,+1, baseCol);
+
+    // ---- 屋根（寄棟・四角錘）描画順: 奥2面→手前2面 ----
+    // 屋根頂点（中心・Y4）
+    const apex = [0, Y4, 0];
+    // 底面4隅
+    const rFL = [-hw_roof, Y3,  hw_roof]; // 前左
+    const rFR = [ hw_roof, Y3,  hw_roof]; // 前右
+    const rBR = [ hw_roof, Y3, -hw_roof]; // 後右
+    const rBL = [-hw_roof, Y3, -hw_roof]; // 後左
+    // 後面(奥)
+    tw_face([rBL, rBR, apex],  0,-1, roofCol,'rgba(200,169,110,.5)',0.8);
+    // 右面
+    tw_face([rBR, rFR, apex], +1, 0, roofCol,'rgba(200,169,110,.5)',0.8);
+    // 左面
+    tw_face([rBL, apex, rFL], -1, 0, roofCol,'rgba(200,169,110,.6)',0.9);
+    // 前面(手前)
+    tw_face([rFL, apex, rFR],  0,+1, roofCol,'rgba(200,169,110,.7)',1.0);
+
+  }else if(T[cur].silhouette==='castle'){
     // ━━━ 和歌山城・台形の山（先に描いて城を手前に重ねる）━━━
     {
       const mTopY = bY;
