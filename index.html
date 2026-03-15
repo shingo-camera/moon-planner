@@ -3223,7 +3223,7 @@ function drawCompass(tAz,va){
   // 横向き：コンパス円を左上に小さく
   // 縦向き：コンパス円を上部中央に
   const R=isMobLand?Math.min(107*0.32,W*0.18):isMobPort?Math.min(H*0.20,W*0.22):Math.min(H*0.34,W*0.20);
-  const cx=isMobLand?R+36:isMobPort?W/2:R+28;
+  const cx=isMobLand?R+32:isMobPort?W/2:R+28;
   const cy=isMobLand?R+20:isMobPort?R+20:H/2;
 
   ctx.strokeStyle='rgba(200,169,110,.35)';ctx.lineWidth=1;
