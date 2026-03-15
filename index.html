@@ -38,7 +38,7 @@ html,body{height:100%;background:var(--bg);color:var(--tx);
 #hdr p{font-size:9px;color:var(--sub);}
 
 /* メインラッパー */
-#wrap{position:fixed;top:var(--hdr);bottom:0;left:0;right:0;display:flex;overflow:hidden;}
+#wrap{position:fixed;top:var(--hdr);bottom:10px;left:0;right:0;display:flex;overflow:hidden;}
 /* ピンチズーム禁止（地図・プレビューcanvas除く） */
 #wrap,#right,#preview-panel,#pv-left,#diag-wrap{touch-action:pan-x pan-y;}
 
@@ -1078,7 +1078,7 @@ function layout(){
     return;
   }
   const hdrH=40, pnlW=200, btnW=34, lblH=22;
-  const avH=H-hdrH-10; // 下余白10px（ブラウザ底辺への接触を避ける）
+  const avH=H-hdrH;
   const rightW=W-pnlW;
 
   // ── canvas サイズ計算（縦横で px/deg を統一）──
