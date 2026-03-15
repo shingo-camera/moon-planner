@@ -1078,7 +1078,7 @@ function layout(){
     return;
   }
   const hdrH=40, pnlW=200, btnW=34, lblH=22;
-  const avH=H-hdrH;
+  const avH=H-hdrH-10; // 下余白10px（ブラウザ底辺への接触を避ける）
   const rightW=W-pnlW;
 
   // ── canvas サイズ計算（縦横で px/deg を統一）──
@@ -3456,44 +3456,41 @@ function drawCompass(tAz,va){
             ctx.textAlign='left'; ctx.fillText('高',cloudLblX,y4);
             ctx.textAlign='right'; ctx.fillText(high,cloudValX,y4);
           } else {
-            // ━━ PC版：2行、右エリア内（infoX〜W-8）、下端固定 ━━
+            // ━━ PC版：仰角ダイアグラム直下に左詰めテキスト配置 ━━
             const pc_infoX = cx + R + 24;
             const fs=13, lineH=fs+5;
-            const weatherH=lineH*2+8;
-            const wTop=H-10-weatherH;
-            const pc_infoX2 = cx + R + 24;
-            const pc_rightW = W - pc_infoX2 - 8;
-            const pc_dw = Math.min(pc_rightW * 0.75, H * 0.9);
-            const wLeft=pc_infoX2, wRight=pc_infoX2+pc_dw, wW=pc_dw;
-            ctx.fillStyle='rgba(10,15,28,0.75)';
-            ctx.fillRect(wLeft,wTop,wW,weatherH);
-            ctx.font=`bold ${fs}px 'Space Mono',monospace`;
-            ctx.textBaseline='alphabetic';
-            // 右エリア内の比率座標
-            const rRainIconX=wLeft+wW*0.01, rRainValX=wLeft+wW*0.38;
-            const rVisIconX=wLeft+wW*0.42,  rVisValX=wRight-4;
-            const rCloudIconX=wLeft+wW*0.01,rCloudLblX=wLeft+wW*0.20,rCloudValX=wRight-4;
+            // eyを再計算（仰角ダイアグラムの下端）
+            const pc_rightW2 = W - pc_infoX - 8;
+            const pc_textH = 3 * 20;
+            const pc_diagMargin = 10;
+            const pc_pcWeatherH2 = lineH*2+8;
+            const pc_pcWeatherTop2 = H - 10 - pc_pcWeatherH2;
+            const pc_diagBottom2 = pc_pcWeatherTop2 - pc_diagMargin;
+            const pc_dw2 = Math.min(pc_rightW2 * 0.75, (pc_diagBottom2 - (16 + pc_textH + pc_diagMargin)) * 1.2);
+            const pc_eh2 = Math.min(pc_dw2 * 0.68 + 20, pc_diagBottom2 - (16 + pc_textH + pc_diagMargin));
+            const pc_ey2 = (16 + pc_textH) + pc_diagMargin + pc_eh2;
+            // 天気はey直下に配置
+            const wTop = pc_ey2 + 8;
+            const wx = pc_infoX; // 左端 = infoXと揃える
             const rain=w.precip!==null?`${w.precip}%`:'--';
             const tr=transp!==null?`${transp}%`:'--';
             const low=w.low!==null?`${w.low}%`:'--';
             const mid=w.mid!==null?`${w.mid}%`:'--';
             const high=w.high!==null?`${w.high}%`:'--';
             const y1=wTop+lineH, y2=wTop+lineH*2+2;
-            // 1行目: ☔雨%　👁透%
+            ctx.font=`bold ${fs}px 'Space Mono',monospace`;
+            ctx.textBaseline='alphabetic';
             ctx.textAlign='left';
-            ctx.fillStyle='rgba(150,200,255,0.90)'; ctx.fillText('☔',rRainIconX,y1);
-            ctx.textAlign='right'; ctx.fillText(rain,rRainValX,y1);
-            ctx.textAlign='left';
-            ctx.fillStyle='rgba(200,230,180,0.90)'; ctx.fillText('👁 ',rVisIconX,y1);
-            ctx.textAlign='right'; ctx.fillText(tr,rVisValX,y1);
-            // 2行目: ☁️低% 中% 高%
-            ctx.textAlign='left';
+            // 1行目: ☔雨%  👁 透%
+            ctx.fillStyle='rgba(150,200,255,0.90)';
+            ctx.fillText(`☔${rain}`,wx,y1);
+            ctx.fillStyle='rgba(200,230,180,0.90)';
+            ctx.fillText(`👁 ${tr}`,wx+90,y1);
+            // 2行目: ☁️ 低% 中% 高%
             ctx.fillStyle='rgba(180,200,220,0.90)';
-            ctx.fillText('☁️',rCloudIconX,y2);
-            const cw=(wRight-rCloudLblX)/3;
-            ctx.fillText(`低${low}`,rCloudLblX,y2);
-            ctx.fillText(`中${mid}`,rCloudLblX+cw,y2);
-            ctx.fillText(`高${high}`,rCloudLblX+cw*2,y2);
+            ctx.fillText(`☁️ 低${low}`,wx,y2);
+            ctx.fillText(`中${mid}`,wx+100,y2);
+            ctx.fillText(`高${high}`,wx+180,y2);
           }
         }
       }
