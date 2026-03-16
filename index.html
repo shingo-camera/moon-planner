@@ -849,7 +849,11 @@ const T={
         frontAz:16.0},
 };
 let cur='pl', focal=400, orientation='land';
-let gIsMobile=false;
+function detectMobile(){
+  return /iPhone|iPod/i.test(navigator.userAgent)||
+         (/Android/i.test(navigator.userAgent)&&window.innerWidth<=600);
+}
+let gIsMobile=detectMobile();
 let sLat=null, sLng=null, sElev=0;
 let sElevGround=0; // 地面標高（APIから取得）
 let elevOffset=0;  // 標高オフセット（+1/+3/+5m追加分）
@@ -993,7 +997,7 @@ let savedSpots=[]; // 保存した撮影地点 [{lat,lng,name,target,note}]
 function layout(){
   const W = window.innerWidth;
   const H = window.innerHeight;
-  const isMobile=W<=600;
+  const isMobile=detectMobile();
   gIsMobile=isMobile;
 
   if(isMobile){
@@ -1462,7 +1466,7 @@ async function onPick(){
   if(sLat===null||sLng===null)return;
   // elevOffsetは地点変更時にリセットしない（ユーザーが手動でRstボタンを押す）
   // スマホでは撮影地点確定後にhintを非表示
-  if(window.innerWidth<=600){const h=document.getElementById('hint');if(h)h.style.display='none';}
+  if(detectMobile()){const h=document.getElementById('hint');if(h)h.style.display='none';}
   if(map&&sMarker){try{map.removeLayer(sMarker);}catch(e){}}
   if(map&&polyLine){try{map.removeLayer(polyLine);}catch(e){}}
 
@@ -4223,7 +4227,7 @@ function showHint(msg, durationMs=5000){
 }
 
 function promptFocal(){
-  if(window.innerWidth<=600){
+  if(detectMobile()){
     openFocalPad();
   } else {
     const v=prompt('焦点距離を入力（mm）', focal);
@@ -4398,7 +4402,7 @@ async function mobClipRead(){
 }
 
 function syncMobileUI(){
-  if(window.innerWidth>600)return;
+  if(!detectMobile())return;
   const ts=document.getElementById('itime').value;
   const el=document.getElementById('mob-time-disp');
   if(el)el.textContent=ts||'—';
