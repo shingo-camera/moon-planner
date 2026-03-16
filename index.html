@@ -1491,7 +1491,18 @@ async function onPick(){
   });
 
   const t=T[cur];
-  polyLine=L.polyline([[sLat,sLng],[t.lat,t.lng]],
+  // 撮影地点→対象の方位角で対象から50km先の座標を計算
+  const az_ext = brng(sLat,sLng,t.lat,t.lng);
+  const ext_dist = 50; // km
+  const R_earth = 6371;
+  const az_rad = az_ext*Math.PI/180;
+  const lat_rad = t.lat*Math.PI/180;
+  const ext_lat = Math.asin(Math.sin(lat_rad)*Math.cos(ext_dist/R_earth)+
+                  Math.cos(lat_rad)*Math.sin(ext_dist/R_earth)*Math.cos(az_rad))*180/Math.PI;
+  const ext_lng = t.lng + Math.atan2(Math.sin(az_rad)*Math.sin(ext_dist/R_earth)*Math.cos(lat_rad),
+                  Math.cos(ext_dist/R_earth)-Math.sin(lat_rad)*Math.sin(ext_lat*Math.PI/180))*180/Math.PI;
+
+  polyLine=L.polyline([[sLat,sLng],[t.lat,t.lng],[ext_lat,ext_lng]],
     {color:'#c8a96e',weight:1.5,opacity:.6,dashArray:'5,4'}).addTo(map);
 
   document.getElementById('i-e').textContent='取得中…';
