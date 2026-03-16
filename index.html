@@ -326,15 +326,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 
 /* ━━━ スマホ横向き禁止オーバーレイ ━━━ */
 #landscape-overlay{display:none;}
-@media (max-height:600px) and (orientation:landscape){
-  #landscape-overlay{
-    display:flex;
-    position:fixed;inset:0;z-index:99999;
-    background:rgba(8,12,24,0.97);
-    flex-direction:column;align-items:center;justify-content:center;
-    gap:16px;pointer-events:all;
-  }
-}
 
 /* ━━━ スマホレイアウト ━━━ */
 @media (max-width:600px){
@@ -999,6 +990,13 @@ function layout(){
   const H = window.innerHeight;
   const isMobile=detectMobile();
   gIsMobile=isMobile;
+
+  // landscape-overlay: スマホが物理的に横向きかつ縦構図モードのとき表示
+  const loEl=document.getElementById('landscape-overlay');
+  if(loEl){
+    const isLandscape=W>H;
+    loEl.style.display=(isMobile&&isLandscape)?'flex':'none';
+  }
 
   if(isMobile){
     const lblH=22;
