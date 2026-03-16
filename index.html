@@ -991,6 +991,7 @@ function layout(){
   const H = window.innerHeight;
   const isMobile=detectMobile();
   gIsMobile=isMobile;
+  updatePvDateDisp();
 
   // landscape-overlay: スマホが物理的に横向きかつ縦構図モードのとき表示
   const loEl=document.getElementById('landscape-overlay');
@@ -3661,12 +3662,7 @@ function drawCompass(tAz,va){
 // 撮影地点 保存・一覧
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 15スロット固定。nullは空き。
-const SPOT_COLORS=[
-  '#e74c3c','#e67e22','#f1c40f','#2ecc71','#1abc9c',
-  '#3498db','#9b59b6','#e91e8c','#00bcd4','#8bc34a',
-  '#ff5722','#607d8b','#795548','#ff9800','#cddc39'
-];
-const SPOT_MAX=15;
+const SPOT_MAX=100;
 let spotPinLayers=[]; // 地図上のピンレイヤー
 
 function _emptySlots(){
@@ -3683,7 +3679,7 @@ function saveSpot(){
   _emptySlots();
   const idx=savedSpots.findIndex(s=>s===null);
   if(idx===-1){
-    showHint('保存スロットが満杯です（最大15件）。一覧から不要な地点を削除してください。');
+    showHint('保存スロットが満杯です（最大100件）。一覧から不要な地点を削除してください。');
     openSpotPanel();
     return;
   }
@@ -3760,7 +3756,7 @@ function loadSpot(idx){
 
 function _spotLabel(spot){
   if(!spot)return'';
-  const icon=spot.sunsetMode?'🌅':'🌕';
+  const icon=spot.sunsetMode?'☀️':'🌕';
   const tname=T[spot.target]?T[spot.target].name:'—';
   const ds=spot.date||'';
   const ts=spot.time||'';
@@ -3776,22 +3772,15 @@ function renderSpotPanel(){
   const el=document.getElementById('spot-panel-list');
   if(!el)return;
   _emptySlots();
+  const numBadge=(n)=>`<span style="display:inline-flex;width:22px;height:22px;border-radius:50%;
+    background:rgba(255,255,255,0.15);border:1.5px solid #222;color:#111;font-size:10px;font-weight:700;
+    align-items:center;justify-content:center;flex-shrink:0;">${n}</span>`;
   el.innerHTML=savedSpots.map((spot,i)=>{
-    const color=SPOT_COLORS[i];
-    const numBadge=`<span style="display:inline-block;width:18px;height:18px;border-radius:50%;
-      background:${color};color:#fff;font-size:9px;font-weight:700;
-      text-align:center;line-height:18px;flex-shrink:0;">${i+1}</span>`;
-    if(!spot){
-      return`<div style="display:flex;align-items:center;gap:8px;padding:5px 4px;
-        border-bottom:1px solid var(--bd);opacity:0.35;">
-        ${numBadge}
-        <span style="font-size:10px;color:var(--sub);font-family:'Space Mono',monospace;flex:1;">— 空き —</span>
-      </div>`;
-    }
+    if(!spot) return '';
     const label=_spotLabel(spot);
     return`<div style="display:flex;align-items:center;gap:6px;padding:6px 4px;
       border-bottom:1px solid var(--bd);">
-      ${numBadge}
+      ${numBadge(i+1)}
       <span style="flex:1;font-size:11px;color:var(--tx);min-width:0;
         overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer;"
         onclick="loadSpot(${i})" title="読み込む">${label}</span>
@@ -3815,21 +3804,23 @@ function renderSpotPins(){
   _emptySlots();
   savedSpots.forEach((spot,i)=>{
     if(!spot)return;
-    const color=SPOT_COLORS[i];
     const dateStr=spot.date||'';
-    const icon=spot.sunsetMode?'🌅':'🌕';
+    const icon=spot.sunsetMode?'☀️':'🌕';
     const label=dateStr?`${icon} ${dateStr}`:'';
     const marker=L.marker([spot.lat,spot.lng],{
       icon:L.divIcon({
         html:`<div style="display:flex;align-items:center;gap:4px;pointer-events:none;">
-          <div style="width:10px;height:10px;border-radius:50%;flex-shrink:0;
-            background:${color};border:2px solid rgba(255,255,255,.8);
-            box-shadow:0 0 4px rgba(0,0,0,.5);"></div>
+          <div style="width:22px;height:22px;border-radius:50%;flex-shrink:0;
+            background:rgba(255,255,255,0.85);border:1.5px solid #222;
+            box-shadow:0 1px 4px rgba(0,0,0,.5);
+            display:flex;align-items:center;justify-content:center;
+            font-size:${i+1>=100?8:10}px;font-weight:700;color:#111;
+            font-family:sans-serif;">${i+1}</div>
           ${label?`<div style="background:rgba(10,12,20,.75);border-radius:2px;
             padding:1px 4px;font-family:'Space Mono',monospace;font-size:9px;
-            color:${color};white-space:nowrap;line-height:1.4;">${label}</div>`:''}
+            color:#c8a96e;white-space:nowrap;line-height:1.4;">${label}</div>`:''}
         </div>`,
-        className:'',iconAnchor:[5,5]
+        className:'',iconAnchor:[11,11]
       }),
       interactive:false
     }).addTo(map);
@@ -3839,7 +3830,7 @@ function renderSpotPins(){
 
 function openSpotPanel(){
   renderSpotPanel();
-  document.getElementById('spot-panel').style.display='block';
+  document.getElementById('spot-panel').style.display='flex';
   document.getElementById('spot-overlay-bg').style.display='block';
 }
 
@@ -4161,6 +4152,7 @@ function _syncDrawerContent(){
         if(dtEl) dtEl.textContent=(ds2&&ts2)?ds2+' '+ts2:'—';
         syncMobileUI();
         if(id==='idate'){
+          updatePvDateDisp();
           // 日付変更：月の出入り・扇形・プレビュー全再描画
           calcSunMoon();
           if(sLat!==null) onPick();
@@ -5300,23 +5292,26 @@ window.addEventListener('pageshow', e=>{
   style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:11000;"></div>
 <div id="spot-panel"
   style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
-  width:min(420px,96vw);max-height:80vh;overflow-y:auto;
+  width:min(420px,96vw);max-height:80vh;
   background:var(--sur);border:1px solid var(--bd);border-radius:10px;
-  z-index:11001;padding:14px 12px 16px;">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;
-    border-bottom:1px solid var(--bd);padding-bottom:8px;">
-    <span style="font-family:'Space Mono',monospace;font-size:11px;color:var(--ac);">🗂 保存地点（最大15件）</span>
-    <div onclick="closeSpotPanel()"
-      style="cursor:pointer;font-size:18px;color:var(--sub);padding:2px 6px;line-height:1;">✕</div>
+  z-index:11001;padding:0;display:none;flex-direction:column;">
+  <!-- 固定ヘッダー -->
+  <div style="padding:14px 12px 10px;border-bottom:1px solid var(--bd);flex-shrink:0;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <span style="font-family:'Space Mono',monospace;font-size:11px;color:var(--ac);">🗂 保存地点（最大100件）</span>
+      <div onclick="closeSpotPanel()"
+        style="cursor:pointer;font-size:18px;color:var(--sub);padding:2px 6px;line-height:1;">✕</div>
+    </div>
+    <!-- 保存ボタン -->
+    <button onclick="saveSpot()"
+      style="width:100%;background:var(--sur2);border:1px solid var(--ac);border-radius:5px;
+      color:var(--ac);font-family:'Space Mono',monospace;font-size:11px;padding:7px;
+      cursor:pointer;">
+      💾 現在の地点・設定を保存
+    </button>
   </div>
-  <!-- 保存ボタン -->
-  <button onclick="saveSpot()"
-    style="width:100%;background:var(--sur2);border:1px solid var(--ac);border-radius:5px;
-    color:var(--ac);font-family:'Space Mono',monospace;font-size:11px;padding:7px;
-    cursor:pointer;margin-bottom:10px;">
-    💾 現在の地点・設定を保存
-  </button>
-  <div id="spot-panel-list"></div>
+  <!-- スクロール部分 -->
+  <div id="spot-panel-list" style="overflow-y:auto;flex:1;padding:4px 12px 12px;"></div>
 </div>
 </body>
 </html>
