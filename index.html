@@ -479,6 +479,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
       <div id="c-takatsuko" class="tc" onclick="selTarget('takatsuko')">
         <div class="nm">高津子山展望台</div><div class="co">34.1878°N 135.1561°E</div>
       </div>
+      <div id="c-tsutenkaku" class="tc" onclick="selTarget('tsutenkaku')">
+        <div class="nm">通天閣</div><div class="co">34.6525°N 135.5063°E</div>
+      </div>
       <div style="margin-top:6px;display:flex;align-items:center;gap:6px;">
         <input type="checkbox" id="cb-sunset" onchange="setSunsetMode(this.checked)"
           style="width:14px;height:14px;accent-color:#c8a96e;cursor:pointer;">
@@ -841,6 +844,9 @@ const T={
         layerRatios:[0.384,0.342,0.274],        // 各層高さ比（9m/8m/6.42m、天守本体23.42m基準）
         layerWidthScales:[1.000,0.833,0.667],   // 各層幅縮小率（12m/10m/8m）
         frontAz:36},                            // 棟の走る方向36°（NNE-SSW）。衛星画像から実測。
+  tsutenkaku:{name:'通天閣', lat:34.652530, lng:135.506299, h:100, e:'🗼', zoom:15, elev:2.9,
+        sunsetOk:true, silhouette:'tsutenkaku', physW:14.9, horizonRatio:0.75, topLimitRatio:null,
+        frontAz:16.0},
 };
 let cur='pl', focal=400, orientation='land';
 let gIsMobile=false;
@@ -3148,6 +3154,151 @@ function drawView(dist,tAz,va){
       ctx.fillText(`${dAzInCam>0?label+' →':'← '+label} (${Math.abs(dAzInCam).toFixed(1)}° FOV外)`,cx,H*0.4);
     }
   }
+
+  // ━━━ 通天閣 3D投影シルエット ━━━
+  if(T[cur].silhouette==='tsutenkaku'){
+    const TT_FRONT_AZ = T[cur].frontAz||16;
+    const tt_viewDir = (tAz+180+360)%360;
+    const tt_relDeg  = ((tt_viewDir-TT_FRONT_AZ)+360)%360;
+    const tt_gAngle  = tt_relDeg*Math.PI/180;
+    const tt_sinA=Math.sin(tt_gAngle), tt_cosA=Math.cos(tt_gAngle);
+    const TT_TOTAL=thTrue, TT_H=T[cur].h;
+
+    const tt_mToPx=m=>m/TT_H*TT_TOTAL;
+
+    const tt_gp=(xm,ym_m,zm)=>{
+      const ym_px=tt_mToPx(ym_m);
+      const rx=xm*tt_cosA-zm*tt_sinA;
+      const rz=xm*tt_sinA+zm*tt_cosA;
+      const yRatio=TT_TOTAL>0?ym_px/TT_TOTAL:0;
+      const alt_y=vaBase+yRatio*(vaTop-vaBase);
+      const rzAngCorr=Math.atan2(rz*Math.sin(vaTop*Math.PI/180),dist*1000)*180/Math.PI;
+      const pxY=toY_cam(alt_y+rzAngCorr);
+      const rxAngDeg=Math.atan2(rx,dist*1000)*180/Math.PI;
+      return[cx+gnoH(rxAngDeg),pxY];
+    };
+
+    // 全面バッファ
+    const ttFaces=[];
+    const tt_addFace=(pts3d,nx,nz,fillFn,stroke=true)=>{
+      const dot=nx*tt_sinA+nz*tt_cosA;
+      const br=Math.max(0.4,0.55+dot*0.45);
+      const depth=pts3d.reduce((s,p)=>s+(p[0]*tt_sinA+p[2]*tt_cosA),0)/pts3d.length;
+      ttFaces.push({pts3d,br,fillFn,stroke,depth});
+    };
+
+    const tt_flush=()=>{
+      ttFaces.sort((a,b)=>b.depth-a.depth);
+      ttFaces.forEach(({pts3d,br,fillFn,stroke})=>{
+        ctx.beginPath();
+        pts3d.forEach(([x,y,z],i)=>{
+          const[px,py]=tt_gp(x,y,z);
+          i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+        });
+        ctx.closePath();
+        ctx.fillStyle=fillFn(br);
+        if(stroke){ctx.strokeStyle='rgba(200,169,110,0.5)';ctx.lineWidth=0.8;ctx.fill();ctx.stroke();}
+        else ctx.fill();
+      });
+    };
+
+    const tt_nPts=(r,n,off=0)=>{
+      const p=[];
+      for(let i=0;i<n;i++){const a=(off+i*360/n)*Math.PI/180;p.push([r*Math.cos(a),r*Math.sin(a)]);}
+      return p;
+    };
+
+    const tt_drawNF=(rb,yb,rt,yt,fillFn,n=8,stroke=true,off=0)=>{
+      const pb=tt_nPts(rb,n,off),pt=tt_nPts(rt,n,off);
+      for(let i=0;i<n;i++){
+        const j=(i+1)%n;
+        const mx=(pb[i][0]+pb[j][0]+pt[i][0]+pt[j][0])/4;
+        const mz=(pb[i][1]+pb[j][1]+pt[i][1]+pt[j][1])/4;
+        const len=Math.sqrt(mx*mx+mz*mz)||1;
+        tt_addFace([[pb[i][0],yb,pb[i][1]],[pb[j][0],yb,pb[j][1]],[pt[j][0],yt,pt[j][1]],[pt[i][0],yt,pt[i][1]]],mx/len,mz/len,fillFn,stroke);
+      }
+    };
+
+    const tt_drawQF=(hb,yb,ht,yt,fillFn)=>{
+      [{v:[[hb,yb,-hb],[hb,yb,hb],[ht,yt,ht],[ht,yt,-ht]],nx:1,nz:0},
+       {v:[[-hb,yb,hb],[-ht,yt,ht],[-ht,yt,-ht],[-hb,yb,-hb]],nx:-1,nz:0},
+       {v:[[hb,yb,hb],[-hb,yb,hb],[-ht,yt,ht],[ht,yt,ht]],nx:0,nz:1},
+       {v:[[-hb,yb,-hb],[hb,yb,-hb],[ht,yt,-ht],[-ht,yt,-ht]],nx:0,nz:-1},
+      ].forEach(f=>tt_addFace(f.v,f.nx,f.nz,fillFn));
+    };
+
+    const tt_drawLeg=(top3,bot,fillFn)=>{
+      const[P0,P1,P2]=top3,B=bot;
+      [[P0,P1,B],[P1,P2,B],[P2,P0,B]].forEach(pts=>{
+        const ax=pts[1][0]-pts[0][0],ay=pts[1][1]-pts[0][1],az=pts[1][2]-pts[0][2];
+        const bx=pts[2][0]-pts[0][0],by=pts[2][1]-pts[0][1],bz=pts[2][2]-pts[0][2];
+        let nx=ay*bz-az*by,nz=ax*by-ay*bx;
+        const ccx=(pts[0][0]+pts[1][0]+pts[2][0])/3;
+        const ccz=(pts[0][2]+pts[1][2]+pts[2][2])/3;
+        if(ccx*nx+ccz*nz<0){nx=-nx;nz=-nz;}
+        const len=Math.sqrt(nx*nx+nz*nz)||1;
+        tt_addFace(pts,nx/len,nz/len,fillFn);
+      });
+    };
+
+    const col1=br=>`rgba(${Math.round(80*br)},${Math.round(100*br)},${Math.round(130*br)},0.92)`;
+    const col2=br=>`rgba(${Math.round(100*br)},${Math.round(140*br)},${Math.round(170*br)},0.92)`;
+    const col3=br=>`rgba(${Math.round(80*br)},${Math.round(100*br)},${Math.round(130*br)},0.92)`;
+    const col4=br=>`rgba(${Math.round(120*br)},${Math.round(150*br)},${Math.round(180*br)},0.92)`;
+
+    const hw=23.8/2, h=6.856, r18=9.696;
+
+    // パーツ1a: 4本の逆三角錐脚
+    const legs=[
+      {t:[[-h,18,-h],[0,18,-r18],[-r18,18,0]],b:[-12,0,-12]},
+      {t:[[h,18,-h], [0,18,-r18],[r18,18,0]], b:[12,0,-12]},
+      {t:[[-h,18,h], [0,18,r18], [-r18,18,0]],b:[-12,0,12]},
+      {t:[[h,18,h],  [0,18,r18], [r18,18,0]], b:[12,0,12]},
+    ];
+    legs.forEach(l=>tt_drawLeg(l.t,l.b,col1));
+
+    // パーツ1bc: 八角錐台 18〜75m
+    tt_drawNF(9.696,18,2.4,75,col1,8,true,22.5);
+    // パーツ2: 逆四角錐台 18〜26.7m
+    tt_drawQF(hw,18,26.5/2,26.7,col2);
+    // パーツ3: 八角錐台 75〜90.7m
+    tt_drawNF(2.4,75,7.45,90.7,col3,8,true,22.5);
+    // パーツ4: 円錐台(32角形) 90.7〜100m
+    tt_drawNF(2.32,90.7,1.93,100,col4,32,false,0);
+
+    tt_flush();
+
+    // HITACHI縦文字
+    {
+      const dot=tt_cosA;
+      if(dot>0.02){
+        const br=0.4+dot*0.6;
+        const text='HITACHI';
+        const y_start=70;
+        const t_start=y_start/TT_H;
+        const r_start=12+t_start*(2.4-12);
+        const z_f=r_start*Math.cos(22.5*Math.PI/180);
+        const [px0]=tt_gp(-r_start*Math.sin(Math.PI/8),y_start,z_f);
+        const [px1]=tt_gp( r_start*Math.sin(Math.PI/8),y_start,z_f);
+        const faceW_px=Math.abs(px1-px0);
+        const fs=Math.max(4,Math.floor(faceW_px*0.85));
+        ctx.font=`bold ${fs}px sans-serif`;
+        ctx.textAlign='center';ctx.textBaseline='middle';
+        const charH_m=fs/(TT_TOTAL/TT_H);
+        for(let i=0;i<text.length;i++){
+          const ym=y_start-i*charH_m;
+          const t=Math.max(0,Math.min(1,ym/TT_H));
+          const r=12+t*(2.4-12);
+          const zf=r*Math.cos(22.5*Math.PI/180);
+          const[px,py]=tt_gp(0,ym,zf);
+          ctx.save();ctx.translate(px,py);ctx.rotate(Math.PI/2);
+          ctx.fillStyle=`rgba(255,255,255,${br*0.9})`;
+          ctx.fillText(text[i],0,0);ctx.restore();
+        }
+      }
+    }
+  }
+
   if(!bodyVisible&&mAz!==null){
     const label=sunsetMode?'太陽は地平線以下':'月は地平線以下';
     ctx.fillStyle=sunsetMode?'rgba(255,150,50,.5)':'rgba(126,184,232,.5)';
