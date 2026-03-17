@@ -780,7 +780,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
       <span id="mob-drawer-datetime" style="font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:var(--tx);letter-spacing:.04em;">—</span>
       <span id="mob-drawer-weather" style="font-family:'Space Mono',monospace;font-size:9px;color:var(--sub);letter-spacing:.04em;margin-top:2px;"></span>
     </div>
-    <div onclick="toggleDrawer()" style="cursor:pointer;font-size:18px;color:var(--sub);padding:4px 8px;">✕</div>
+    <div style="display:flex;align-items:center;gap:6px;">
+      <span onclick="setNow()" style="font-family:'Space Mono',monospace;font-size:10px;font-weight:700;color:var(--ac);border:1px solid var(--ac);border-radius:3px;padding:3px 7px;cursor:pointer;">NOW</span>
+      <div onclick="toggleDrawer()" style="cursor:pointer;font-size:18px;color:var(--sub);padding:4px 8px;">✕</div>
+    </div>
   </div>
   <div id="mob-drawer-inner">
     <div id="mob-drawer-content"></div>
