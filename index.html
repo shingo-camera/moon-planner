@@ -327,7 +327,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 /* ━━━ スマホ横向き禁止オーバーレイ ━━━ */
 #landscape-overlay{display:none;}
 /* デバイスの物理的な横向き検知（JS変数compModeとは無関係） */
-@media (orientation:landscape){
+@media (max-height:600px) and (orientation:landscape){
   #landscape-overlay{display:flex;}
 }
 .is-pc #landscape-overlay{display:none!important;}
@@ -5297,7 +5297,7 @@ window.addEventListener('pageshow', e=>{
   style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:11000;"></div>
 <div id="spot-panel"
   style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
-  width:min(420px,96vw);max-height:80vh;
+  width:min(420px,96vw);max-height:80vh;height:80vh;
   background:var(--sur);border:1px solid var(--bd);border-radius:10px;
   z-index:11001;padding:0;flex-direction:column;">
   <!-- 固定ヘッダー -->
