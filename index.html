@@ -609,11 +609,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
       <div id="hint">📍 地図をクリックして撮影地点を選択</div>
       <div id="fan-legend"></div>
       <div id="map-btns" style="display:none;position:absolute;bottom:8px;right:8px;z-index:1000;flex-direction:column;gap:4px;">
-        <a id="map-btn-gmap" href="#" target="_blank"
+        <a id="map-btn-gmap" href="#" onclick="openGmap(event)"
           style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;
           background:#4285f4;border-radius:4px;text-decoration:none;font-size:16px;
           box-shadow:0 2px 6px rgba(0,0,0,.5);" title="Googleマップで開く">🗺</a>
-        <a id="map-btn-sv" href="#" target="_blank"
+        <a id="map-btn-sv" href="#" onclick="openStreetView(event)"
           style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;
           background:#34a853;border-radius:4px;text-decoration:none;font-size:16px;
           box-shadow:0 2px 6px rgba(0,0,0,.5);" title="ストリートビューで開く">👁</a>
@@ -1445,18 +1445,48 @@ function addTargetPin(){
 }
 
 // 地図右下ボタンのhrefを更新して表示
+let _gmapUrl='', _svUrl='';
+
 function updateMapBtns(az){
   if(sLat===null)return;
   const lat=sLat.toFixed(6),lng=sLng.toFixed(6);
   const fovDeg=Math.round(Math.min(90,Math.max(10,fovD(focal))));
   const svAz=az.toFixed(1);
-  const mapsUrl=`https://www.google.com/maps?q=${lat},${lng}`;
-  const svUrl=`https://www.google.com/maps/@${lat},${lng},3a,${fovDeg}y,${svAz}h,90t/data=!3m1!1e1`;
+  _gmapUrl=`https://www.google.com/maps?q=${lat},${lng}`;
+  _svUrl=`https://www.google.com/maps/@${lat},${lng},3a,${fovDeg}y,${svAz}h,90t/data=!3m1!1e1`;
   const btns=document.getElementById('map-btns');
   if(!btns)return;
   btns.style.display='flex';
-  document.getElementById('map-btn-gmap').href=mapsUrl;
-  document.getElementById('map-btn-sv').href=svUrl;
+}
+
+function _openWithAppFallback(e, appUrl, webUrl){
+  e.preventDefault();
+  if(!detectMobile()){
+    window.open(webUrl,'_blank');
+    return;
+  }
+  // スマホ：アプリ起動を試みる。visibilitychangeでアプリ起動を検知してタイマーをキャンセル
+  let timer;
+  const onHide=()=>{ clearTimeout(timer); };
+  document.addEventListener('visibilitychange', onHide, {once:true});
+  window.location=appUrl;
+  timer=setTimeout(()=>{
+    document.removeEventListener('visibilitychange', onHide);
+    window.open(webUrl,'_blank'); // アプリ未起動時はWebを新しいタブで開く
+  },1500);
+}
+
+function openGmap(e){
+  if(!_gmapUrl)return;
+  const lat=sLat.toFixed(6),lng=sLng.toFixed(6);
+  const appUrl=`comgooglemaps://?q=${lat},${lng}`;
+  _openWithAppFallback(e, appUrl, _gmapUrl);
+}
+
+function openStreetView(e){
+  if(!_svUrl)return;
+  const appUrl=_svUrl.replace('https://www.google.com/maps','comgooglemaps://');
+  _openWithAppFallback(e, appUrl, _svUrl);
 }
 
 // ポップアップHTMLを生成（方位角渡し）
