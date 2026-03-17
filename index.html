@@ -4681,11 +4681,12 @@ function renderMoonCal(){
 
 function drawMoonPhaseSmall(cv,age){
   const ctx=cv.getContext('2d');
-  const W=24,cx=12,cy=12,r=10;
+  const W=cv.width||24;
+  const cx=W/2,cy=W/2,r=W/2-2;
   ctx.clearRect(0,0,W,W);
   ctx.fillStyle='#060810';
   ctx.beginPath();ctx.arc(cx,cy,r+1,0,Math.PI*2);ctx.fill();
-  const mg=ctx.createRadialGradient(cx-3,cy-3,1,cx,cy,r);
+  const mg=ctx.createRadialGradient(cx-r*0.3,cy-r*0.3,1,cx,cy,r);
   mg.addColorStop(0,'#fffde8');mg.addColorStop(0.6,'#e8d5a0');mg.addColorStop(1,'#b89840');
   ctx.fillStyle=mg;
   ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();
@@ -4696,7 +4697,7 @@ function drawMoonPhaseSmall(cv,age){
   const ex=r*(2*illum-1);
   ctx.fillStyle='#060810';
   ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();
-  const mg2=ctx.createRadialGradient(cx-3,cy-3,1,cx,cy,r);
+  const mg2=ctx.createRadialGradient(cx-r*0.3,cy-r*0.3,1,cx,cy,r);
   mg2.addColorStop(0,'#fffde8');mg2.addColorStop(0.6,'#e8d5a0');mg2.addColorStop(1,'#b89840');
   ctx.fillStyle=mg2;
   if(phase<0.5){
@@ -4814,7 +4815,8 @@ function calcChances(){
 
     // 結果描画関数（天気キャッシュがあれば表示）
     function _renderChanceList(){
-      list.innerHTML=results.map(r=>{
+      list.innerHTML='';
+      results.forEach(r=>{
         const dow=new Date(r.date+'T12:00:00+09:00').toLocaleDateString('ja-JP',{weekday:'short'});
         const dowColor=dow.includes('日')?'#ff6655':dow.includes('土')?'#4488ff':'var(--sub)';
         const moveM=r.distM*Math.tan(r.azDiff*Math.PI/180);
@@ -4845,14 +4847,50 @@ function calcChances(){
             weatherStr=`☔${rain}👁 ${tr}☁️低${low}中${mid}高${high}`;
           }
         }
-        return `<div class="chance-item" onclick="setChance('${r.date}','${r.time}')" title="クリックで日時をセット">
-          <span style="color:${dowColor}">${r.date}(${dow})</span>
-          <span class="chance-time">${r.time}</span>
-          <span style="color:var(--ac)">${star}</span>
-          <span style="color:var(--sub)">${bodyInfo}</span>
-          ${weatherStr?`<span style="color:rgba(180,210,255,0.85)">${weatherStr}</span>`:''}
-        </div>`;
-      }).join('');
+        const item=document.createElement('div');
+        item.className='chance-item';
+        item.title='クリックで日時をセット';
+        item.onclick=()=>setChance(r.date,r.time);
+
+        // 月相アイコン（月モードのみ）
+        if(!sunsetMode){
+          const cv=document.createElement('canvas');
+          cv.width=20;cv.height=20;
+          cv.style.cssText='display:block;border-radius:50%;flex-shrink:0;pointer-events:none;';
+          drawMoonPhaseSmall(cv,r.age);
+          item.appendChild(cv);
+        }
+
+        // 日付・時刻・★・月齢情報・天気
+        const dateSpan=document.createElement('span');
+        dateSpan.style.color=dowColor;
+        dateSpan.textContent=`${r.date}(${dow})`;
+        item.appendChild(dateSpan);
+
+        const timeSpan=document.createElement('span');
+        timeSpan.className='chance-time';
+        timeSpan.textContent=r.time;
+        item.appendChild(timeSpan);
+
+        const starSpan=document.createElement('span');
+        starSpan.style.color='var(--ac)';
+        starSpan.textContent=star;
+        item.appendChild(starSpan);
+
+        const infoSpan=document.createElement('span');
+        infoSpan.style.color='var(--sub)';
+        infoSpan.textContent=bodyInfo;
+        item.appendChild(infoSpan);
+
+        if(weatherStr){
+          const wSpan=document.createElement('span');
+          wSpan.style.color='rgba(180,210,255,0.85)';
+          wSpan.textContent=weatherStr;
+          item.appendChild(wSpan);
+        }
+
+        list.appendChild(item);
+      });
       updateDrawerIfOpen();
     }
 
@@ -4939,34 +4977,68 @@ function calcFullMoonChances(){
 
     // 結果描画関数（天気キャッシュがあれば表示）
     function _renderFullMoonList(){
-      list.innerHTML='<div style="color:var(--sub);font-family:monospace;font-size:8px;margin-bottom:4px;">満月±1.5日 / '+results.length+'件</div>'+
-        results.map(r=>{
-          const dow=new Date(r.date+'T12:00:00+09:00').toLocaleDateString('ja-JP',{weekday:'short'});
-          const dowColor=dow.includes('日')?'#ff6655':dow.includes('土')?'#4488ff':'var(--sub)';
-          const star=r.azDiff<=1?'★★★':r.azDiff<=2?'★★☆':'★☆☆';
-          const altPct=Math.round(r.alt/r.topAlt*100);
-          let weatherStr='';
-          if(isInForecastRange(r.ts)){
-            const vp=calcViewPointCoord(sLat,sLng,tAz,r.alt);
-            const w=getWeatherAt(vp.lat,vp.lng,r.ts);
-            if(w){
-              const transp=calcTransparency(w.vis,sLat,sLng,tAz,r.alt);
-              const rain=w.precip!==null?`${w.precip}%`:'--';
-              const tr=transp!==null?`${transp}%`:'--';
-              const low=w.low!==null?`${w.low}`:'--';
-              const mid=w.mid!==null?`${w.mid}`:'--';
-              const high=w.high!==null?`${w.high}`:'--';
-              weatherStr=`☔${rain}👁 ${tr}☁️低${low}中${mid}高${high}`;
-            }
+      list.innerHTML='<div style="color:var(--sub);font-family:monospace;font-size:8px;margin-bottom:4px;">満月±1.5日 / '+results.length+'件</div>';
+      results.forEach(r=>{
+        const dow=new Date(r.date+'T12:00:00+09:00').toLocaleDateString('ja-JP',{weekday:'short'});
+        const dowColor=dow.includes('日')?'#ff6655':dow.includes('土')?'#4488ff':'var(--sub)';
+        const star=r.azDiff<=1?'★★★':r.azDiff<=2?'★★☆':'★☆☆';
+        const altPct=Math.round(r.alt/r.topAlt*100);
+        let weatherStr='';
+        if(isInForecastRange(r.ts)){
+          const vp=calcViewPointCoord(sLat,sLng,tAz,r.alt);
+          const w=getWeatherAt(vp.lat,vp.lng,r.ts);
+          if(w){
+            const transp=calcTransparency(w.vis,sLat,sLng,tAz,r.alt);
+            const rain=w.precip!==null?`${w.precip}%`:'--';
+            const tr=transp!==null?`${transp}%`:'--';
+            const low=w.low!==null?`${w.low}`:'--';
+            const mid=w.mid!==null?`${w.mid}`:'--';
+            const high=w.high!==null?`${w.high}`:'--';
+            weatherStr=`☔${rain}👁 ${tr}☁️低${low}中${mid}高${high}`;
           }
-          return `<div class="chance-item" onclick="setChance('${r.date}','${r.time}')" title="クリックで日時をセット">
-            <span style="color:${dowColor}">${r.date}(${dow})</span>
-            <span class="chance-time">${r.time}</span>
-            <span style="color:var(--ac)">${star}</span>
-            <span style="color:var(--sub)">🌕${r.age.toFixed(1)}日 ±${r.azDiff.toFixed(1)}° 高${altPct}%</span>
-            ${weatherStr?`<span style="color:rgba(180,210,255,0.85)">${weatherStr}</span>`:''}
-          </div>`;
-        }).join('');
+        }
+        const item=document.createElement('div');
+        item.className='chance-item';
+        item.title='クリックで日時をセット';
+        item.onclick=()=>setChance(r.date,r.time);
+
+        // 月相アイコン
+        const cv=document.createElement('canvas');
+        cv.width=20;cv.height=20;
+        cv.style.cssText='display:block;border-radius:50%;flex-shrink:0;pointer-events:none;';
+        drawMoonPhaseSmall(cv,r.age);
+        item.appendChild(cv);
+
+        // 日付・時刻・★・月齢情報・天気
+        const dateSpan=document.createElement('span');
+        dateSpan.style.color=dowColor;
+        dateSpan.textContent=`${r.date}(${dow})`;
+        item.appendChild(dateSpan);
+
+        const timeSpan=document.createElement('span');
+        timeSpan.className='chance-time';
+        timeSpan.textContent=r.time;
+        item.appendChild(timeSpan);
+
+        const starSpan=document.createElement('span');
+        starSpan.style.color='var(--ac)';
+        starSpan.textContent=star;
+        item.appendChild(starSpan);
+
+        const infoSpan=document.createElement('span');
+        infoSpan.style.color='var(--sub)';
+        infoSpan.textContent=`🌕${r.age.toFixed(1)}日 ±${r.azDiff.toFixed(1)}° 高${altPct}%`;
+        item.appendChild(infoSpan);
+
+        if(weatherStr){
+          const wSpan=document.createElement('span');
+          wSpan.style.color='rgba(180,210,255,0.85)';
+          wSpan.textContent=weatherStr;
+          item.appendChild(wSpan);
+        }
+
+        list.appendChild(item);
+      });
       updateDrawerIfOpen();
     }
 
