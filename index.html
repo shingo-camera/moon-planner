@@ -906,7 +906,6 @@ async function fetchWeather(lat, lng){
     const json = await res.json();
     const h = json.hourly;
     if(!h||!h.time) return;
-    // 時刻文字列をキーにしたマップに変換
     const map = {};
     h.time.forEach((t,i)=>{
       map[t] = {
@@ -920,6 +919,36 @@ async function fetchWeather(lat, lng){
     weatherCache[key] = { data: map, fetchedAt: Date.now() };
   }catch(e){
     console.warn('[weather]', e);
+  }
+}
+
+// チャンス一覧用：指定日時の1日分だけ取得してキャッシュに追記
+async function fetchWeatherSingle(lat, lng, dt){
+  const key = _weatherCacheKey(lat, lng);
+  // 既にその時刻のデータがキャッシュにあればスキップ
+  const timeKey = dt.toLocaleString('sv-SE',{timeZone:'Asia/Tokyo'}).slice(0,13).replace(' ','T');
+  if(weatherCache[key]?.data?.[timeKey]) return;
+  try{
+    const ds = dt.toLocaleDateString('sv-SE',{timeZone:'Asia/Tokyo'});
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&hourly=cloud_cover_low,cloud_cover_mid,cloud_cover_high,precipitation_probability,visibility&timezone=Asia%2FTokyo&start_date=${ds}&end_date=${ds}`;
+    const res = await fetch(url);
+    if(!res.ok) return;
+    const json = await res.json();
+    const h = json.hourly;
+    if(!h||!h.time) return;
+    // 既存キャッシュに追記（なければ新規作成）
+    if(!weatherCache[key]) weatherCache[key]={data:{},fetchedAt:Date.now()};
+    h.time.forEach((t,i)=>{
+      weatherCache[key].data[t]={
+        low:  h.cloud_cover_low[i]  ?? null,
+        mid:  h.cloud_cover_mid[i]  ?? null,
+        high: h.cloud_cover_high[i] ?? null,
+        precip: h.precipitation_probability[i] ?? null,
+        vis:  h.visibility[i] ?? null,
+      };
+    });
+  }catch(e){
+    console.warn('[weather single]', e);
   }
 }
 
@@ -4996,11 +5025,13 @@ function calcChances(){
     _chanceCtx={tAz,targetAngDiam,bodyIcon};
     renderChanceList();
     updateDrawerIfOpen();
-    const hasNearResult=results.some(r=>isInForecastRange(r.ts));
-    if(hasNearResult){
-      const firstNear=results.find(r=>isInForecastRange(r.ts));
-      const vp=calcViewPointCoord(sLat,sLng,tAz,firstNear.alt);
-      fetchWeather(vp.lat,vp.lng).then(()=>{
+    // 16日以内の全件：各件の日時1日分だけ軽量取得して再描画
+    const nearResults=results.filter(r=>isInForecastRange(r.ts));
+    if(nearResults.length>0){
+      Promise.all(nearResults.map(r=>{
+        const vp=calcViewPointCoord(sLat,sLng,tAz,r.alt);
+        return fetchWeatherSingle(vp.lat,vp.lng,r.ts);
+      })).then(()=>{
         renderChanceList();
         updateDrawerIfOpen();
       });
@@ -5082,11 +5113,13 @@ function calcFullMoonChances(){
     _fullMoonCtx={tAz,targetAngDiam};
     renderFullMoonList();
     updateDrawerIfOpen();
-    const hasNearResult=results.some(r=>isInForecastRange(r.ts));
-    if(hasNearResult){
-      const firstNear=results.find(r=>isInForecastRange(r.ts));
-      const vp=calcViewPointCoord(sLat,sLng,tAz,firstNear.alt);
-      fetchWeather(vp.lat,vp.lng).then(()=>{
+    // 16日以内の全件：各件の日時1日分だけ軽量取得して再描画
+    const nearResults=results.filter(r=>isInForecastRange(r.ts));
+    if(nearResults.length>0){
+      Promise.all(nearResults.map(r=>{
+        const vp=calcViewPointCoord(sLat,sLng,tAz,r.alt);
+        return fetchWeatherSingle(vp.lat,vp.lng,r.ts);
+      })).then(()=>{
         renderFullMoonList();
         updateDrawerIfOpen();
       });
