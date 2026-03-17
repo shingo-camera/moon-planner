@@ -4940,6 +4940,7 @@ function calcFullMoonChances(){
     const distH=hav(sLat,sLng,t.lat,t.lng);
     const topAlt=elAng(distH,sElev,t.elev,t.h);
     const baseAlt=elAng(distH,sElev,t.elev,0);
+    const targetAngDiam=Math.atan2(t.h, distH*1000)*180/Math.PI;
     const AZ_THR=2.5;
     const STEP=60*1000; // 1分刻み
     const MOON_R=0.265;
@@ -4964,19 +4965,19 @@ function calcFullMoonChances(){
         const mp=moonPos(dt,sLat,sLng);
         const azD=Math.abs(((mp.az-tAz+180)%360)-180);
         if(azD<=AZ_THR&&mp.alt>=(baseAlt-MOON_R)&&mp.alt<=(topAlt+MOON_R)){
-          if(!found) found={dt,az:mp.az,alt:mp.alt,azDiff:azD};
-          else if(Math.abs(mp.alt-topAlt) < Math.abs(found.alt-topAlt)) found={dt,az:mp.az,alt:mp.alt,azDiff:azD};
+          if(!found) found={dt,az:mp.az,alt:mp.alt,azDiff:azD,angDiam:mp.angDiam||0.53};
+          else if(Math.abs(mp.alt-topAlt) < Math.abs(found.alt-topAlt)) found={dt,az:mp.az,alt:mp.alt,azDiff:azD,angDiam:mp.angDiam||0.53};
         } else {
           if(found){
             const age=moonAge(new Date(ds+'T03:00:00Z'));
-            results.push({date:ds,time:jst(found.dt),azDiff:found.azDiff,alt:found.alt,topAlt,age,ts:found.dt});
+            results.push({date:ds,time:jst(found.dt),azDiff:found.azDiff,alt:found.alt,topAlt,baseAlt,distM:distH*1000,age,ts:found.dt,angDiam:found.angDiam});
             found=null;
           }
         }
       }
       if(found){
         const age=moonAge(new Date(ds+'T03:00:00Z'));
-        results.push({date:ds,time:jst(found.dt),azDiff:found.azDiff,alt:found.alt,topAlt,age,ts:found.dt});
+        results.push({date:ds,time:jst(found.dt),azDiff:found.azDiff,alt:found.alt,topAlt,baseAlt,distM:distH*1000,age,ts:found.dt,angDiam:found.angDiam});
       }
     }
 
@@ -4997,8 +4998,17 @@ function calcFullMoonChances(){
       results.forEach(r=>{
         const dow=new Date(r.date+'T12:00:00+09:00').toLocaleDateString('ja-JP',{weekday:'short'});
         const dowColor=dow.includes('日')?'#ff6655':dow.includes('土')?'#4488ff':'var(--sub)';
-        const star=r.azDiff<=1?'★★★':r.azDiff<=2?'★★☆':'★☆☆';
-        const altPct=Math.round(r.alt/r.topAlt*100);
+        let star;
+        if(moveM<=5)        star='🎯🌕🎯';
+        else if(moveM<=10)  star='★★★';
+        else if(moveM<=50)  star='★★☆';
+        else if(moveM<=100) star='★☆☆';
+        else if(moveM<=200) star='☆☆☆';
+        else                star='―';
+        const swallowMark=(T[cur].silhouette==='castle'&&r.angDiam>=targetAngDiam&&altPct>=30&&altPct<=70)?'🔵':'';
+        const moveM=r.distM*Math.tan(r.azDiff*Math.PI/180);
+        const range=r.topAlt-r.baseAlt;
+        const altPct=range>0.001?Math.round((r.alt-r.baseAlt)/range*100):0;
         let weatherStr='';
         if(isInForecastRange(r.ts)){
           const vp=calcViewPointCoord(sLat,sLng,tAz,r.alt);
@@ -5044,7 +5054,7 @@ function calcFullMoonChances(){
 
         const infoSpan=document.createElement('span');
         infoSpan.style.color='var(--sub)';
-        infoSpan.textContent=`🌕${r.age.toFixed(1)}日 ±${r.azDiff.toFixed(1)}° 高${altPct}%`;
+        infoSpan.textContent=`月齢${r.age.toFixed(1)}日 移${Math.round(moveM)}m 高${altPct}%${swallowMark}`;
         item.appendChild(infoSpan);
 
         if(weatherStr){
