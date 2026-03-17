@@ -3389,8 +3389,8 @@ function drawCompass(tAz,va){
   // コンパス円：左寄せ
   // スマホ（canvas幅600未満）は縦レイアウト、PCは横レイアウト
   const isMobCanvas=gIsMobile;
-  const isMobLand=isMobCanvas&&(orientation==='land'); // スマホ横向き
-  const isMobPort=isMobCanvas&&(orientation==='port'); // スマホ縦向き
+  const isMobLand=isMobCanvas&&(compMode==='land'); // スマホ横構図
+  const isMobPort=isMobCanvas&&(compMode==='port'); // スマホ縦構図
   // 横向き：コンパス円を左上に小さく
   // 縦向き：コンパス円を上部中央に
   const R=isMobLand?Math.min(107*0.32,W*0.18):isMobPort?Math.min(H*0.20,W*0.22):Math.min(H*0.34,W*0.20);
