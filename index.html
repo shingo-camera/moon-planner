@@ -3974,26 +3974,21 @@ function _loadFromURLHash(){
 function setSunsetMode(v){
   if(!T[cur].sunsetOk){v=false;}
   sunsetMode=v;
-  const cb=document.getElementById('cb-sunset');
-  const lb=document.getElementById('lb-sunset');
-  if(cb)cb.checked=v;
-  if(lb)lb.style.color=v?'var(--ac)':'var(--sub)';
-  // バグ3修正: ラベル・チャンスボタンをモードに合わせて更新
+  // PC側とドロワー側の両方を更新するヘルパー
+  const _all=id=>[document.getElementById(id), document.querySelector('#mob-drawer-content #'+id)].filter(Boolean);
+  _all('cb-sunset').forEach(el=>{el.checked=v;});
+  _all('lb-sunset').forEach(el=>{el.style.color=v?'var(--ac)':'var(--sub)';});
   const pvLabel=document.getElementById('pv-label-text');
   if(pvLabel)pvLabel.textContent=v?'◎ プレビュー（対象 + 太陽）':'◎ プレビュー（対象 + 月）';
-  const btnChance=document.getElementById('btn-chance');
-  if(btnChance)btnChance.textContent=v?'📅 選択日から90日を検索（太陽）':'📅 選択日から90日を検索';
-  // 満月ボタン：夕日モード時は非表示、リストもクリア
-  const btnFM=document.getElementById('btn-fullmoon');
-  const fmList=document.getElementById('fullmoon-list');
-  if(btnFM)btnFM.style.display=v?'none':'';
-  if(fmList&&v)fmList.innerHTML='';
-  // モード切替時はチャンス一覧もクリア（月/太陽モードで表示内容が異なるため）
-  const chanceList=document.getElementById('chance-list');
-  if(chanceList)chanceList.innerHTML='';
-  // 満ち欠けカレンダーボタン：夕日モード時は非表示
-  const btnMC=document.getElementById('btn-mooncal');
-  if(btnMC)btnMC.style.display=v?'none':'';
+  _all('btn-chance').forEach(el=>{el.textContent=v?'📅 選択日から90日を検索（太陽）':'📅 選択日から90日を検索';});
+  _all('btn-fullmoon').forEach(el=>{el.style.display=v?'none':'';});
+  _all('btn-mooncal').forEach(el=>{el.style.display=v?'none':'';});
+  // 満月リストをクリア（太陽モード時）
+  if(v) _all('fullmoon-list').forEach(el=>{el.innerHTML='';});
+  // モード切替時はチャンス一覧もクリア
+  _all('chance-list').forEach(el=>{el.innerHTML='';});
+  _chanceResults=[];_chanceCtx=null;
+  _fullMoonResults=[];_fullMoonCtx=null;
   calcSunMoon();
   if(sLat!==null){
     const t=T[cur];
@@ -4199,7 +4194,7 @@ function _syncDrawerContent(){
   // ドロワー内のidate・itimeの変更を元の要素に転送してイベントを発火
   // cb-sunsetのオン・オフをsunsetModeに転送
   const dCbSunset=dst.querySelector('#cb-sunset');
-  if(dCbSunset) dCbSunset.addEventListener('change',()=>setSunsetMode(dCbSunset.checked));
+  if(dCbSunset) dCbSunset.onchange=()=>setSunsetMode(dCbSunset.checked);
   ['idate','itime'].forEach(id=>{
     const dEl=dst.querySelector('#'+id);
     const sEl=document.getElementById(id);
