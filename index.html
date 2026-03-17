@@ -1485,8 +1485,8 @@ function openGmap(e){
 
 function openStreetView(e){
   if(!_svUrl)return;
-  const appUrl=_svUrl.replace('https://www.google.com/maps','comgooglemaps://');
-  _openWithAppFallback(e, appUrl, _svUrl);
+  e.preventDefault();
+  window.open(_svUrl,'_blank');
 }
 
 // ポップアップHTMLを生成（方位角渡し）
