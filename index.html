@@ -1564,9 +1564,10 @@ async function onPick(){
 
   document.getElementById('i-d').innerHTML=`${distH.toFixed(2)}<span class="u">km</span>`;
   // 撮影地点マーカーのラベル更新
-  const distLabel=distH<1?`${Math.round(distH*1000)}m`:`${distH.toFixed(2)}km`;
+  const distLabel=distH<1?`D:${Math.round(distH*1000)}m`:`D:${distH.toFixed(2)}km`;
+  const elevLabel=`E:${sElev}m`;
   const lbl=document.getElementById('smarker-label');
-  if(lbl)lbl.textContent=distLabel;
+  if(lbl)lbl.textContent=`${distLabel}  ${elevLabel}`;
   updateElevDisplay();
   document.getElementById('i-a').innerHTML=`${tAz.toFixed(1)}<span class="u">°</span>`;
   document.getElementById('i-v').innerHTML=`${va.toFixed(2)}<span class="u">°</span>`;
