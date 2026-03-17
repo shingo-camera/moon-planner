@@ -2343,22 +2343,27 @@ function drawView(dist,tAz,va){
       if(bp.angDiam) bodyAngDiam=bp.angDiam;
       bodyVisible=sunsetMode?(mAlt>-1):(mAlt>-5);
       // 月の位相傾き計算（sunsetMode=falseのときのみ）
-      // Meeus Ch.48：輝縁位置角χ（天の北極基準）と視差角qから地平線基準の傾きを算出
-      if(!sunsetMode && bp.ra!==undefined){
+      // 3Dベクトル方式：月と太陽のaz/altから観察者視野座標での太陽方向角を直接計算
+      // Meeusのchi-q式は座標系変換に誤りがあるため廃止
+      if(!sunsetMode){
         const sp=sunPos(dt,sLat,sLng);
-        // χ: 輝縁の位置角（天の北極基準、rad）
-        const chi=Math.atan2(
-          Math.cos(sp.dec)*Math.sin(sp.ra-bp.ra),
-          Math.sin(sp.dec)*Math.cos(bp.dec)-Math.cos(sp.dec)*Math.sin(bp.dec)*Math.cos(sp.ra-bp.ra)
-        );
-        // q: 視差角（地平線基準への変換項、rad）
-        const latr=sLat*Math.PI/180;
-        const q=Math.atan2(
-          Math.sin(bp.Hr),
-          Math.tan(latr)*Math.cos(bp.dec)-Math.sin(bp.dec)*Math.cos(bp.Hr)
-        );
-        moonTilt=chi-q; // canvas座標系（Y軸下向き）: chi-q が正しい符号
-        gMoonTilt=moonTilt; // ダイアグラム側に共有
+        const mAzR=bp.az*Math.PI/180, mAltR=bp.alt*Math.PI/180;
+        const sAzR=sp.az*Math.PI/180, sAltR=sp.alt*Math.PI/180;
+        // 北=+X,東=+Y,天頂=+Z の地平座標系で方向ベクトルを計算
+        const vm=[Math.cos(mAltR)*Math.cos(mAzR),Math.cos(mAltR)*Math.sin(mAzR),Math.sin(mAltR)];
+        const vs=[Math.cos(sAltR)*Math.cos(sAzR),Math.cos(sAltR)*Math.sin(sAzR),Math.sin(sAltR)];
+        const dx=vs[0]-vm[0],dy=vs[1]-vm[1],dz=vs[2]-vm[2];
+        const dl=Math.sqrt(dx*dx+dy*dy+dz*dz);
+        if(dl>0){
+          const dnx=dx/dl,dny=dy/dl,dnz=dz/dl;
+          // 観察者視野基底: er=右方向, eu=上方向
+          const erx=-Math.sin(mAzR),ery=Math.cos(mAzR);
+          const eux=-Math.sin(mAltR)*Math.cos(mAzR),euy=-Math.sin(mAltR)*Math.sin(mAzR),euz=Math.cos(mAltR);
+          const sun_right=dnx*erx+dny*ery;
+          const sun_up=dnx*eux+dny*euy+dnz*euz;
+          moonTilt=Math.atan2(-sun_up,sun_right);
+        }
+        gMoonTilt=moonTilt;
       }
     }catch(e){}
   }
