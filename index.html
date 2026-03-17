@@ -982,13 +982,8 @@ async function triggerWeatherFetch(){
     _weatherFetching = true;
     await fetchWeather(vp.lat, vp.lng);
     _weatherFetching = false;
-    // 取得完了後：現在の状態で再描画
-    if(sLat!==null){
-      const az2 = brng(sLat,sLng,T[cur].lat,T[cur].lng);
-      const va2 = elAng(hav(sLat,sLng,T[cur].lat,T[cur].lng),sElev,T[cur].elev,T[cur].h);
-      try{ drawCompass(az2, va2); }catch(e){}
-      updateDrawerIfOpen();
-    }
+    // fetch完了後、状態が変わっていた場合に追従（キャッシュあれば即終了）
+    triggerWeatherFetch();
   } else {
     // キャッシュあり：ドロワーの表示だけ更新
     updateDrawerIfOpen();
