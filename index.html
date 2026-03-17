@@ -326,6 +326,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 
 /* ━━━ スマホ横向き禁止オーバーレイ ━━━ */
 #landscape-overlay{display:none;}
+/* デバイスの物理的な横向き検知（JS変数compModeとは無関係） */
+@media (orientation:landscape){
+  #landscape-overlay{display:flex;}
+}
+.is-pc #landscape-overlay{display:none!important;}
 .leaflet-control-attribution{font-size:8px!important;opacity:0.5;}
 
 /* ━━━ スマホレイアウト ━━━ */
@@ -840,7 +845,7 @@ const T={
         sunsetOk:true, silhouette:'tsutenkaku', physW:14.9, horizonRatio:0.75, topLimitRatio:null,
         frontAz:16.0},
 };
-let cur='pl', focal=400, orientation='land';
+let cur='pl', focal=400, compMode='land'; // compMode: 横構図('land')/縦構図('port')の選択状態
 function detectMobile(){
   return /iPhone|iPod/i.test(navigator.userAgent)||
          (/Android/i.test(navigator.userAgent)&&window.innerWidth<=600);
@@ -993,11 +998,11 @@ function layout(){
   gIsMobile=isMobile;
   updatePvDateDisp();
 
-  // landscape-overlay: スマホが物理的に横向きかつ縦構図モードのとき表示
-  const loEl=document.getElementById('landscape-overlay');
-  if(loEl){
-    const isLandscape=W>H;
-    loEl.style.display=(isMobile&&isLandscape)?'flex':'none';
+  // is-pcクラス: PCのときlandscape-overlayを無効化（CSSのorientation:landscapeとは無関係）
+  if(isMobile){
+    document.body.classList.remove('is-pc');
+  } else {
+    document.body.classList.add('is-pc');
   }
 
   if(isMobile){
@@ -1020,7 +1025,7 @@ function layout(){
     const cvW_port = cvHfinal_land;
     const cvH_port = cvW_land;
 
-    const isPort = orientation === 'port';
+    const isPort = compMode === 'port';
     const cvW = isPort ? cvW_port : cvW_land;
     const cvH = isPort ? cvH_port : cvHfinal_land;
     const pvH = isPort ? cvH_port + lblH : pvH_land;
@@ -1106,7 +1111,7 @@ function layout(){
   const cvW_port = cvH_land;   // 元の高さ → 縦構図の幅
   const cvH_port = cvW_land;   // 元の幅   → 縦構図の高さ
 
-  const isPort = orientation === 'port';
+  const isPort = compMode === 'port';
   const cvW = isPort ? cvW_port : cvW_land;
   const cvH = isPort ? cvH_port : cvH_land;
   const pvPanelH = isPort ? cvH_port + lblH : pvPanelH_land;
@@ -2150,8 +2155,8 @@ function drawView(dist,tAz,va){
   const W=cv.width, H=cv.height;
   const ctx=cv.getContext('2d');
 
-  const fvH=orientation==='land'?fovD(focal):fovV(focal);
-  const fvV=orientation==='land'?fovV(focal):fovD(focal);
+  const fvH=compMode==='land'?fovD(focal):fovV(focal);
+  const fvV=compMode==='land'?fovV(focal):fovD(focal);
   // gnomonic投影（中心透視投影）：レンズの実際の結像に対応
   // f_px = センサー幅(px) / (2*tan(FOV/2))
   const r=Math.PI/180;
@@ -3693,7 +3698,7 @@ function saveSpot(){
     lat:sLat, lng:sLng,
     target:cur,
     focal,
-    orientation,
+    orientation:compMode,
     tripodH,
     elevOffset,
     sunsetMode,
@@ -5111,7 +5116,7 @@ function setF(v){
 
 function setOrientation(o){
   if(o!=='land'&&o!=='port')return;
-  orientation=o;
+  compMode=o;
   const bl=document.getElementById('btn-land');
   const bp=document.getElementById('btn-port');
   if(bl)bl.classList.toggle('on',o==='land');
@@ -5204,7 +5209,7 @@ window.addEventListener('load',()=>{
   initMap();
   syncMobileUI();
   // スマホ横/縦ボタンの初期on状態
-  setOrientation(orientation);
+  setOrientation(compMode);
 
   // 保存地点を復元
   _loadFromLocalStorage();
@@ -5294,7 +5299,7 @@ window.addEventListener('pageshow', e=>{
   style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
   width:min(420px,96vw);max-height:80vh;
   background:var(--sur);border:1px solid var(--bd);border-radius:10px;
-  z-index:11001;padding:0;display:none;flex-direction:column;">
+  z-index:11001;padding:0;flex-direction:column;">
   <!-- 固定ヘッダー -->
   <div style="padding:14px 12px 10px;border-bottom:1px solid var(--bd);flex-shrink:0;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
