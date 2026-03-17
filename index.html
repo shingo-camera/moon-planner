@@ -4998,6 +4998,9 @@ function calcFullMoonChances(){
       results.forEach(r=>{
         const dow=new Date(r.date+'T12:00:00+09:00').toLocaleDateString('ja-JP',{weekday:'short'});
         const dowColor=dow.includes('日')?'#ff6655':dow.includes('土')?'#4488ff':'var(--sub)';
+        const moveM=r.distM*Math.tan(r.azDiff*Math.PI/180);
+        const range=r.topAlt-r.baseAlt;
+        const altPct=range>0.001?Math.round((r.alt-r.baseAlt)/range*100):0;
         let star;
         if(moveM<=5)        star='🎯🌕🎯';
         else if(moveM<=10)  star='★★★';
@@ -5006,9 +5009,6 @@ function calcFullMoonChances(){
         else if(moveM<=200) star='☆☆☆';
         else                star='―';
         const swallowMark=(T[cur].silhouette==='castle'&&r.angDiam>=targetAngDiam&&altPct>=30&&altPct<=70)?'🔵':'';
-        const moveM=r.distM*Math.tan(r.azDiff*Math.PI/180);
-        const range=r.topAlt-r.baseAlt;
-        const altPct=range>0.001?Math.round((r.alt-r.baseAlt)/range*100):0;
         let weatherStr='';
         if(isInForecastRange(r.ts)){
           const vp=calcViewPointCoord(sLat,sLng,tAz,r.alt);
