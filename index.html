@@ -1021,9 +1021,6 @@ async function triggerWeatherFetch(){
       const va2=elAng(hav(sLat,sLng,T[cur].lat,T[cur].lng),sElev,T[cur].elev,T[cur].h);
       try{drawCompass(az2,va2);}catch(e){}
     }
-    // チャンス一覧の天気を再描画
-    renderChanceList();
-    renderFullMoonList();
     updateDrawerIfOpen();
     // 状態が変わっていた場合に追従（キャッシュあれば即終了）
     triggerWeatherFetch();
