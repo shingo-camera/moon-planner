@@ -4197,6 +4197,9 @@ function _syncDrawerContent(){
   const _dtEl=document.getElementById('mob-drawer-datetime');
   if(_dtEl) _dtEl.textContent=(_ds&&_ts)?_ds+' '+_ts:'—';
   // ドロワー内のidate・itimeの変更を元の要素に転送してイベントを発火
+  // cb-sunsetのオン・オフをsunsetModeに転送
+  const dCbSunset=dst.querySelector('#cb-sunset');
+  if(dCbSunset) dCbSunset.addEventListener('change',()=>setSunsetMode(dCbSunset.checked));
   ['idate','itime'].forEach(id=>{
     const dEl=dst.querySelector('#'+id);
     const sEl=document.getElementById(id);
