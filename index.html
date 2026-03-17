@@ -5291,9 +5291,9 @@ window.addEventListener('pageshow', e=>{
   style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:11000;"></div>
 <div id="spot-panel"
   style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
-  width:min(420px,96vw);
+  width:min(420px,96vw);max-height:80vh;
   background:var(--sur);border:1px solid var(--bd);border-radius:10px;
-  z-index:11001;padding:0;">
+  z-index:11001;padding:0;flex-direction:column;">
   <!-- 固定ヘッダー -->
   <div style="padding:14px 12px 10px;border-bottom:1px solid var(--bd);flex-shrink:0;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
