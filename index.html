@@ -330,7 +330,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
 @media (max-height:600px) and (orientation:landscape){
   #landscape-overlay{display:flex;}
 }
-.is-pc #landscape-overlay{display:none!important;}
 .leaflet-control-attribution{font-size:8px!important;opacity:0.5;}
 
 /* ━━━ スマホレイアウト ━━━ */
@@ -443,7 +442,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   #mob-drawer-inner input[type=date],
   #mob-drawer-inner input[type=time]{font-size:16px;padding:6px;}
   #mob-drawer-inner .tbtn{width:36px;height:28px;font-size:9px;}
-  #spot-panel{height:80vh;overflow:hidden;}
+  #spot-panel{height:80vh;overflow:hidden;display:flex;flex-direction:column;}
   #spot-panel-list{overflow-y:scroll;-webkit-overflow-scrolling:touch;}
 }
 </style>
@@ -999,13 +998,6 @@ function layout(){
   const isMobile=detectMobile();
   gIsMobile=isMobile;
   updatePvDateDisp();
-
-  // is-pcクラス: PCのときlandscape-overlayを無効化（CSSのorientation:landscapeとは無関係）
-  if(isMobile){
-    document.body.classList.remove('is-pc');
-  } else {
-    document.body.classList.add('is-pc');
-  }
 
   if(isMobile){
     const lblH=22;
@@ -5299,9 +5291,9 @@ window.addEventListener('pageshow', e=>{
   style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:11000;"></div>
 <div id="spot-panel"
   style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
-  width:min(420px,96vw);max-height:80vh;height:80vh;
+  width:min(420px,96vw);
   background:var(--sur);border:1px solid var(--bd);border-radius:10px;
-  z-index:11001;padding:0;flex-direction:column;">
+  z-index:11001;padding:0;">
   <!-- 固定ヘッダー -->
   <div style="padding:14px 12px 10px;border-bottom:1px solid var(--bd);flex-shrink:0;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
