@@ -4753,11 +4753,11 @@ function calcChances(){
       const base=new Date(today.getTime()+d*86400000);
       const ds=base.toLocaleDateString('sv-SE',{timeZone:'Asia/Tokyo'});
       const dayStart=new Date(ds+'T00:00:00+09:00');
-      // 月モード：輝面比5%未満（新月前後）はスキップ
+      // 月モード：輝面比1%未満（新月・月齢約0.9日以下）はスキップ
       if(!sunsetMode){
         const age=moonAge(new Date(ds+'T03:00:00Z'));
         const illum=(1-Math.cos(2*Math.PI*age/29.53058867))/2;
-        if(illum<0.05) continue;
+        if(illum<0.01) continue;
       }
       // 太陽モード：この日の日の出/日没を事前取得（ループ外で1回）
       let sunRiseMs=null, sunSetMs=null;
