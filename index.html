@@ -940,7 +940,7 @@ function getWeatherAt(lat, lng, datetime){
 // 視線地点の座標を計算（撮影地点・対象の方位角・仰角から）
 function calcViewPointCoord(sLat, sLng, az, va){
   // 仰角(deg)から雲高2000mまでの水平距離(km)を計算
-  const vaRad = Math.max(0.5, va) * Math.PI / 180;
+  const vaRad = Math.max(1.0, va) * Math.PI / 180; // 下限1°≒115km（低層雲の視線限界160kmを考慮）
   const cloudH = 2000; // m
   const distM = cloudH / Math.tan(vaRad);
   const distKm = distM / 1000;
@@ -958,7 +958,7 @@ function calcViewPointCoord(sLat, sLng, az, va){
 // 透明度を計算（視程÷視線距離 × 100、最大100）
 function calcTransparency(visM, sLat, sLng, az, va){
   if(visM === null) return null;
-  const vaRad = Math.max(0.5, va) * Math.PI/180;
+  const vaRad = Math.max(1.0, va) * Math.PI/180; // 下限1°に統一
   const cloudH = 2000;
   const distM = cloudH / Math.tan(vaRad);
   return Math.min(100, Math.round(visM / distM * 100));
@@ -4182,6 +4182,7 @@ function _syncDrawerContent(){
         }
         // ドロワー表示を同期
         updateDrawerIfOpen();
+        triggerWeatherFetch();
       });
     });
   });
@@ -4453,6 +4454,7 @@ function setNow(){
     itime.dispatchEvent(new Event('change'));
   }
   updateDrawerIfOpen();
+  triggerWeatherFetch();
 }
 
 function setTimeFromEl(id){
@@ -4472,6 +4474,7 @@ function setTimeFromEl(id){
     syncMobileUI();
     itime.dispatchEvent(new Event('change'));
     updateDrawerIfOpen();
+    triggerWeatherFetch();
   }
 }
 
@@ -4717,6 +4720,7 @@ function setDateFromCal(ds){
   if(drawerContent){const cp=drawerContent.querySelector('#idate');if(cp)cp.value=ds;}
   if(realEl) realEl.dispatchEvent(new Event('change'));
   closeMoonCal();
+  triggerWeatherFetch();
 }
 
 function calcChances(){
@@ -4989,6 +4993,7 @@ function setChance(ds,ts){
   syncMobileUI();
   itime.dispatchEvent(new Event('change'));
   updateDrawerIfOpen();
+  triggerWeatherFetch();
 }
 
 function shiftPvOfs(dAz, dAlt){
@@ -5141,6 +5146,7 @@ function shiftDay(days){
   el.value=d.toLocaleDateString('sv-SE',{timeZone:'Asia/Tokyo'});
   el.dispatchEvent(new Event('change'));
   updatePvDateDisp();
+  triggerWeatherFetch();
 }
 function updatePvDateDisp(){
   const el=document.getElementById('idate');
@@ -5184,6 +5190,7 @@ function shiftTime(minutes){
       calcSunMoon();
       if(sLat!==null)onPick();
       updateDrawerIfOpen();
+      triggerWeatherFetch();
       return;
     }
   }
@@ -5191,6 +5198,7 @@ function shiftTime(minutes){
   syncMobileUI();
   el.dispatchEvent(new Event('input'));
   el.dispatchEvent(new Event('change'));
+  triggerWeatherFetch();
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
