@@ -1461,7 +1461,7 @@ function initMap(){
     options:{position:'topright'},
     onAdd(){
       const btn=L.DomUtil.create('button','leaflet-bar');
-      btn.title='StreetView URLをクリップボードから読み取り';
+      btn.title='URL、座標をクリップボードからペースト';
       btn.style.cssText='width:32px;height:32px;background:#111320;border:1px solid #3a4060;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:#e8eaf0;border-radius:4px;';
       btn.innerHTML='⬇️';
       L.DomEvent.on(btn,'click',L.DomEvent.stopPropagation);
@@ -1486,7 +1486,7 @@ function initMap(){
             btn.innerHTML='❌';
             showHint('❌ 読み取り失敗 — Googleマップで地図を長押し → 座標をタップ → コピーして再試行', 6000);
           }
-          setTimeout(()=>{btn.innerHTML='⬇️';btn.title='StreetView URLをクリップボードから読み取り';btn.style.cursor='pointer';_clipBusy=false;},2500);
+          setTimeout(()=>{btn.innerHTML='⬇️';btn.title='URL、座標をクリップボードからペースト';btn.style.cursor='pointer';_clipBusy=false;},2500);
         }catch(e){
           console.warn('[Clip]',e);
           btn.innerHTML='❌';
@@ -1503,7 +1503,7 @@ function initMap(){
     options:{position:'topright'},
     onAdd(){
       const btn=L.DomUtil.create('button','leaflet-bar');
-      btn.title='保存地点一覧';
+      btn.title='撮影計画一覧';
       btn.style.cssText='width:30px;height:30px;background:#111320;border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:#e8eaf0;';
       btn.innerHTML='📋';
       L.DomEvent.on(btn,'click',L.DomEvent.stopPropagation);
@@ -5650,7 +5650,7 @@ window.addEventListener('pageshow', e=>{
   <!-- 固定ヘッダー -->
   <div style="padding:14px 12px 10px;border-bottom:1px solid var(--bd);flex-shrink:0;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-      <span style="font-family:'Space Mono',monospace;font-size:11px;color:var(--ac);">🗂 保存地点（最大100件）</span>
+      <span style="font-family:'Space Mono',monospace;font-size:11px;color:var(--ac);">📋 撮影計画（最大100件）</span>
       <div onclick="closeSpotPanel()"
         style="cursor:pointer;font-size:18px;color:var(--sub);padding:2px 6px;line-height:1;">✕</div>
     </div>
