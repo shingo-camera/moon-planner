@@ -608,6 +608,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
       <div id="map"></div>
       <div id="hint">📍 地図をクリックして撮影地点を選択</div>
       <div id="fan-legend"></div>
+      <div id="pin-btns" style="position:absolute;bottom:104px;left:8px;z-index:1001;display:flex;flex-direction:column;gap:4px;">
+        <button id="btn-pin-add" onclick="openPinAdd()" title="この地点を登録"
+          style="width:32px;height:32px;background:#111320;border:1px solid #3a4060;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:#e8eaf0;border-radius:4px;opacity:0.4;"
+          disabled>📌</button>
+        <button onclick="openPinPanel()" title="登録地点一覧"
+          style="width:32px;height:32px;background:#111320;border:1px solid #3a4060;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:#e8eaf0;border-radius:4px;">🏷️</button>
+      </div>
       <div id="map-btns" style="display:none;position:absolute;bottom:8px;right:8px;z-index:1000;flex-direction:column;gap:4px;">
         <a id="map-btn-gmap" href="#" target="_blank"
           style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;
@@ -1505,39 +1512,6 @@ function initMap(){
     }
   });
   new SpotCtrl().addTo(map);
-
-  // 📌 登録地点追加ボタン（左下）
-  const PinAddCtrl=L.Control.extend({
-    options:{position:'bottomleft'},
-    onAdd(){
-      const btn=L.DomUtil.create('button','leaflet-bar');
-      btn.id='btn-pin-add';
-      btn.title='この地点を登録';
-      btn.style.cssText='width:32px;height:32px;background:#111320;border:1px solid #3a4060;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:#e8eaf0;border-radius:4px;margin-bottom:4px;';
-      btn.innerHTML='📌';
-      btn.disabled=true;
-      btn.style.opacity='0.4';
-      L.DomEvent.on(btn,'click',L.DomEvent.stopPropagation);
-      L.DomEvent.on(btn,'click',()=>openPinAdd());
-      return btn;
-    }
-  });
-  new PinAddCtrl().addTo(map);
-
-  // 🏷️ 登録地点一覧ボタン（左下）
-  const PinListCtrl=L.Control.extend({
-    options:{position:'bottomleft'},
-    onAdd(){
-      const btn=L.DomUtil.create('button','leaflet-bar');
-      btn.title='登録地点一覧';
-      btn.style.cssText='width:32px;height:32px;background:#111320;border:1px solid #3a4060;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:#e8eaf0;border-radius:4px;';
-      btn.innerHTML='🏷️';
-      L.DomEvent.on(btn,'click',L.DomEvent.stopPropagation);
-      L.DomEvent.on(btn,'click',()=>openPinPanel());
-      return btn;
-    }
-  });
-  new PinListCtrl().addTo(map);
 
   // スケールバー（右下・タッチ不可）
   const scaleCtrl = L.control.scale({position:'bottomleft', imperial:false, maxWidth:120});
