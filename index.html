@@ -444,6 +444,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   #mob-drawer-inner .tbtn{width:36px;height:28px;font-size:9px;}
   #spot-panel{height:80vh;overflow:hidden;display:flex;flex-direction:column;}
   #spot-panel-list{overflow-y:scroll;-webkit-overflow-scrolling:touch;}
+  #chance-list,#fullmoon-list{font-size:inherit;}
 }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/eruda@3.0.1/eruda.js"></script>
@@ -804,6 +805,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px 10px;border-bottom:1px solid var(--bd);flex-shrink:0;">
     <span style="font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:var(--ac);">🏷️ 登録地点（最大100件）</span>
     <span onclick="closePinPanel()" style="cursor:pointer;font-size:18px;color:var(--sub);padding:4px 8px;">✕</span>
+  </div>
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 16px 8px;border-bottom:1px solid var(--bd);flex-shrink:0;">
+    <span id="pin-panel-datetime" style="font-family:'Space Mono',monospace;font-size:11px;font-weight:700;color:var(--tx);">—</span>
+    <span onclick="setNow();updatePinPanelDatetime();" style="font-family:'Space Mono',monospace;font-size:10px;font-weight:700;color:var(--ac);border:1px solid var(--ac);border-radius:3px;padding:2px 7px;cursor:pointer;">NOW</span>
   </div>
   <div style="padding:10px 16px;border-bottom:1px solid var(--bd);flex-shrink:0;">
     <button id="btn-pin-bulk" onclick="runPinBulkSearch()" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;">📅 登録地点90日一括ピンポイント検索(30m以内)</button>
@@ -4601,8 +4606,16 @@ function openPinAdd(){
   }
 }
 
+function updatePinPanelDatetime(){
+  const ds=document.getElementById('idate')?.value;
+  const ts=document.getElementById('itime')?.value;
+  const el=document.getElementById('pin-panel-datetime');
+  if(el) el.textContent=(ds&&ts)?`${ds} ${ts}`:'—';
+}
+
 function openPinPanel(){
   renderPinList();
+  updatePinPanelDatetime();
   document.getElementById('pin-overlay').style.display='block';
   const popup=document.getElementById('pin-popup');
   popup.style.display='flex';
@@ -4820,12 +4833,13 @@ async function runPinBulkSearch(){
   renderPinList();
 
   // 1件ずつ順番に処理
+  pins.forEach((p,i)=>{ p._origIdx=i; }); // renderPinListと同じインデックスを設定
   for(let i=0;i<pins.length;i++){
     const pin=pins[i];
     await new Promise(resolve=>setTimeout(()=>{
       const results=searchPinChances(pin);
       // この地点のcontainerを探す
-      const container=document.getElementById(`pin-result-${i}`);
+      const container=document.getElementById(`pin-result-${pin._origIdx}`);
       if(container) renderPinChanceRows(pin,results,container);
       // 16日以内の天気を取得して再描画
       const nearResults=results.filter(r=>isInForecastRange(r.ts));
