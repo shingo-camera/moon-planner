@@ -790,6 +790,19 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
   </div>
 </div>
 <div id="mooncal-overlay" onclick="if(event.target===this)closeMoonCal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10100;"></div>
+<div id="pin-overlay" onclick="if(event.target===this)closePinPanel()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10100;"></div>
+<div id="pin-popup" style="display:none;position:fixed;top:5%;left:50%;transform:translateX(-50%);
+  width:min(96vw,520px);max-height:88vh;background:var(--sur);border:1px solid var(--bd);
+  border-radius:8px;z-index:10101;display:none;flex-direction:column;overflow:hidden;">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px 10px;border-bottom:1px solid var(--bd);flex-shrink:0;">
+    <span style="font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:var(--ac);">🏷️ 登録地点（最大100件）</span>
+    <span onclick="closePinPanel()" style="cursor:pointer;font-size:18px;color:var(--sub);padding:4px 8px;">✕</span>
+  </div>
+  <div style="padding:10px 16px;border-bottom:1px solid var(--bd);flex-shrink:0;">
+    <button onclick="void(0)" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--sub);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:not-allowed;opacity:0.5;">📅 登録地点を90日一括検索（準備中）</button>
+  </div>
+  <div id="pin-list" style="overflow-y:auto;flex:1;padding:8px 16px;"></div>
+</div>
 <div id="mooncal-popup" style="display:none;position:fixed;top:5%;left:50%;transform:translateX(-50%);
   z-index:10200;background:var(--sur);border:1px solid var(--bd);border-radius:10px;
   padding:14px;width:min(96vw,480px);max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.6);">
@@ -827,13 +840,16 @@ const T={
   // horizonRatio: drawViewでの地平線Y位置(0〜1、H基準、上=0下=1)
   // topLimitRatio: 頂点の位置(下から何割、0〜1)。PLの塔:0.60=下から60%=上から40%。castleはdynamic計算
   pl:  {name:'PLの塔',  lat:34.502231,  lng:135.585904,  h:180,  e:'pl', zoom:13, elev:110,   // 110m: 塔基部地面
-        sunsetOk:true,  silhouette:'pl',     physW:62,  horizonRatio:0.72, topLimitRatio:0.60},
+        sunsetOk:true,  silhouette:'pl',     physW:62,  horizonRatio:0.72, topLimitRatio:0.60,
+        pref:'大阪府', prefOrder:1, targetOrder:1},
   gifu:{name:'岐阜城',  lat:35.433931,  lng:136.782041,  h:29,   e:'🏯', zoom:14, elev:335,   // 335m: 天守台下地面
         sunsetOk:true,  silhouette:'castle', physW:180, horizonRatio:0.75, topLimitRatio:null,
-        frontAz:203},   // 棟の走る方向203°（SSW-NNE）。Google衛星画像から棟ラインを実測して算出。
+        frontAz:203,    // 棟の走る方向203°（SSW-NNE）。Google衛星画像から棟ラインを実測して算出。
+        pref:'岐阜県', prefOrder:3, targetOrder:1},
   takatsuko:{name:'高津子山展望台', lat:34.187776, lng:135.156103, h:7, e:'🏛️', zoom:14, elev:136.6, // 136.6m: 山頂地面
         sunsetOk:true, silhouette:'tower', physW:8, horizonRatio:0.75, topLimitRatio:null,
-        frontAz:23},   // 建物辺の走る方向23°。衛星画像から実測。
+        frontAz:23,    // 建物辺の走る方向23°。衛星画像から実測。
+        pref:'和歌山県', prefOrder:2, targetOrder:2},
   wakayama:{name:'和歌山城', lat:34.227593, lng:135.171508, h:29.62, e:'🏯', zoom:14, elev:42.7, // 42.7m: 石垣下地面
         sunsetOk:true,  silhouette:'castle', physW:120, horizonRatio:0.75, topLimitRatio:null,
         // 実寸: 総高29.62m（天守本体23.42m + 石垣6.20m）
@@ -844,10 +860,12 @@ const T={
         gUnitRatio:0.324,                       // G_UNIT = G_TOTAL × 0.324 (修正前0.405の80%)
         layerRatios:[0.384,0.342,0.274],        // 各層高さ比（9m/8m/6.42m、天守本体23.42m基準）
         layerWidthScales:[1.000,0.833,0.667],   // 各層幅縮小率（12m/10m/8m）
-        frontAz:36},                            // 棟の走る方向36°（NNE-SSW）。衛星画像から実測。
+        frontAz:36,                             // 棟の走る方向36°（NNE-SSW）。衛星画像から実測。
+        pref:'和歌山県', prefOrder:2, targetOrder:1},
   tsutenkaku:{name:'通天閣', lat:34.652530, lng:135.506299, h:100, e:'🗼', zoom:15, elev:2.9,
         sunsetOk:true, silhouette:'tsutenkaku', physW:14.9, horizonRatio:0.75, topLimitRatio:null,
-        frontAz:16.0},
+        frontAz:16.0,
+        pref:'大阪府', prefOrder:1, targetOrder:2},
 };
 let cur='pl', focal=400, compMode='land'; // compMode: 横構図('land')/縦構図('port')の選択状態
 function detectMobile(){
@@ -876,6 +894,27 @@ let sunsetMode=false; // 夕日モード（PLのみ）
 // ━━ チャンス検索結果（グローバル保持）━━
 let _chanceResults=[], _chanceCtx=null;    // チャンス検索
 let _fullMoonResults=[], _fullMoonCtx=null; // 満月チャンス
+
+// ━━ 登録地点 ━━
+const PIN_STORAGE_KEY='moonLandmarkPins_v1';
+function loadPins(){
+  try{ return JSON.parse(localStorage.getItem(PIN_STORAGE_KEY)||'[]'); }catch(e){ return []; }
+}
+function savePins(pins){
+  try{ localStorage.setItem(PIN_STORAGE_KEY, JSON.stringify(pins)); }catch(e){}
+}
+function addPin(name, targetKey, lat, lng, elev){
+  const pins=loadPins();
+  if(pins.length>=100){ alert('登録地点は最大100件です。不要な地点を削除してください。'); return false; }
+  pins.push({name, targetKey, lat, lng, elev, createdAt:Date.now()});
+  savePins(pins);
+  return true;
+}
+function deletePin(idx){
+  const pins=loadPins();
+  pins.splice(idx,1);
+  savePins(pins);
+}
 
 // ━━ 天気キャッシュ ━━
 // key: "lat,lng"（視線地点座標） → {data: 時刻→{low,mid,high,precip,vis}[], fetchedAt: Date}
@@ -1417,7 +1456,7 @@ function initMap(){
       const btn=L.DomUtil.create('button','leaflet-bar');
       btn.title='StreetView URLをクリップボードから読み取り';
       btn.style.cssText='width:32px;height:32px;background:#111320;border:1px solid #3a4060;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:#e8eaf0;border-radius:4px;';
-      btn.innerHTML='📋';
+      btn.innerHTML='⬇️';
       L.DomEvent.on(btn,'click',L.DomEvent.stopPropagation);
       let _clipBusy=false;
       L.DomEvent.on(btn,'click',async()=>{
@@ -1429,7 +1468,7 @@ function initMap(){
           const text=await navigator.clipboard.readText();
           if(!text||!text.trim()){
             btn.innerHTML='❌';
-            setTimeout(()=>{btn.innerHTML='📋';btn.style.cursor='pointer';_clipBusy=false;},1500);
+            setTimeout(()=>{btn.innerHTML='⬇️';btn.style.cursor='pointer';_clipBusy=false;},1500);
             return;
           }
           const ok=await extractAndApplyMapsURL(text.trim());
@@ -1440,11 +1479,11 @@ function initMap(){
             btn.innerHTML='❌';
             showHint('❌ 読み取り失敗 — Googleマップで地図を長押し → 座標をタップ → コピーして再試行', 6000);
           }
-          setTimeout(()=>{btn.innerHTML='📋';btn.title='StreetView URLをクリップボードから読み取り';btn.style.cursor='pointer';_clipBusy=false;},2500);
+          setTimeout(()=>{btn.innerHTML='⬇️';btn.title='StreetView URLをクリップボードから読み取り';btn.style.cursor='pointer';_clipBusy=false;},2500);
         }catch(e){
           console.warn('[Clip]',e);
           btn.innerHTML='❌';
-          setTimeout(()=>{btn.innerHTML='📋';btn.style.cursor='pointer';_clipBusy=false;},1500);
+          setTimeout(()=>{btn.innerHTML='⬇️';btn.style.cursor='pointer';_clipBusy=false;},1500);
         }
       });
       return btn;
@@ -1459,13 +1498,46 @@ function initMap(){
       const btn=L.DomUtil.create('button','leaflet-bar');
       btn.title='保存地点一覧';
       btn.style.cssText='width:30px;height:30px;background:#111320;border:none;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:#e8eaf0;';
-      btn.innerHTML='🗂';
+      btn.innerHTML='📋';
       L.DomEvent.on(btn,'click',L.DomEvent.stopPropagation);
       L.DomEvent.on(btn,'click',()=>openSpotPanel());
       return btn;
     }
   });
   new SpotCtrl().addTo(map);
+
+  // 📌 登録地点追加ボタン（左下）
+  const PinAddCtrl=L.Control.extend({
+    options:{position:'bottomleft'},
+    onAdd(){
+      const btn=L.DomUtil.create('button','leaflet-bar');
+      btn.id='btn-pin-add';
+      btn.title='この地点を登録';
+      btn.style.cssText='width:32px;height:32px;background:#111320;border:1px solid #3a4060;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:#e8eaf0;border-radius:4px;margin-bottom:4px;';
+      btn.innerHTML='📌';
+      btn.disabled=true;
+      btn.style.opacity='0.4';
+      L.DomEvent.on(btn,'click',L.DomEvent.stopPropagation);
+      L.DomEvent.on(btn,'click',()=>openPinAdd());
+      return btn;
+    }
+  });
+  new PinAddCtrl().addTo(map);
+
+  // 🏷️ 登録地点一覧ボタン（左下）
+  const PinListCtrl=L.Control.extend({
+    options:{position:'bottomleft'},
+    onAdd(){
+      const btn=L.DomUtil.create('button','leaflet-bar');
+      btn.title='登録地点一覧';
+      btn.style.cssText='width:32px;height:32px;background:#111320;border:1px solid #3a4060;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;color:#e8eaf0;border-radius:4px;';
+      btn.innerHTML='🏷️';
+      L.DomEvent.on(btn,'click',L.DomEvent.stopPropagation);
+      L.DomEvent.on(btn,'click',()=>openPinPanel());
+      return btn;
+    }
+  });
+  new PinListCtrl().addTo(map);
 
   // スケールバー（右下・タッチ不可）
   const scaleCtrl = L.control.scale({position:'bottomleft', imperial:false, maxWidth:120});
@@ -1509,6 +1581,9 @@ function updateMapBtns(az){
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 async function onPick(){
   if(sLat===null||sLng===null)return;
+  // 📌登録ボタンを有効化
+  const pinAddBtn=document.getElementById('btn-pin-add');
+  if(pinAddBtn){pinAddBtn.disabled=false;pinAddBtn.style.opacity='1';}
   // elevOffsetは地点変更時にリセットしない（ユーザーが手動でRstボタンを押す）
   // スマホでは撮影地点確定後にhintを非表示
   if(detectMobile()){const h=document.getElementById('hint');if(h)h.style.display='none';}
@@ -4551,6 +4626,127 @@ function openMoonCal(){
 function closeMoonCal(){
   document.getElementById('mooncal-overlay').style.display='none';
   document.getElementById('mooncal-popup').style.display='none';
+}
+
+// ━━ 登録地点 ━━
+function openPinAdd(){
+  if(sLat===null||sLng===null) return;
+  const t=T[cur];
+  const distH=hav(sLat,sLng,t.lat,t.lng);
+  const distLabel=distH<1?`D:${Math.round(distH*1000)}m`:`D:${distH.toFixed(2)}km`;
+  const elevLabel=`E:${sElev}m`;
+  const defaultName=`${t.name}_${distLabel}_${elevLabel}`;
+  const name=prompt('登録名を入力してください', defaultName);
+  if(name===null) return; // キャンセル
+  const trimmed=name.trim()||defaultName;
+  if(addPin(trimmed, cur, sLat, sLng, sElev)){
+    showHint('📌 登録しました：'+trimmed, 2500);
+  }
+}
+
+function openPinPanel(){
+  renderPinList();
+  document.getElementById('pin-overlay').style.display='block';
+  const popup=document.getElementById('pin-popup');
+  popup.style.display='flex';
+}
+
+function closePinPanel(){
+  document.getElementById('pin-overlay').style.display='none';
+  document.getElementById('pin-popup').style.display='none';
+}
+
+function renderPinList(){
+  const list=document.getElementById('pin-list');
+  const pins=loadPins();
+  list.innerHTML='';
+
+  if(pins.length===0){
+    list.innerHTML='<div style="color:var(--sub);font-size:11px;padding:16px 0;text-align:center;">登録地点はありません</div>';
+    return;
+  }
+
+  // ソート：選択中対象→同都道府県→残り（prefOrder・targetOrder順）
+  const curPref=T[cur].pref;
+  function sortKey(pin){
+    const t=T[pin.targetKey];
+    if(!t) return [9,9,9];
+    if(pin.targetKey===cur) return [0, t.prefOrder||9, t.targetOrder||9];
+    if(t.pref===curPref)    return [1, t.prefOrder||9, t.targetOrder||9];
+    return                         [2, t.prefOrder||9, t.targetOrder||9];
+  }
+  pins.forEach((p,i)=>{ p._origIdx=i; });
+  const sorted=[...pins].sort((a,b)=>{
+    const ka=sortKey(a), kb=sortKey(b);
+    for(let i=0;i<3;i++){ if(ka[i]!==kb[i]) return ka[i]-kb[i]; }
+    return 0;
+  });
+
+  // 拠点ごとにセクション区切り
+  let lastTarget=null;
+  sorted.forEach(pin=>{
+    const t=T[pin.targetKey];
+    const tName=t?t.name:pin.targetKey;
+
+    if(tName!==lastTarget){
+      lastTarget=tName;
+      const sec=document.createElement('div');
+      sec.style.cssText='font-family:"Space Mono",monospace;font-size:9px;color:var(--ac);padding:8px 0 4px;border-top:1px solid var(--bd);margin-top:4px;';
+      sec.textContent='── '+tName+(t?' ('+t.pref+')':'')+' ──';
+      if(list.children.length===0) sec.style.borderTop='none';
+      list.appendChild(sec);
+    }
+
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06);cursor:pointer;';
+    row.title='クリックで撮影地点をセット';
+
+    const nameSpan=document.createElement('span');
+    nameSpan.style.cssText='flex:1;font-family:"Space Mono",monospace;font-size:10px;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+    nameSpan.textContent=pin.name;
+    row.appendChild(nameSpan);
+
+    // 🔗 Googleマップリンクコピー
+    const linkBtn=document.createElement('button');
+    linkBtn.style.cssText='width:32px;height:32px;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;cursor:pointer;font-size:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;';
+    linkBtn.innerHTML='🔗';
+    linkBtn.title='GoogleマップリンクをコピーURL';
+    linkBtn.onclick=(e)=>{
+      e.stopPropagation();
+      const url=`https://www.google.com/maps?q=${pin.lat.toFixed(6)},${pin.lng.toFixed(6)}`;
+      navigator.clipboard.writeText(url).then(()=>{
+        linkBtn.innerHTML='✅';
+        setTimeout(()=>linkBtn.innerHTML='🔗',1500);
+      }).catch(()=>{
+        linkBtn.innerHTML='❌';
+        setTimeout(()=>linkBtn.innerHTML='🔗',1500);
+      });
+    };
+    row.appendChild(linkBtn);
+
+    // ✕ 削除
+    const delBtn=document.createElement('button');
+    delBtn.style.cssText='width:32px;height:32px;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;cursor:pointer;font-size:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--sub);';
+    delBtn.innerHTML='✕';
+    delBtn.title='削除';
+    delBtn.onclick=(e)=>{
+      e.stopPropagation();
+      if(!confirm(`「${pin.name}」を削除しますか？`)) return;
+      deletePin(pin._origIdx);
+      renderPinList();
+    };
+    row.appendChild(delBtn);
+
+    // 行クリックで呼び出し
+    row.onclick=()=>{
+      if(pin.targetKey!==cur) selTarget(pin.targetKey);
+      sLat=pin.lat; sLng=pin.lng; sElev=pin.elev;
+      onPick();
+      closePinPanel();
+    };
+
+    list.appendChild(row);
+  });
 }
 
 function shiftMoonCal(delta){
