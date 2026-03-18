@@ -3595,9 +3595,8 @@ function drawCompass(tAz,va){
     }
 
   } else {
-    // ━━ PC：縦3分割（上=テキスト / 中=仰角ダイアグラム / 下=天気）━━
+    // ━━ PC：上=テキスト / 中=月相 / 下=天気 ━━
     const infoX = cx + R + 24;
-    const rightW_pc = W - infoX - 8;
 
     // ── 上部：AZ/ELEV/対象名テキスト3行 ──
     const textLineH = 20;
@@ -3611,36 +3610,30 @@ function drawCompass(tAz,va){
       ctx.fillStyle=line.color; ctx.fillText(line.text,infoX,ly);
     });
 
-    // ── 中部・下部の座標計算 ──
+    // ── 中部：月相アイコン＋月齢＋月相名 ──
     const fs_pc = 13;
     const lhW_pc = fs_pc + 5;
     const pcWeatherH = lhW_pc * 2 + 8;
     const pcWeatherTop = H - 10 - pcWeatherH;
-    const diagMargin = 10;
-    const diagTop_pc = textTop + infoLines.length * textLineH + diagMargin;
-    const diagBottom_pc = pcWeatherTop - diagMargin;
-    const dw = Math.min(rightW_pc * 0.75, (diagBottom_pc - diagTop_pc) * 1.2);
-    const eh = Math.min(dw * 0.68 + 20, diagBottom_pc - diagTop_pc); // 弧半径+余白、使える高さ上限
-    const ex = infoX;
-    const ey = (textTop + infoLines.length * textLineH) + diagMargin + eh; // 上から詰める
-
-    // ── 中部：仰角ダイアグラム ──
-    if(dw > 20 && eh > 20){
-      ctx.strokeStyle='rgba(200,169,110,.3)'; ctx.lineWidth=1;
-      ctx.beginPath(); ctx.moveTo(ex,ey-eh); ctx.lineTo(ex,ey); ctx.lineTo(ex+dw,ey); ctx.stroke();
-      const ar = Math.max(0,va)*Math.PI/180;
-      ctx.strokeStyle='#c8a96e'; ctx.lineWidth=2; ctx.shadowColor='#c8a96e'; ctx.shadowBlur=4;
-      ctx.beginPath(); ctx.moveTo(ex,ey); ctx.arc(ex,ey,dw*.68,0,-ar,true); ctx.stroke(); ctx.shadowBlur=0;
-      const ll = dw * .74;
-      ctx.strokeStyle='rgba(200,169,110,.5)'; ctx.lineWidth=1.5;
-      ctx.beginPath(); ctx.moveTo(ex,ey); ctx.lineTo(ex+ll*Math.cos(-ar),ey+ll*Math.sin(-ar)); ctx.stroke();
-      ctx.font='13px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-      ctx.fillText(T[cur].e, ex+ll*Math.cos(-ar), ey+ll*Math.sin(-ar)-5);
-      const elvLabel=`${Math.max(0,va).toFixed(2)}°`;
-      ctx.font=`bold 11px 'Space Mono',monospace`; ctx.textAlign='left'; ctx.textBaseline='alphabetic';
-      const elw=ctx.measureText(elvLabel).width;
-      ctx.fillStyle='rgba(10,15,28,0.65)'; ctx.fillRect(ex+18,ey-22,elw+6,14);
-      ctx.fillStyle='rgba(200,220,160,0.95)'; ctx.fillText(elvLabel,ex+20,ey-10);
+    const phaseAreaTop = textTop + infoLines.length * textLineH + 10;
+    const phaseAreaBottom = pcWeatherTop - 10;
+    const phaseCenterY = (phaseAreaTop + phaseAreaBottom) / 2;
+    const pr = Math.min(20, Math.floor((phaseAreaBottom - phaseAreaTop) * 0.35));
+    const pmx = infoX + pr;
+    const pmy = phaseCenterY;
+    const ds2 = document.getElementById('idate').value;
+    if(ds2){
+      const age2 = moonAge(new Date(ds2+'T03:00:00Z'));
+      const pname = moonPhaseName(age2);
+      drawMoonIcon(ctx, pmx, pmy, pr, age2, sunsetMode ? 0 : gMoonTilt);
+      const tx2 = pmx + pr + 8;
+      ctx.textAlign='left'; ctx.textBaseline='alphabetic';
+      ctx.font=`bold 14px 'Space Mono',monospace`;
+      ctx.fillStyle='rgba(200,169,110,0.95)';
+      ctx.fillText(`${age2.toFixed(1)}日`, tx2, pmy + 5);
+      ctx.font=`10px 'Noto Sans JP',sans-serif`;
+      ctx.fillStyle='rgba(200,200,220,0.85)';
+      ctx.fillText(pname, tx2, pmy + 20);
     }
   }
 
@@ -3715,22 +3708,12 @@ function drawCompass(tAz,va){
               ctx.textAlign='right'; ctx.fillText(high,cloudValX,y4);
             }
           } else {
-            // ━━ PC版：仰角ダイアグラム直下に左詰めテキスト配置 ━━
+            // ━━ PC版：下端固定で左詰めテキスト配置 ━━
             const pc_infoX = cx + R + 24;
             const fs=13, lineH=fs+5;
-            // eyを再計算（仰角ダイアグラムの下端）
-            const pc_rightW2 = W - pc_infoX - 8;
-            const pc_textH = 3 * 20;
-            const pc_diagMargin = 10;
             const pc_pcWeatherH2 = lineH*2+8;
-            const pc_pcWeatherTop2 = H - 10 - pc_pcWeatherH2;
-            const pc_diagBottom2 = pc_pcWeatherTop2 - pc_diagMargin;
-            const pc_dw2 = Math.min(pc_rightW2 * 0.75, (pc_diagBottom2 - (16 + pc_textH + pc_diagMargin)) * 1.2);
-            const pc_eh2 = Math.min(pc_dw2 * 0.68 + 20, pc_diagBottom2 - (16 + pc_textH + pc_diagMargin));
-            const pc_ey2 = (16 + pc_textH) + pc_diagMargin + pc_eh2;
-            // 天気はey直下に配置
-            const wTop = pc_ey2 + 8;
-            const wx = pc_infoX; // 左端 = infoXと揃える
+            const wTop = H - 10 - pc_pcWeatherH2;
+            const wx = pc_infoX;
             const rain=w.precip!==null?`${w.precip}%`:'--';
             const tr=transp!==null?`${transp}%`:'--';
             const low=w.low!==null?`${w.low}%`:'--';
