@@ -806,7 +806,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
     <span onclick="closePinPanel()" style="cursor:pointer;font-size:18px;color:var(--sub);padding:4px 8px;">✕</span>
   </div>
   <div style="padding:10px 16px;border-bottom:1px solid var(--bd);flex-shrink:0;">
-    <button onclick="void(0)" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--sub);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:not-allowed;opacity:0.5;">📅 登録地点を90日一括検索（準備中）</button>
+    <button id="btn-pin-bulk" onclick="runPinBulkSearch()" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;">📅 登録地点90日一括ピンポイント検索(30m以内)</button>
   </div>
   <div id="pin-list" style="overflow-y:auto;flex:1;padding:8px 16px;"></div>
 </div>
@@ -4613,6 +4613,237 @@ function closePinPanel(){
   document.getElementById('pin-popup').style.display='none';
 }
 
+// ━━ 登録地点 一括チャンス検索 ━━
+function searchPinChances(pin){
+  // 1件の登録地点に対して月・太陽両モードで90日検索、30m以内の結果を返す
+  const t=T[pin.targetKey];
+  if(!t) return [];
+  const pLat=pin.lat, pLng=pin.lng, pElev=pin.elev;
+  const tAz=brng(pLat,pLng,t.lat,t.lng);
+  const distH=hav(pLat,pLng,t.lat,t.lng);
+  const distM=distH*1000;
+  const topAlt=elAng(distH,pElev,t.elev,t.h);
+  const baseAlt=elAng(distH,pElev,t.elev,0);
+  const targetAngDiam=Math.atan2(t.h,distM)*180/Math.PI;
+  const AZ_THR=2.5;
+  const MOVE_THR=30; // 30m以内のみ
+  const STEP=60*1000;
+  const MOON_R=0.265;
+  const today=new Date(document.getElementById('idate').value+'T00:00:00+09:00');
+  const results=[];
+
+  // 月・太陽の両モードを検索
+  for(const isSun of [false,true]){
+    for(let d=0;d<90;d++){
+      const base=new Date(today.getTime()+d*86400000);
+      const ds=base.toLocaleDateString('sv-SE',{timeZone:'Asia/Tokyo'});
+      const dayStart=new Date(ds+'T00:00:00+09:00');
+
+      // 月モード：輝面比1%未満はスキップ
+      if(!isSun){
+        const age=moonAge(new Date(ds+'T03:00:00Z'));
+        const illum=(1-Math.cos(2*Math.PI*age/29.53058867))/2;
+        if(illum<0.01) continue;
+      }
+
+      // 太陽モード：日の出/日没時刻を取得
+      let sunRiseMs=null, sunSetMs=null;
+      if(isSun){
+        const sun=sunT(new Date(ds+'T03:00:00Z'),t.lat,t.lng);
+        if(sun){
+          sunRiseMs=sun.rise?sun.rise.getTime():null;
+          sunSetMs=sun.set?sun.set.getTime():null;
+        }
+      }
+
+      let found=null;
+      for(let i=0;i<=1440;i++){
+        const dt=new Date(dayStart.getTime()+i*STEP);
+        const bp=isSun?sunPos(dt,pLat,pLng):moonPos(dt,pLat,pLng);
+        const azD=Math.abs(((bp.az-tAz+180)%360)-180);
+        const inAlt=bp.alt>=(baseAlt-MOON_R)&&bp.alt<=(topAlt+MOON_R);
+        let inTimeWindow=true;
+        if(isSun){
+          const tMs=dt.getTime();
+          const afterRise=sunRiseMs&&tMs>=sunRiseMs&&tMs<=sunRiseMs+30*60000;
+          const beforeSet=sunSetMs&&tMs>=sunSetMs-30*60000&&tMs<=sunSetMs;
+          inTimeWindow=!!(afterRise||beforeSet);
+        }
+        if(azD<=AZ_THR&&inAlt&&inTimeWindow){
+          if(!found) found={dt,az:bp.az,alt:bp.alt,azDiff:azD,angDiam:bp.angDiam||0.53};
+          else if(Math.abs(bp.alt-topAlt)<Math.abs(found.alt-topAlt)) found={dt,az:bp.az,alt:bp.alt,azDiff:azD,angDiam:bp.angDiam||0.53};
+        } else {
+          if(found){
+            const moveM=distM*Math.tan(found.azDiff*Math.PI/180);
+            if(moveM<=MOVE_THR){
+              const age=isSun?null:moonAge(new Date(ds+'T03:00:00Z'));
+              results.push({date:ds,time:jst(found.dt),azDiff:found.azDiff,
+                alt:found.alt,baseAlt,topAlt,distM,age,ts:found.dt,
+                angDiam:found.angDiam,isSun,tAz,targetAngDiam,pLat,pLng,pElev});
+            }
+            found=null;
+          }
+        }
+      }
+      if(found){
+        const moveM=distM*Math.tan(found.azDiff*Math.PI/180);
+        if(moveM<=MOVE_THR){
+          const age=isSun?null:moonAge(new Date(ds+'T03:00:00Z'));
+          results.push({date:ds,time:jst(found.dt),azDiff:found.azDiff,
+            alt:found.alt,baseAlt,topAlt,distM,age,ts:found.dt,
+            angDiam:found.angDiam,isSun,tAz,targetAngDiam,pLat,pLng,pElev});
+        }
+      }
+    }
+  }
+
+  // 日付順ソート
+  results.sort((a,b)=>a.ts-b.ts);
+  return results;
+}
+
+function renderPinChanceRows(pin, results, container){
+  // 既存の結果行をクリア
+  container.querySelectorAll('.pin-chance-row').forEach(el=>el.remove());
+
+  if(results.length===0){
+    const noEl=document.createElement('div');
+    noEl.className='pin-chance-row';
+    noEl.style.cssText='font-size:9px;color:var(--sub);padding:2px 8px 4px;';
+    noEl.textContent='30m以内のチャンスなし';
+    container.appendChild(noEl);
+    return;
+  }
+
+  results.forEach(r=>{
+    const dow=new Date(r.date+'T12:00:00+09:00').toLocaleDateString('ja-JP',{weekday:'short'});
+    const dowColor=dow.includes('日')?'#ff6655':dow.includes('土')?'#4488ff':'var(--sub)';
+    const moveM=r.distM*Math.tan(r.azDiff*Math.PI/180);
+    const bodyIcon=r.isSun?'☀️':'🌕';
+    let star;
+    if(moveM<=5)        star=`🎯${bodyIcon}🎯`;
+    else if(moveM<=10)  star='★★★';
+    else if(moveM<=30)  star='★★☆';
+    const range=r.topAlt-r.baseAlt;
+    const altPct=range>0.001?Math.round((r.alt-r.baseAlt)/range*100):0;
+    const bodyInfo=r.isSun
+      ?`移${Math.round(moveM)}m 高${altPct}%`
+      :`月齢${r.age.toFixed(1)}日 移${Math.round(moveM)}m 高${altPct}%`;
+
+    // 天気
+    let weatherStr='';
+    if(isInForecastRange(r.ts)){
+      const vp=calcViewPointCoord(r.pLat,r.pLng,r.tAz,r.alt);
+      const w=getWeatherAt(vp.lat,vp.lng,r.ts);
+      if(w){
+        const transp=calcTransparency(w.vis,r.pLat,r.pLng,r.tAz,r.alt);
+        const rain=w.precip!==null?`${w.precip}%`:'--';
+        const tr=transp!==null?`${transp}%`:'--';
+        const low=w.low!==null?`${w.low}`:'--';
+        const mid=w.mid!==null?`${w.mid}`:'--';
+        const high=w.high!==null?`${w.high}`:'--';
+        weatherStr=`☔${rain}👁 ${tr}☁️低${low}中${mid}高${high}`;
+      }
+    }
+
+    const row=document.createElement('div');
+    row.className='pin-chance-row chance-item';
+    row.style.cssText='padding:4px 8px 4px 16px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.04);';
+    row.title='クリックで日時・対象・モードをセット';
+
+    // アイコン
+    if(!r.isSun){
+      const cv=document.createElement('canvas');
+      cv.width=16;cv.height=16;
+      cv.dataset.moonAge=r.age;
+      cv.style.cssText='display:block;border-radius:50%;flex-shrink:0;pointer-events:none;';
+      drawMoonPhaseSmall(cv,r.age);
+      row.appendChild(cv);
+    } else {
+      const sunIcon=document.createElement('span');
+      sunIcon.style.cssText='display:inline-flex;width:16px;height:16px;align-items:center;justify-content:center;flex-shrink:0;font-size:11px;';
+      sunIcon.textContent='☀️';
+      row.appendChild(sunIcon);
+    }
+
+    const dateSpan=document.createElement('span');
+    dateSpan.style.color=dowColor;
+    dateSpan.textContent=`${r.date}(${dow})`;
+    row.appendChild(dateSpan);
+
+    const timeSpan=document.createElement('span');
+    timeSpan.className='chance-time';
+    timeSpan.textContent=r.time;
+    row.appendChild(timeSpan);
+
+    const starSpan=document.createElement('span');
+    starSpan.style.color='var(--ac)';
+    starSpan.textContent=star;
+    row.appendChild(starSpan);
+
+    const infoSpan=document.createElement('span');
+    infoSpan.style.color='var(--sub)';
+    infoSpan.textContent=bodyInfo;
+    row.appendChild(infoSpan);
+
+    if(weatherStr){
+      const wSpan=document.createElement('span');
+      wSpan.style.color='rgba(180,210,255,0.85)';
+      wSpan.textContent=weatherStr;
+      row.appendChild(wSpan);
+    }
+
+    // クリック：対象・地点・モード・日時をセット
+    row.onclick=()=>{
+      if(pin.targetKey!==cur) selTarget(pin.targetKey);
+      sLat=pin.lat; sLng=pin.lng; sElev=pin.elev;
+      if(r.isSun&&!sunsetMode) setSunsetMode(true);
+      else if(!r.isSun&&sunsetMode) setSunsetMode(false);
+      setChance(r.date,r.time);
+      if(map) map.setView([sLat,sLng],15);
+      onPick();
+      closePinPanel();
+    };
+
+    container.appendChild(row);
+  });
+}
+
+async function runPinBulkSearch(){
+  const pins=loadPins();
+  if(pins.length===0) return;
+
+  const btn=document.getElementById('btn-pin-bulk');
+  if(btn) btn.textContent='⏳ 検索中...';
+
+  // renderPinListで生成された各行のcontainerを取得するため再描画
+  renderPinList();
+
+  // 1件ずつ順番に処理
+  for(let i=0;i<pins.length;i++){
+    const pin=pins[i];
+    await new Promise(resolve=>setTimeout(()=>{
+      const results=searchPinChances(pin);
+      // この地点のcontainerを探す
+      const container=document.getElementById(`pin-result-${i}`);
+      if(container) renderPinChanceRows(pin,results,container);
+      // 16日以内の天気を取得して再描画
+      const nearResults=results.filter(r=>isInForecastRange(r.ts));
+      if(nearResults.length>0){
+        Promise.all(nearResults.map(r=>{
+          const vp=calcViewPointCoord(r.pLat,r.pLng,r.tAz,r.alt);
+          return fetchWeatherSingle(vp.lat,vp.lng,r.ts);
+        })).then(()=>{
+          if(container) renderPinChanceRows(pin,results,container);
+        });
+      }
+      resolve();
+    },20));
+  }
+
+  if(btn) btn.textContent='📅 登録地点90日一括ピンポイント検索(30m以内)';
+}
+
 function renamePinAt(idx){
   const pins=loadPins();
   if(!pins[idx]) return;
@@ -4736,6 +4967,12 @@ function renderPinList(){
     }
 
     list.appendChild(row);
+
+    // 結果コンテナ（一括検索結果が入る）
+    const resultContainer=document.createElement('div');
+    resultContainer.id=`pin-result-${pin._origIdx}`;
+    resultContainer.style.cssText='border-bottom:1px solid var(--bd);margin-bottom:2px;';
+    list.appendChild(resultContainer);
   });
 }
 
