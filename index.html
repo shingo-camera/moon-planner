@@ -1581,7 +1581,8 @@ async function onPick(){
       </div>`,
       className:'',iconAnchor:[6,6]
     }),
-    draggable:true
+    draggable:true,
+    zIndexOffset:10000
   }).addTo(map);
 
   sMarker.on('dragend',e=>{
@@ -1602,8 +1603,15 @@ async function onPick(){
   const ext_lng = t.lng + Math.atan2(Math.sin(az_rad)*Math.sin(ext_dist/R_earth)*Math.cos(lat_rad),
                   Math.cos(ext_dist/R_earth)-Math.sin(lat_rad)*Math.sin(ext_lat*Math.PI/180))*180/Math.PI;
 
-  polyLine=L.polyline([[sLat,sLng],[t.lat,t.lng],[ext_lat,ext_lng]],
-    {color:'#c8a96e',weight:1.5,opacity:.6,dashArray:'5,4'}).addTo(map);
+  // 背後方向（撮影地点の背後50km）
+  const back_az_rad = (az_ext+180)*Math.PI/180;
+  const back_lat = Math.asin(Math.sin(sLat*Math.PI/180)*Math.cos(ext_dist/R_earth)+
+                   Math.cos(sLat*Math.PI/180)*Math.sin(ext_dist/R_earth)*Math.cos(back_az_rad))*180/Math.PI;
+  const back_lng = sLng + Math.atan2(Math.sin(back_az_rad)*Math.sin(ext_dist/R_earth)*Math.cos(sLat*Math.PI/180),
+                   Math.cos(ext_dist/R_earth)-Math.sin(sLat*Math.PI/180)*Math.sin(back_lat*Math.PI/180))*180/Math.PI;
+
+  polyLine=L.polyline([[back_lat,back_lng],[sLat,sLng],[t.lat,t.lng],[ext_lat,ext_lng]],
+    {color:'#ffffff',weight:2,opacity:0.85,dashArray:'6,4'}).addTo(map);
 
   document.getElementById('i-e').textContent='取得中…';
   let se=0;
