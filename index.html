@@ -1934,9 +1934,14 @@ function jd2d(J){return new Date((J-2440588+0.5)*86400000);}
 // 大気差補正（標準大気：気温10℃、気圧1013hPa）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function refraction(altDeg){
-  if(altDeg>85)return 0;
-  const r=1.02/Math.tan((altDeg+10.3/(altDeg+5.11))*Math.PI/180)/60;
-  return Math.max(0,r);
+  // Saemundsson(1986)式：低仰角・地平線付近で従来のBennett式より精密
+  if(altDeg > 85) return 0;
+  if(altDeg < -2.0) return 0;
+  const a = altDeg + 7.31/(altDeg + 4.4);
+  const r = Math.max(0, 1.0/(Math.tan(a*Math.PI/180)*60 + 0.06));
+  // -1.5°〜-2.0°で線形フェードアウト（不連続防止）
+  if(altDeg < -1.5) return r * (altDeg + 2.0) / 0.5;
+  return r;
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
