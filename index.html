@@ -954,15 +954,6 @@ function drawBridges(ctx, W, H, tAz, toY_cam, f_px_H, gnoH, r, spotLat, spotLng,
       info[k] = { dist: distTo(p.lat, p.lng), az: bearingTo(p.lat, p.lng) };
     }
 
-    // 画角チェック：4点全てが画角外なら描画スキップ
-    const fvH = compMode==='land' ? 2*Math.atan(36/(2*focal))*180/Math.PI : 2*Math.atan(24/(2*focal))*180/Math.PI;
-    const halfFov = fvH / 2;
-    const inView = Object.values(info).some(p => {
-      let d = p.az - tAz; if(d>180) d-=360; if(d<-180) d+=360;
-      return Math.abs(d) < halfFov + 5; // 5°マージン
-    });
-    if(!inView) continue;
-
     // ── X座標 ──
     const xAnchorA = azToX(info.anchorA.az);
     const xTowerA  = azToX(info.towerA.az);
@@ -1085,7 +1076,9 @@ function drawBridges(ctx, W, H, tAz, toY_cam, f_px_H, gnoH, r, spotLat, spotLng,
       const t = i / CABLE_STEPS;
       const cx_ = xTowerB + (xAnchorB - xTowerB) * t;
       // 放物線：towerB端(towerHeight)が最高点、anchorB端(roadHeight)が最低点
-      const cH = br.towerHeight - (br.towerHeight - br.roadHeight) * t * t;
+      // 放物線：towerB端(towerHeight)が最高点、anchorB端(roadHeight)が最低点
+      // 区間①と対称形：(1-t)^2 で towerB側が急勾配、anchorB側が緩やか
+      const cH = br.roadHeight + (br.towerHeight - br.roadHeight) * (1-t) * (1-t);
       const cDist = dTB + (dAB - dTB) * t;
       const cy_ = toY_cam(elevAngle(cH, cDist));
       i===0 ? ctx.moveTo(cx_, cy_) : ctx.lineTo(cx_, cy_);
