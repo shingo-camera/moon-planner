@@ -993,22 +993,45 @@ function drawBridges(ctx, W, H, tAz, toY_cam, f_px_H, gnoH, r, spotLat, spotLng,
     // ── 主塔B ──
     ctx.fillRect(xTowerB - towerHalfPx, yTowerTop_B, towerHalfPx*2, yRoad_B - yTowerTop_B);
 
-    // ── ハンガーロープ（中央支間のみ） ──
+    // ── ハンガーロープ（中央支間） ──
     ctx.strokeStyle = 'rgba(255,255,255,0.35)';
     ctx.lineWidth = 0.8;
     for(let i = 1; i < br.hangerCount; i++) {
       const t = i / br.hangerCount;
-      // X：主塔間を線形補間
       const hx = xTowerA + (xTowerB - xTowerA) * t;
-      // ケーブル高さ（放物線）：両端=towerHeight、中央=roadHeight
-      // parabola: h(t) = towerHeight - (towerHeight-roadHeight)*4*t*(1-t)
-      const hAlt_A = br.towerHeight, hAlt_B = br.towerHeight, hAlt_min = br.roadHeight;
-      const cableH = hAlt_A - (hAlt_A - hAlt_min) * 4 * t * (1 - t);
-      // 距離は主塔A・Bの距離を補間
+      const cableH = br.towerHeight - (br.towerHeight - br.roadHeight) * 4 * t * (1 - t);
       const hDist = dTA + (dTB - dTA) * t;
       const hy_cable = toY_cam(elevAngle(cableH, hDist));
-      // 路面Y補間
       const hy_road = yRoad_A + (yRoad_B - yRoad_A) * t;
+      ctx.beginPath();
+      ctx.moveTo(hx, hy_cable);
+      ctx.lineTo(hx, hy_road);
+      ctx.stroke();
+    }
+
+    // ── ハンガーロープ（側径間①：anchorA〜towerA） ──
+    const sideCount = Math.round(br.hangerCount / 2);
+    for(let i = 1; i < sideCount; i++) {
+      const t = i / sideCount;
+      const hx = xAnchorA + (xTowerA - xAnchorA) * t;
+      const cableH = br.roadHeight + (br.towerHeight - br.roadHeight) * t * t;
+      const hDist = dAA + (dTA - dAA) * t;
+      const hy_cable = toY_cam(elevAngle(cableH, hDist));
+      const hy_road = yRoad_AA + (yRoad_A - yRoad_AA) * t;
+      ctx.beginPath();
+      ctx.moveTo(hx, hy_cable);
+      ctx.lineTo(hx, hy_road);
+      ctx.stroke();
+    }
+
+    // ── ハンガーロープ（側径間②：towerB〜anchorB） ──
+    for(let i = 1; i < sideCount; i++) {
+      const t = i / sideCount;
+      const hx = xTowerB + (xAnchorB - xTowerB) * t;
+      const cableH = br.towerHeight - (br.towerHeight - br.roadHeight) * t * t;
+      const hDist = dTB + (dAB - dTB) * t;
+      const hy_cable = toY_cam(elevAngle(cableH, hDist));
+      const hy_road = yRoad_B + (yRoad_AB - yRoad_B) * t;
       ctx.beginPath();
       ctx.moveTo(hx, hy_cable);
       ctx.lineTo(hx, hy_road);
