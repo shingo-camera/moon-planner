@@ -928,7 +928,10 @@ function drawBridges(ctx, W, H, tAz, toY_cam, f_px_H, gnoH, r, spotLat, spotLng,
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     }
     function elevAngle(heightM, distM) {
-      return Math.atan2(heightM - spotElev, distM) / r;
+      // elAng()と同条件：地球曲率補正＋大気差補正
+      const curv = distM**2 / (2 * 6371000);
+      const altRaw = Math.atan2(heightM - (spotElev + curv), distM) / r;
+      return altRaw + refraction(altRaw);
     }
     // 方位差（tAzからの相対角）→X座標
     function azToX(az) {
