@@ -1950,7 +1950,16 @@ function cdir(d){return['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW'
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // SUN / MOON
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-function toJD(d){return d.valueOf()/86400000-0.5+2440588;}
+// ΔT（地球時TT - 協定世界時UTC）補正（秒）
+// Espenak & Meeus の近似式（1986〜2050年）
+function deltaT(date){
+  const y=date.getUTCFullYear()+date.getUTCMonth()/12;
+  if(y>=2005&&y<2050){const t=y-2000;return 62.92+0.32217*t+0.005589*t*t;}
+  if(y>=2050){const t=(y-1820)/100;return -20+32*t*t;}
+  const t=y-2000;return 63.86+0.3345*t-0.060374*t*t+0.0017275*t*t*t+0.000651814*t*t*t*t;
+}
+// JD(TT)を返す：天文計算はTT（地球時）基準が正しい
+function toJD(d){return d.valueOf()/86400000-0.5+2440588+deltaT(d)/86400;}
 function jd2d(J){return new Date((J-2440588+0.5)*86400000);}
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
