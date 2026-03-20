@@ -881,6 +881,217 @@ const T={
         pref:'大阪府', prefOrder:1, targetOrder:2},
 };
 let cur='pl', focal=400, compMode='land'; // compMode: 横構図('land')/縦構図('port')の選択状態
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 橋データ（将来的に複数対応可能な構造）
+// 座標は国土地理院で実測。寸法は公式値。
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const BRIDGES = [
+  {
+    id: 'akashi',
+    name: '明石海峡大橋',
+    // 4点座標（国土地理院実測）
+    anchorA: { lat: 34.6310459, lng: 135.0332570 }, // 神戸側アンカレイジ
+    towerA:  { lat: 34.6240602, lng: 135.0272419 }, // 神戸側主塔（中心）
+    towerB:  { lat: 34.6094222, lng: 135.0146415 }, // 淡路島側主塔（中心）
+    anchorB: { lat: 34.6023469, lng: 135.0085328 }, // 淡路島側アンカレイジ
+    // 高さ（海面基準 m）
+    towerHeight: 298,  // 主塔頂部
+    roadHeight:   65,  // 路面 = アンカレイジのケーブル端点 = ケーブル中央最低点
+    towerWidthM:   6.6, // 主塔幅（m）
+    hangerCount:  20,  // ハンガーロープ本数（中央支間）
+    // 表示するランドマーク
+    targets: ['pl', 'tsutenkaku'],
+  }
+];
+
+// 橋シルエット描画（drawView内から呼び出す）
+// 引数：ctx, W, H, tAz(天体方位°), toY_cam(仰角→Y), f_px_H, gnoH, r, sLat, sLng, sElev
+function drawBridges(ctx, W, H, tAz, toY_cam, f_px_H, gnoH, r, spotLat, spotLng, spotElev) {
+  if(spotLat===null || spotLng===null) return;
+
+  for(const br of BRIDGES) {
+    // このランドマークで表示するか判定
+    if(!br.targets.includes(T[cur].silhouette)) continue;
+
+    // ── 各構造物の方位・距離・仰角を計算 ──
+    function bearingTo(toLat, toLng) {
+      const dL = (toLng - spotLng) * r;
+      const x = Math.sin(dL) * Math.cos(toLat * r);
+      const y = Math.cos(spotLat * r) * Math.sin(toLat * r) - Math.sin(spotLat * r) * Math.cos(toLat * r) * Math.cos(dL);
+      return (Math.atan2(x, y) / r + 360) % 360;
+    }
+    function distTo(toLat, toLng) {
+      const R = 6371000;
+      const dLat = (toLat - spotLat) * r, dLon = (toLng - spotLng) * r;
+      const a = Math.sin(dLat/2)**2 + Math.cos(spotLat*r)*Math.cos(toLat*r)*Math.sin(dLon/2)**2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+    function elevAngle(heightM, distM) {
+      return Math.atan2(heightM - spotElev, distM) / r;
+    }
+    // 方位差（tAzからの相対角）→X座標
+    function azToX(az) {
+      let diff = az - tAz;
+      if(diff > 180) diff -= 360;
+      if(diff < -180) diff += 360;
+      return W/2 + gnoH(diff);
+    }
+
+    const points = {
+      anchorA: br.anchorA,
+      towerA:  br.towerA,
+      towerB:  br.towerB,
+      anchorB: br.anchorB,
+    };
+
+    // 各点の距離・方位
+    const info = {};
+    for(const [k, p] of Object.entries(points)) {
+      info[k] = { dist: distTo(p.lat, p.lng), az: bearingTo(p.lat, p.lng) };
+    }
+
+    // 画角チェック：4点全てが画角外なら描画スキップ
+    const fvH = compMode==='land' ? 2*Math.atan(36/(2*focal))*180/Math.PI : 2*Math.atan(24/(2*focal))*180/Math.PI;
+    const halfFov = fvH / 2;
+    const inView = Object.values(info).some(p => {
+      let d = p.az - tAz; if(d>180) d-=360; if(d<-180) d+=360;
+      return Math.abs(d) < halfFov + 5; // 5°マージン
+    });
+    if(!inView) continue;
+
+    // ── X座標 ──
+    const xAnchorA = azToX(info.anchorA.az);
+    const xTowerA  = azToX(info.towerA.az);
+    const xTowerB  = azToX(info.towerB.az);
+    const xAnchorB = azToX(info.anchorB.az);
+
+    // ── Y座標（仰角→toY_cam） ──
+    const dTA = info.towerA.dist, dTB = info.towerB.dist;
+    const dAA = info.anchorA.dist, dAB = info.anchorB.dist;
+
+    const yTowerTop_A  = toY_cam(elevAngle(br.towerHeight, dTA));
+    const yTowerTop_B  = toY_cam(elevAngle(br.towerHeight, dTB));
+    const yRoad_A      = toY_cam(elevAngle(br.roadHeight,  dTA));
+    const yRoad_B      = toY_cam(elevAngle(br.roadHeight,  dTB));
+    const yRoad_AA     = toY_cam(elevAngle(br.roadHeight,  dAA));
+    const yRoad_AB     = toY_cam(elevAngle(br.roadHeight,  dAB));
+
+    // 主塔幅（px）
+    const towerHalfPx = Math.max(1.5, f_px_H * Math.tan((br.towerWidthM / 2 / info.towerA.dist)));
+
+    ctx.save();
+
+    // ── 路面（桁）：anchorA〜anchorB ──
+    ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(xAnchorA, yRoad_AA);
+    ctx.lineTo(xTowerA,  yRoad_A);
+    ctx.lineTo(xTowerB,  yRoad_B);
+    ctx.lineTo(xAnchorB, yRoad_AB);
+    ctx.stroke();
+
+    // ── 主塔A（矩形：路面〜頂部） ──
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    ctx.fillRect(xTowerA - towerHalfPx, yTowerTop_A, towerHalfPx*2, yRoad_A - yTowerTop_A);
+
+    // ── 主塔B ──
+    ctx.fillRect(xTowerB - towerHalfPx, yTowerTop_B, towerHalfPx*2, yRoad_B - yTowerTop_B);
+
+    // ── ハンガーロープ（中央支間のみ） ──
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 0.8;
+    for(let i = 1; i < br.hangerCount; i++) {
+      const t = i / br.hangerCount;
+      // X：主塔間を線形補間
+      const hx = xTowerA + (xTowerB - xTowerA) * t;
+      // ケーブル高さ（放物線）：両端=towerHeight、中央=roadHeight
+      // parabola: h(t) = towerHeight - (towerHeight-roadHeight)*4*t*(1-t)
+      const hAlt_A = br.towerHeight, hAlt_B = br.towerHeight, hAlt_min = br.roadHeight;
+      const cableH = hAlt_A - (hAlt_A - hAlt_min) * 4 * t * (1 - t);
+      // 距離は主塔A・Bの距離を補間
+      const hDist = dTA + (dTB - dTA) * t;
+      const hy_cable = toY_cam(elevAngle(cableH, hDist));
+      // 路面Y補間
+      const hy_road = yRoad_A + (yRoad_B - yRoad_A) * t;
+      ctx.beginPath();
+      ctx.moveTo(hx, hy_cable);
+      ctx.lineTo(hx, hy_road);
+      ctx.stroke();
+    }
+
+    // ── メインケーブル（3区間、放物線） ──
+    // 区間①：anchorA → towerA（最低点=anchorA端）
+    // 区間②：towerA → towerB（最低点=中央、roadHeight）
+    // 区間③：towerB → anchorB（最低点=anchorB端）
+    const CABLE_STEPS = 40;
+
+    // 区間①
+    const grad1 = ctx.createLinearGradient(xAnchorA, 0, xTowerA, 0);
+    grad1.addColorStop(0, 'rgba(255,100,100,0.85)');
+    grad1.addColorStop(0.5, 'rgba(255,200,50,0.85)');
+    grad1.addColorStop(1, 'rgba(100,255,100,0.85)');
+    ctx.strokeStyle = grad1;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for(let i = 0; i <= CABLE_STEPS; i++) {
+      const t = i / CABLE_STEPS;
+      const cx_ = xAnchorA + (xTowerA - xAnchorA) * t;
+      // 放物線：anchorA端(roadHeight)が最低点、towerA端(towerHeight)が最高点
+      // h(t) = roadHeight + (towerHeight - roadHeight) * t^2  [t=0:anchor, t=1:tower]
+      const cH = br.roadHeight + (br.towerHeight - br.roadHeight) * t * t;
+      const cDist = dAA + (dTA - dAA) * t;
+      const cy_ = toY_cam(elevAngle(cH, cDist));
+      i===0 ? ctx.moveTo(cx_, cy_) : ctx.lineTo(cx_, cy_);
+    }
+    ctx.stroke();
+
+    // 区間②（レインボー）
+    const grad2 = ctx.createLinearGradient(xTowerA, 0, xTowerB, 0);
+    grad2.addColorStop(0,    'rgba(255,100,100,0.85)');
+    grad2.addColorStop(0.17, 'rgba(255,165,0,0.85)');
+    grad2.addColorStop(0.33, 'rgba(255,255,50,0.85)');
+    grad2.addColorStop(0.5,  'rgba(80,255,80,0.85)');
+    grad2.addColorStop(0.67, 'rgba(50,180,255,0.85)');
+    grad2.addColorStop(0.83, 'rgba(130,80,255,0.85)');
+    grad2.addColorStop(1,    'rgba(255,100,200,0.85)');
+    ctx.strokeStyle = grad2;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for(let i = 0; i <= CABLE_STEPS; i++) {
+      const t = i / CABLE_STEPS;
+      const cx_ = xTowerA + (xTowerB - xTowerA) * t;
+      // 放物線：両端=towerHeight、中央=roadHeight
+      const cH = br.towerHeight - (br.towerHeight - br.roadHeight) * 4 * t * (1 - t);
+      const cDist = dTA + (dTB - dTA) * t;
+      const cy_ = toY_cam(elevAngle(cH, cDist));
+      i===0 ? ctx.moveTo(cx_, cy_) : ctx.lineTo(cx_, cy_);
+    }
+    ctx.stroke();
+
+    // 区間③
+    const grad3 = ctx.createLinearGradient(xTowerB, 0, xAnchorB, 0);
+    grad3.addColorStop(0, 'rgba(255,100,200,0.85)');
+    grad3.addColorStop(0.5, 'rgba(180,100,255,0.85)');
+    grad3.addColorStop(1, 'rgba(100,150,255,0.85)');
+    ctx.strokeStyle = grad3;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for(let i = 0; i <= CABLE_STEPS; i++) {
+      const t = i / CABLE_STEPS;
+      const cx_ = xTowerB + (xAnchorB - xTowerB) * t;
+      // 放物線：towerB端(towerHeight)が最高点、anchorB端(roadHeight)が最低点
+      const cH = br.towerHeight - (br.towerHeight - br.roadHeight) * t * t;
+      const cDist = dTB + (dAB - dTB) * t;
+      const cy_ = toY_cam(elevAngle(cH, cDist));
+      i===0 ? ctx.moveTo(cx_, cy_) : ctx.lineTo(cx_, cy_);
+    }
+    ctx.stroke();
+
+    ctx.restore();
+  }
+}
 function detectMobile(){
   return /iPhone|iPod/i.test(navigator.userAgent)||
          (/Android/i.test(navigator.userAgent)&&window.innerWidth<=600);
@@ -2592,6 +2803,9 @@ function drawView(dist,tAz,va){
     ctx.strokeStyle='rgba(200,169,110,.4)';ctx.lineWidth=1;ctx.setLineDash([4,4]);
     ctx.beginPath();ctx.moveTo(0,horizon);ctx.lineTo(W,horizon);ctx.stroke();ctx.setLineDash([]);
   }
+
+  // 橋シルエット（PL・通天閣選択時のみ、ランドマーク・天体より奥のレイヤー）
+  drawBridges(ctx, W, H, tAz, toY_cam, f_px_H, gnoH, r, sLat, sLng, sElev);
 
   // 対象シルエット
   // tY（頂点）・bY（根本）: α_cam基準gnomonic投影
