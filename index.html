@@ -1943,17 +1943,18 @@ function calcParallax(H_deg, dec_deg, dist_km, lat_deg){
   const u=Math.atan(0.99664719*Math.tan(lat));
   const rho_sin=0.99664719*Math.sin(u);
   const rho_cos=Math.cos(u);
-  // 式40.2：時角補正
+  // 式40.2：赤経補正ΔαをMeeus式で計算
+  // numH/denH = -ρcosφ' sinπ sinH / (cosδ - ρcosφ' sinπ cosH)
   const numH=-rho_cos*sinPi*Math.sin(H);
   const denH=Math.cos(dec)-rho_cos*sinPi*Math.cos(H);
-  const dH=Math.atan2(numH,denH);
+  const dAlpha=Math.atan2(numH,denH); // = Δα（赤経補正、rad）
   // 補正後の赤緯（式40.3）
   const dec_prime=Math.atan2(
-    (Math.sin(dec)-rho_sin*sinPi)*Math.cos(dH),
+    (Math.sin(dec)-rho_sin*sinPi)*Math.cos(dAlpha),
     Math.cos(dec)-rho_cos*sinPi*Math.cos(H)
   );
-  // 補正後の時角
-  const H_prime=H+dH;
+  // 補正後の時角：H' = H - Δα（赤経が増えれば時角は減る）
+  const H_prime=H-dAlpha;
   // 地平座標に変換
   const sinAlt_prime=Math.sin(lat)*Math.sin(dec_prime)+Math.cos(lat)*Math.cos(dec_prime)*Math.cos(H_prime);
   const alt_prime=Math.asin(Math.max(-1,Math.min(1,sinAlt_prime)))/r;
