@@ -3385,8 +3385,8 @@ function drawView(dist,tAz,va){
       let drawing=false;
       for(let i=0;i<dayPts.length;i++){
         const p=dayPts[i];
-        // daz<89でtan()の±180°折り返しを防ぐ
-        const inView=p.x>-100&&p.x<W+100&&p.y>-200&&p.y<H+200&&p.daz<89;
+        // daz<89でtan()の±180°折り返しのみ防ぐ・Y範囲制限なし（地平線以下も連続して描画）
+        const inView=p.daz<89;
         if(inView){
           if(!drawing){ctx.beginPath();ctx.moveTo(p.x,p.y);drawing=true;}
           else ctx.lineTo(p.x,p.y);
