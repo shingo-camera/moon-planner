@@ -928,10 +928,11 @@ function drawBridges(ctx, W, H, tAz, toY_cam, f_px_H, gnoH, r, spotLat, spotLng,
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     }
     function elevAngle(heightM, distM) {
-      // elAng()と同条件：地球曲率補正＋大気差補正
+      // elAng()と同条件：地球曲率補正のみ（大気差は地上ランドマークに不要のため除外）
+      // 戻す場合は以下を: return altRaw + refraction(altRaw);
       const curv = distM**2 / (2 * 6371000);
       const altRaw = Math.atan2(heightM - (spotElev + curv), distM) / r;
-      return altRaw + refraction(altRaw);
+      return altRaw;
     }
     // 方位差（tAzからの相対角）→X座標
     function azToX(az) {
@@ -1933,8 +1934,10 @@ function elAng(dKm,se,te,th){
   const R=6371000; // 地球半径(m)
   const curv=(dKm*1000)**2/(2*R); // 約d²/2R
   const altRaw=Math.atan2((te+th)-(se+curv), dKm*1000)*180/Math.PI;
-  // 大気差補正を加算（月と同条件：低仰角ほど見かけ上高く見える）
-  return altRaw+refraction(altRaw);
+  // 地上ランドマークへの大気差は天文大気差（無限遠前提）とは異なり無視できるため適用しない
+  // 戻す場合は以下のコメントを外す:
+  // return altRaw+refraction(altRaw);
+  return altRaw;
 }
 function angS(hM,dKm){return Math.atan2(hM,dKm*1000)*180/Math.PI;}
 function azDiff(a,b){let d=((b-a)+360)%360;return d>180?d-360:d;}
