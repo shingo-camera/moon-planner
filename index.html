@@ -2705,7 +2705,9 @@ function drawView(dist,tAz,va){
   const toY_cam = alt => H/2 - f_px_V * Math.tan(alt * r - alpha_cam);
 
   // 地平線・頂点・根本のY座標
-  const horizon = toY_cam(0);
+  // 実際に見える地平線は大気差により幾何学的0°より低い（約-0.57°）
+  // 無限遠方向には天文大気差が効くため、refraction(0)分だけ下げる
+  const horizon = toY_cam(-refraction(0));
   // tYは定義よりtargetTopYに一致（数値確認用）
   const _tY_check = toY_cam(vaTop); // ≒ targetTopY
 
