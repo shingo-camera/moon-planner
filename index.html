@@ -3375,7 +3375,10 @@ function drawView(dist,tAz,va){
         const dt=new Date(dayStart.getTime()+m*60000);
         const bp=sunsetMode?sunPos(dt,sLat,sLng):moonPos(dt,sLat,sLng);
         const daz=Math.abs(azDiff(tAz,bp.az));
-        dayPts.push({x:cx+gnoH(azDiff(tAz,bp.az)), y:toY_cam(bp.alt), m, alt:bp.alt, daz});
+        // Y座標はH*3までclamp（tanの発散防止・地平線以下も連続描画）
+        const yRaw=toY_cam(bp.alt);
+        const y=Math.max(-H*2, Math.min(H*3, yRaw));
+        dayPts.push({x:cx+gnoH(azDiff(tAz,bp.az)), y, m, alt:bp.alt, daz});
       }
 
       // グレー軌道線
