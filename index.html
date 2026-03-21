@@ -971,6 +971,9 @@ function drawBridges(ctx, W, H, tAz, toY_cam, f_px_H, gnoH, r, spotLat, spotLng,
     const yRoad_B      = toY_cam(elevAngle(br.roadHeight,  dTB));
     const yRoad_AA     = toY_cam(elevAngle(br.roadHeight,  dAA));
     const yRoad_AB     = toY_cam(elevAngle(br.roadHeight,  dAB));
+    // 主塔の海面（高さ0m）Y座標：路面より下まで描画するため
+    const yBase_A      = toY_cam(elevAngle(0, dTA));
+    const yBase_B      = toY_cam(elevAngle(0, dTB));
 
     // 主塔幅（px）
     const towerHalfPx = Math.max(1.5, f_px_H * Math.tan((br.towerWidthM / 2 / info.towerA.dist)));
@@ -987,12 +990,12 @@ function drawBridges(ctx, W, H, tAz, toY_cam, f_px_H, gnoH, r, spotLat, spotLng,
     ctx.lineTo(xAnchorB, yRoad_AB);
     ctx.stroke();
 
-    // ── 主塔A（矩形：路面〜頂部） ──
+    // ── 主塔A（矩形：海面〜頂部） ──
     ctx.fillStyle = 'rgba(255,255,255,0.75)';
-    ctx.fillRect(xTowerA - towerHalfPx, yTowerTop_A, towerHalfPx*2, yRoad_A - yTowerTop_A);
+    ctx.fillRect(xTowerA - towerHalfPx, yTowerTop_A, towerHalfPx*2, yBase_A - yTowerTop_A);
 
     // ── 主塔B ──
-    ctx.fillRect(xTowerB - towerHalfPx, yTowerTop_B, towerHalfPx*2, yRoad_B - yTowerTop_B);
+    ctx.fillRect(xTowerB - towerHalfPx, yTowerTop_B, towerHalfPx*2, yBase_B - yTowerTop_B);
 
     // ── ハンガーロープ（中央支間） ──
     ctx.strokeStyle = 'rgba(255,255,255,0.35)';
@@ -3383,7 +3386,7 @@ function drawView(dist,tAz,va){
       for(let i=0;i<dayPts.length;i++){
         const p=dayPts[i];
         // daz<89でtan()の±180°折り返しを防ぐ
-        const inView=p.x>-100&&p.x<W+100&&p.y>-100&&p.y<H+100&&p.alt>-3&&p.daz<89;
+        const inView=p.x>-100&&p.x<W+100&&p.y>-200&&p.y<H+200&&p.daz<89;
         if(inView){
           if(!drawing){ctx.beginPath();ctx.moveTo(p.x,p.y);drawing=true;}
           else ctx.lineTo(p.x,p.y);
