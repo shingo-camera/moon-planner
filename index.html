@@ -3463,7 +3463,7 @@ function drawView(dist,tAz,va){
       for(let m=0;m<=1440;m+=dayLabelInterval){
         const idx=Math.round(m/dayStep);
         const p=dayPts[idx];
-        if(!p||p.alt<0||p.daz>=89)continue;
+        if(!p||p.daz>=89)continue;
         const diffMin=m-nowMinutes;
         const isPast=diffMin<0;
         const isNear=Math.abs(diffMin)<=maxMinutes;
