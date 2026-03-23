@@ -1996,13 +1996,15 @@ function calcParallax(H_deg, dec_deg, dist_km, lat_deg){
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function refraction(altDeg){
   // Saemundsson(1986)式：低仰角・地平線付近で従来のBennett式より精密
+  // 設計範囲：真仰角 > -0.7217°（見かけ仰角0°になる真仰角が境界）
+  // 境界以下では固定値0.7217°を返す（軌道線の急変を防ぐ）
+  // 戻す場合: HORIZON_BOUNDARY条件を削除し、旧来の-2.0カットオフと-1.5線形減衰を復元
   if(altDeg > 85) return 0;
-  if(altDeg < -2.0) return 0;
+  const HORIZON_BOUNDARY = -0.7217; // 見かけ仰角0°になる真仰角
+  const REF_AT_BOUNDARY  =  0.7217; // その時の大気差（固定値）
+  if(altDeg <= HORIZON_BOUNDARY) return REF_AT_BOUNDARY;
   const a = altDeg + 7.31/(altDeg + 4.4);
-  const r = Math.max(0, 1.0/(Math.tan(a*Math.PI/180)*60 + 0.06));
-  // -1.5°〜-2.0°で線形フェードアウト（不連続防止）
-  if(altDeg < -1.5) return r * (altDeg + 2.0) / 0.5;
-  return r;
+  return Math.max(0, 1.0/(Math.tan(a*Math.PI/180)*60 + 0.06));
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
