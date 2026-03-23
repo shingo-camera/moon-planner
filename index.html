@@ -928,11 +928,12 @@ function drawBridges(ctx, W, H, tAz, toY_cam, f_px_H, gnoH, r, spotLat, spotLng,
       return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     }
     function elevAngle(heightM, distM) {
-      // elAng()と同条件：地球曲率補正のみ（大気差は地上ランドマークに不要のため除外）
-      // 戻す場合は以下を: return altRaw + refraction(altRaw);
-      const curv = distM**2 / (2 * 6371000);
+      // elAng()と同条件：地球曲率補正＋地上大気差（k=0.13）
+      const R = 6371000, k = 0.13;
+      const curv = distM**2 / (2 * R);
       const altRaw = Math.atan2(heightM - (spotElev + curv), distM) / r;
-      return altRaw;
+      const terrRefr = Math.atan2(k*distM*distM/(2*R), distM) / r;
+      return altRaw + terrRefr;
     }
     // 方位差（tAzからの相対角）→X座標
     function azToX(az) {
@@ -1937,10 +1938,11 @@ function elAng(dKm,se,te,th){
   const R=6371000; // 地球半径(m)
   const curv=(dKm*1000)**2/(2*R); // 約d²/2R
   const altRaw=Math.atan2((te+th)-(se+curv), dKm*1000)*180/Math.PI;
-  // 地上ランドマークへの大気差は天文大気差（無限遠前提）とは異なり無視できるため適用しない
-  // 戻す場合は以下のコメントを外す:
-  // return altRaw+refraction(altRaw);
-  return altRaw;
+  // 地上大気差（terrestrial refraction）: k*d²/2R をatan2で仰角に換算
+  // k=0.13（標準大気での屈折係数）、天文大気差とは別物
+  const k=0.13, d=dKm*1000;
+  const terrRefr=Math.atan2(k*d*d/(2*R), d)*180/Math.PI;
+  return altRaw+terrRefr;
 }
 function angS(hM,dKm){return Math.atan2(hM,dKm*1000)*180/Math.PI;}
 function azDiff(a,b){let d=((b-a)+360)%360;return d>180?d-360:d;}
@@ -1995,16 +1997,17 @@ function calcParallax(H_deg, dec_deg, dist_km, lat_deg){
 // 大気差補正（標準大気：気温10℃、気圧1013hPa）
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function refraction(altDeg){
-  // Saemundsson(1986)式：低仰角・地平線付近で従来のBennett式より精密
-  // 設計範囲：真仰角 > -0.7217°（見かけ仰角0°になる真仰角が境界）
-  // 境界以下では固定値0.7217°を返す（軌道線の急変を防ぐ）
-  // 戻す場合: HORIZON_BOUNDARY条件を削除し、旧来の-2.0カットオフと-1.5線形減衰を復元
+  // Saemundsson(1986)式（正式）：真仰角を入力、Bennett式より精密（±0.015arcmin）
+  // 係数: 10.3/(h+5.11)、1.02倍 ← Bennett式の7.31/(h+4.4)・1.0倍とは異なる
+  // 設計範囲：真仰角 > -0.5739°（見かけ仰角0°になる真仰角が境界）
+  // 境界以下では固定値0.5739°を返す（軌道線の急変を防ぐ）
+  // 戻す場合: HORIZON_BOUNDARY条件を削除し Bennett式（7.31/(h+4.4)、係数1.0）を復元
   if(altDeg > 85) return 0;
-  const HORIZON_BOUNDARY = -0.7217; // 見かけ仰角0°になる真仰角
-  const REF_AT_BOUNDARY  =  0.7217; // その時の大気差（固定値）
+  const HORIZON_BOUNDARY = -0.5739; // 見かけ仰角0°になる真仰角（Saemundsson式）
+  const REF_AT_BOUNDARY  =  0.5739; // その時の大気差（固定値）
   if(altDeg <= HORIZON_BOUNDARY) return REF_AT_BOUNDARY;
-  const a = altDeg + 7.31/(altDeg + 4.4);
-  return Math.max(0, 1.0/(Math.tan(a*Math.PI/180)*60 + 0.06));
+  const a = altDeg + 10.3/(altDeg + 5.11);
+  return Math.max(0, 1.02/(Math.tan(a*Math.PI/180)*60));
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2710,9 +2713,11 @@ function drawView(dist,tAz,va){
   const toY_cam = alt => H/2 - f_px_V * Math.tan(alt * r - alpha_cam);
 
   // 地平線・頂点・根本のY座標
-  // 実際に見える地平線は大気差により幾何学的0°より低い（約-0.57°）
-  // 無限遠方向には天文大気差が効くため、refraction(0)分だけ下げる
-  const horizon = toY_cam(-refraction(0));
+  // 地平線のDip角（観測者標高に依存）: dip(°) = -1.76*√h(m)/60
+  // 航海学のDip補正式：地球曲率と地上大気差（k≈0.13）を含む
+  // 標高0mではdip=0°（地面と同じ高さ）、高いほど地平線が下に沈む
+  const horizonDipDeg = sElev > 0 ? -1.76 * Math.sqrt(sElev) / 60 : 0;
+  const horizon = toY_cam(horizonDipDeg);
   // tYは定義よりtargetTopYに一致（数値確認用）
   const _tY_check = toY_cam(vaTop); // ≒ targetTopY
 
