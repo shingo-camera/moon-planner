@@ -812,7 +812,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
     <span onclick="setNow();updatePinPanelDatetime();" style="font-family:'Space Mono',monospace;font-size:10px;font-weight:700;color:var(--ac);border:1px solid var(--ac);border-radius:3px;padding:2px 7px;cursor:pointer;">NOW</span>
   </div>
   <div style="padding:10px 16px;border-bottom:1px solid var(--bd);flex-shrink:0;">
-    <button id="btn-pin-bulk" onclick="runPinBulkSearch()" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;">📅 登録地点90日一括ピンポイント検索(30m以内)</button>
+    <button id="btn-pin-bulk" onclick="runPinBulkSearch()" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;">📅 登録地点365日一括ピンポイント検索(30m以内)</button>
   </div>
   <div id="pin-list" style="overflow-y:auto;flex:1;padding:8px 16px;"></div>
 </div>
@@ -4927,7 +4927,7 @@ function closePinPanel(){
 
 // ━━ 登録地点 一括チャンス検索 ━━
 function searchPinChances(pin){
-  // 1件の登録地点に対して月・太陽両モードで90日検索、30m以内の結果を返す
+  // 1件の登録地点に対して月・太陽両モードで365日検索、30m以内の結果を返す
   const t=T[pin.targetKey];
   if(!t) return [];
   const pLat=pin.lat, pLng=pin.lng, pElev=pin.elev;
@@ -4937,8 +4937,9 @@ function searchPinChances(pin){
   const topAlt=elAng(distH,pElev,t.elev,t.h);
   const baseAlt=elAng(distH,pElev,t.elev,0);
   const targetAngDiam=Math.atan2(t.h,distM)*180/Math.PI;
-  const AZ_THR=2.5;
   const MOVE_THR=30; // 30m以内のみ
+  // 距離によらず横移動30m以内になる方位角閾値を逆算
+  const AZ_THR=Math.atan2(MOVE_THR, distM)*180/Math.PI;
   const STEP=60*1000;
   const MOON_R=0.265;
   const today=new Date(document.getElementById('idate').value+'T00:00:00+09:00');
@@ -4946,7 +4947,7 @@ function searchPinChances(pin){
 
   // 月・太陽の両モードを検索
   for(const isSun of [false,true]){
-    for(let d=0;d<90;d++){
+    for(let d=0;d<365;d++){
       const base=new Date(today.getTime()+d*86400000);
       const ds=base.toLocaleDateString('sv-SE',{timeZone:'Asia/Tokyo'});
       const dayStart=new Date(ds+'T00:00:00+09:00');
@@ -5154,7 +5155,7 @@ async function runPinBulkSearch(){
     },20));
   }
 
-  if(btn) btn.textContent='📅 登録地点90日一括ピンポイント検索(30m以内)';
+  if(btn) btn.textContent='📅 登録地点365日一括ピンポイント検索(30m以内)';
 }
 
 function renamePinAt(idx){
