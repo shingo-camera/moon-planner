@@ -586,7 +586,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
     </div>
     <div>
       <div class="sec">06 チャンス一覧</div>
-      <button id="btn-chance" onclick="calcChances()" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;margin-bottom:4px;">📅 選択日から90日を検索</button>
+      <button id="btn-chance" onclick="calcChances()" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;margin-bottom:4px;">📅 チャンス検索（365日）</button>
       <div id="chance-list" style="color:var(--tx);"></div>
       <button id="btn-fullmoon" onclick="calcFullMoonChances()" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;margin-top:6px;margin-bottom:4px;">🌕 満月チャンス（1年）を検索</button>
       <div id="fullmoon-list" style="color:var(--tx);"></div>
@@ -4320,7 +4320,7 @@ function setSunsetMode(v){
   _all('lb-sunset').forEach(el=>{el.style.color=v?'var(--ac)':'var(--sub)';});
   const pvLabel=document.getElementById('pv-label-text');
   if(pvLabel)pvLabel.textContent=v?'◎ プレビュー（対象 + 太陽）':'◎ プレビュー（対象 + 月）';
-  _all('btn-chance').forEach(el=>{el.textContent=v?'📅 選択日から90日を検索（太陽）':'📅 選択日から90日を検索';});
+  _all('btn-chance').forEach(el=>{el.textContent=v?'📅 チャンス検索（365日）（太陽）':'📅 チャンス検索（365日）';});
   _all('btn-fullmoon').forEach(el=>{el.style.display=v?'none':'';});
   _all('btn-mooncal').forEach(el=>{el.style.display=v?'none':'';});
   // 満月リストをクリア（太陽モード時）
@@ -5693,11 +5693,7 @@ function calcChances(){
     const distM=distH*1000; // 撮影地点〜対象の水平距離(m)
     const baseAlt=elAng(distH,sElev,t.elev,0); // 根元仰角
 
-    for(let d=0;d<90;d++){
-      const base=new Date(today.getTime()+d*86400000);
-      const ds=base.toLocaleDateString('sv-SE',{timeZone:'Asia/Tokyo'});
-      const dayStart=new Date(ds+'T00:00:00+09:00');
-      // 月モード：輝面比1%未満（新月・月齢約0.9日以下）はスキップ
+    for(let d=0;d<365;d++){
       if(!sunsetMode){
         const age=moonAge(new Date(ds+'T03:00:00Z'));
         const illum=(1-Math.cos(2*Math.PI*age/29.53058867))/2;
@@ -5746,10 +5742,10 @@ function calcChances(){
       }
     }
 
-    btns.forEach(b=>{b.textContent=sunsetMode?"📅 選択日から90日を検索（太陽）":"📅 選択日から90日を検索";});
+    btns.forEach(b=>{b.textContent=sunsetMode?"📅 チャンス検索（365日）（太陽）":"📅 チャンス検索（365日）";});
 
     if(results.length===0){
-      lists.forEach(l=>{l.textContent="今後90日以内に条件を満たす日はありません。（方位角±"+AZ_THR+"°）";});
+      lists.forEach(l=>{l.textContent="今後365日以内に条件を満たす日はありません。（方位角±"+AZ_THR+"°）";});
       updateDrawerIfOpen();
       return;
     }
