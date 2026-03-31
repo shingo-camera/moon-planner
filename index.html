@@ -5669,14 +5669,14 @@ function renderFullMoonList(targetList){
 
 function calcChances(){
   if(sLat===null){
-    document.getElementById('chance-list').textContent='先に撮影地点を選択してください。';
+    document.querySelectorAll('[id="chance-list"]').forEach(el=>{el.textContent='先に撮影地点を選択してください。';});
     updateDrawerIfOpen();
     return;
   }
-  const btn=document.getElementById('btn-chance');
-  const list=document.getElementById('chance-list');
-  btn.textContent='⏳ 計算中…';
-  list.textContent='';
+  const btns=document.querySelectorAll('[id="btn-chance"]');
+  const lists=document.querySelectorAll('[id="chance-list"]');
+  btns.forEach(b=>{b.textContent='⏳ 計算中…';});
+  lists.forEach(l=>{l.textContent='';});
 
   setTimeout(()=>{
     const t=T[cur];
@@ -5746,10 +5746,10 @@ function calcChances(){
       }
     }
 
-    btn.textContent=sunsetMode?"📅 選択日から90日を検索（太陽）":"📅 選択日から90日を検索";
+    btns.forEach(b=>{b.textContent=sunsetMode?"📅 選択日から90日を検索（太陽）":"📅 選択日から90日を検索";});
 
     if(results.length===0){
-      list.textContent="今後90日以内に条件を満たす日はありません。（方位角±"+AZ_THR+"°）";
+      lists.forEach(l=>{l.textContent="今後90日以内に条件を満たす日はありません。（方位角±"+AZ_THR+"°）";});
       updateDrawerIfOpen();
       return;
     }
@@ -5777,14 +5777,14 @@ function calcChances(){
 
 function calcFullMoonChances(){
   if(sLat===null){
-    document.getElementById('fullmoon-list').textContent='先に撮影地点を選択してください。';
+    document.querySelectorAll('[id="fullmoon-list"]').forEach(el=>{el.textContent='先に撮影地点を選択してください。';});
     updateDrawerIfOpen();
     return;
   }
-  const btn=document.getElementById('btn-fullmoon');
-  const list=document.getElementById('fullmoon-list');
-  btn.textContent='⏳ 計算中…';
-  list.innerHTML='';
+  const btns=document.querySelectorAll('[id="btn-fullmoon"]');
+  const lists=document.querySelectorAll('[id="fullmoon-list"]');
+  btns.forEach(b=>{b.textContent='⏳ 計算中…';});
+  lists.forEach(l=>{l.innerHTML='';});
 
   setTimeout(()=>{
     const t=T[cur];
@@ -5833,10 +5833,10 @@ function calcFullMoonChances(){
       }
     }
 
-    btn.textContent='🌕 満月チャンス（1年）を検索';
+    btns.forEach(b=>{b.textContent='🌕 満月チャンス（1年）を検索';});
 
     if(results.length===0){
-      list.innerHTML='<div style="color:var(--sub);padding:4px 0;">今後1年間に条件を満たす満月チャンスはありません。<br>（方位角±'+AZ_THR+'°、仰角0°〜'+topAlt.toFixed(1)+'°）</div>';
+      lists.forEach(l=>{l.innerHTML='<div style="color:var(--sub);padding:4px 0;">今後1年間に条件を満たす満月チャンスはありません。<br>（方位角±'+AZ_THR+'°、仰角0°〜'+topAlt.toFixed(1)+'°）</div>';});
       updateDrawerIfOpen();
       return;
     }
