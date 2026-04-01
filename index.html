@@ -2566,23 +2566,8 @@ function drawView(dist,tAz,va){
   const cx=W/2;
 
   // 背景（オフセット前に描画）
-  if(sunsetMode){
-    // 夕日モード：太陽仰角に応じた夕焼けグラデーション
-    let sunAltForBg=5;
-    const _ds=document.getElementById('idate').value;
-    const _ts=document.getElementById('itime').value;
-    if(_ds&&_ts&&sLat!==null){
-      try{sunAltForBg=sunPos(new Date(`${_ds}T${_ts}:00+09:00`),sLat,sLng).alt;}catch(e){}
-    }
-    // t=0(仰角-2°以下)→1(仰角10°以上)
-    const bt=Math.max(0,Math.min(1,(sunAltForBg+2)/12));
-    const sky=ctx.createLinearGradient(0,0,0,H);
-    sky.addColorStop(0,`rgb(${Math.round(5+bt*20)},${Math.round(10+bt*40)},${Math.round(30+bt*90)})`);
-    sky.addColorStop(0.55,`rgb(${Math.round(120-bt*50)},${Math.round(40+bt*60)},${Math.round(15+bt*80)})`);
-    sky.addColorStop(1,`rgb(${Math.round(180-bt*80)},${Math.round(60+bt*80)},${Math.round(20+bt*120)})`);
-    ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);
-  } else {
-    // 月モード：太陽仰角に応じた空の色
+  {
+    // 月・太陽共通：太陽仰角に応じた空の色
     let _sunAlt=-18;
     const _ds2=document.getElementById('idate').value;
     const _ts2=document.getElementById('itime').value;
@@ -2640,8 +2625,8 @@ function drawView(dist,tAz,va){
     ctx._skyBrightness=skyBrightness;
     ctx._sunAltForSky=_sunAlt;
   }
-  // 月モードの明るさレベル（sunsetModeは常に夜想定、月モードのみ変化）
-  const skyBrightness = sunsetMode ? 0 : (ctx._skyBrightness||0);
+  // 明るさレベル（両モード共通）
+  const skyBrightness = ctx._skyBrightness||0;
   // ラベル縁取り色：暗い空→黒縁、明るい空→白縁
   const lblStroke = skyBrightness<0.3
     ? 'rgba(4,6,14,0.95)'
