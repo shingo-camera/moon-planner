@@ -586,9 +586,15 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
     </div>
     <div>
       <div class="sec">06 チャンス一覧</div>
-      <button id="btn-chance" onclick="calcChances()" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;margin-bottom:4px;">📅 チャンス検索（365日）</button>
+      <div style="display:flex;gap:3px;align-items:stretch;margin-bottom:4px;">
+        <button id="btn-chance" onclick="calcChances()" style="flex:1;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;">📅 チャンス検索（365日）</button>
+        <button onclick="clearChanceList()" title="結果をクリア" style="background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--sub);font-family:'Space Mono',monospace;font-size:10px;padding:2px 6px;cursor:pointer;">✕</button>
+      </div>
       <div id="chance-list" style="color:var(--tx);"></div>
-      <button id="btn-fullmoon" onclick="calcFullMoonChances()" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;margin-top:6px;margin-bottom:4px;">🌕 満月チャンス（1年）を検索</button>
+      <div style="display:flex;gap:3px;align-items:stretch;margin-top:6px;margin-bottom:4px;">
+        <button id="btn-fullmoon" onclick="calcFullMoonChances()" style="flex:1;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;">🌕 満月チャンス（1年）を検索</button>
+        <button onclick="clearFullMoonList()" title="結果をクリア" style="background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--sub);font-family:'Space Mono',monospace;font-size:10px;padding:2px 6px;cursor:pointer;">✕</button>
+      </div>
       <div id="fullmoon-list" style="color:var(--tx);"></div>
       <button id="btn-mooncal" onclick="openMoonCal()" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;margin-top:6px;">🌙 満ち欠けカレンダー</button>
       <button onclick="window.open('./guide.html','_blank')" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--sub);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;margin-top:16px;">📖 操作ガイド</button>
@@ -811,8 +817,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
     <span id="pin-panel-datetime" style="font-family:'Space Mono',monospace;font-size:11px;font-weight:700;color:var(--tx);">—</span>
     <span onclick="setNow();updatePinPanelDatetime();" style="font-family:'Space Mono',monospace;font-size:10px;font-weight:700;color:var(--ac);border:1px solid var(--ac);border-radius:3px;padding:2px 7px;cursor:pointer;">NOW</span>
   </div>
-  <div style="padding:10px 16px;border-bottom:1px solid var(--bd);flex-shrink:0;">
-    <button id="btn-pin-bulk" onclick="runPinBulkSearch()" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;">📅 登録地点365日一括ピンポイント検索(30m以内)</button>
+  <div style="padding:10px 16px;border-bottom:1px solid var(--bd);flex-shrink:0;display:flex;gap:3px;align-items:stretch;">
+    <button id="btn-pin-bulk" onclick="runPinBulkSearch()" style="flex:1;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;">📅 登録地点365日一括ピンポイント検索(30m以内)</button>
+    <button onclick="clearPinBulkResults()" title="結果をクリア" style="background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--sub);font-family:'Space Mono',monospace;font-size:10px;padding:2px 6px;cursor:pointer;">✕</button>
   </div>
   <div id="pin-list" style="overflow-y:auto;flex:1;padding:8px 16px;"></div>
 </div>
@@ -5877,6 +5884,18 @@ function calcFullMoonChances(){
       });
     }
   },20);
+}
+
+function clearChanceList(){
+  document.querySelectorAll('[id="chance-list"]').forEach(el=>{el.innerHTML='';});
+}
+function clearFullMoonList(){
+  document.querySelectorAll('[id="fullmoon-list"]').forEach(el=>{el.innerHTML='';});
+}
+function clearPinBulkResults(){
+  _pinBulkResults={};
+  // pin-result-*コンテナの中身だけクリア（行構造は維持）
+  document.querySelectorAll('[id^="pin-result-"]').forEach(el=>{el.innerHTML='';});
 }
 
 function setChance(ds,ts,snapLat,snapLng,snapElev){
