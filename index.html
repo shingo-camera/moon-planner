@@ -801,6 +801,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
       <span id="mob-drawer-weather" style="font-family:'Space Mono',monospace;font-size:9px;color:var(--sub);letter-spacing:.04em;margin-top:2px;"></span>
     </div>
     <div style="display:flex;align-items:center;gap:6px;">
+      <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+        <input type="checkbox" id="mob-hdr-cb-sunset" onchange="setSunsetMode(this.checked)"
+          style="width:20px;height:20px;accent-color:#c8a96e;cursor:pointer;flex-shrink:0;">
+        <span id="mob-hdr-lb-sunset" style="font-family:'Space Mono',monospace;font-size:10px;color:var(--sub);cursor:pointer;">太陽</span>
+      </label>
       <span onclick="setNow()" style="font-family:'Space Mono',monospace;font-size:10px;font-weight:700;color:var(--ac);border:1px solid var(--ac);border-radius:3px;padding:3px 7px;cursor:pointer;">NOW</span>
       <div onclick="toggleDrawer()" style="cursor:pointer;font-size:18px;color:var(--sub);padding:4px 8px;">✕</div>
     </div>
@@ -4317,6 +4322,10 @@ function setSunsetMode(v){
   const _all=id=>[document.getElementById(id), document.querySelector('#mob-drawer-content #'+id)].filter(Boolean);
   _all('cb-sunset').forEach(el=>{el.checked=v;});
   _all('lb-sunset').forEach(el=>{el.style.color=v?'var(--ac)':'var(--sub)';});
+  const hdrCb=document.getElementById('mob-hdr-cb-sunset');
+  const hdrLb=document.getElementById('mob-hdr-lb-sunset');
+  if(hdrCb) hdrCb.checked=v;
+  if(hdrLb) hdrLb.style.color=v?'var(--ac)':'var(--sub)';
   const pvLabel=document.getElementById('pv-label-text');
   if(pvLabel)pvLabel.textContent=v?'◎ プレビュー（対象 + 太陽）':'◎ プレビュー（対象 + 月）';
   _all('btn-chance').forEach(el=>{el.textContent=v?'📅 チャンス検索（365日）（太陽）':'📅 チャンス検索（365日）';});
@@ -4526,6 +4535,9 @@ function _syncDrawerContent(){
   const src=document.getElementById('pnl');
   dst.innerHTML=src.innerHTML;
   _mirrorValues(src, dst);
+  // ドロワー内にコピーされたcb-sunsetの行はヘッダーに移動済みのため非表示
+  const dstCbSunset=dst.querySelector('#cb-sunset');
+  if(dstCbSunset&&dstCbSunset.parentElement) dstCbSunset.parentElement.style.display='none';
   // chance-list/fullmoon-listをドロワー側に描画（innerHTML全体コピーでonclick/canvasが失われるため）
   const dstChance=dst.querySelector('#chance-list');
   const dstFull=dst.querySelector('#fullmoon-list');
