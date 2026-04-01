@@ -1903,7 +1903,9 @@ async function onPick(){
 function updateElevDisplay(){
   const el=document.getElementById('i-e');
   if(!el)return;
-  el.innerHTML=`${sElevGround.toFixed(0)}<span class="u">m</span>`;
+  const base=`${sElevGround.toFixed(0)}<span class="u">m</span>`;
+  const ofs=elevOffset!==0?` <span style="font-size:8px;color:${elevOffset>0?'var(--ac)':'#f88'};">${elevOffset>0?'+':''}${elevOffset}m</span>`:'';
+  el.innerHTML=base+ofs;
 }
 
 function shiftElevOffset(v,reset=false){
