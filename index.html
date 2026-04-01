@@ -1142,6 +1142,7 @@ let sunsetMode=false; // 夕日モード（PLのみ）
 // ━━ チャンス検索結果（グローバル保持）━━
 let _chanceResults=[], _chanceCtx=null;    // チャンス検索
 let _fullMoonResults=[], _fullMoonCtx=null; // 満月チャンス
+let _pinBulkResults={}; // 一括ピンポイント結果 {origIdx: results[]}
 
 // ━━ 登録地点 ━━
 const PIN_STORAGE_KEY='moonLandmarkPins_v1';
@@ -5129,6 +5130,9 @@ async function runPinBulkSearch(){
   const btn=document.getElementById('btn-pin-bulk');
   if(btn) btn.textContent='⏳ 検索中...';
 
+  // 検索前にグローバル結果をクリア
+  _pinBulkResults={};
+
   // renderPinListで生成された各行のcontainerを取得するため再描画
   renderPinList();
 
@@ -5138,6 +5142,8 @@ async function runPinBulkSearch(){
     const pin=pins[i];
     await new Promise(resolve=>setTimeout(()=>{
       const results=searchPinChances(pin);
+      // グローバルに保存（パネル再表示時に復元用）
+      _pinBulkResults[pin._origIdx]={pin, results};
       // この地点のcontainerを探す
       const container=document.getElementById(`pin-result-${pin._origIdx}`);
       if(container) renderPinChanceRows(pin,results,container);
@@ -5287,6 +5293,12 @@ function renderPinList(){
     resultContainer.id=`pin-result-${pin._origIdx}`;
     resultContainer.style.cssText='border-bottom:1px solid var(--bd);margin-bottom:2px;';
     list.appendChild(resultContainer);
+
+    // 保存済み結果があれば復元して表示
+    if(_pinBulkResults[pin._origIdx]){
+      const saved=_pinBulkResults[pin._origIdx];
+      renderPinChanceRows(saved.pin, saved.results, resultContainer);
+    }
   });
 }
 
@@ -5558,8 +5570,7 @@ function renderChanceList(targetList){
     const item=document.createElement('div');
     item.className='chance-item';
     item.title='クリックで日時をセット';
-    item.onclick=()=>setChance(r.date,r.time);
-    if(!sunsetMode){
+    item.onclick=()=>setChance(r.date,r.time,r.snapLat,r.snapLng,r.snapElev);
       const cv=document.createElement('canvas');
       cv.width=20;cv.height=20;
       cv.dataset.moonAge=r.age;
@@ -5635,7 +5646,7 @@ function renderFullMoonList(targetList){
     const item=document.createElement('div');
     item.className='chance-item';
     item.title='クリックで日時をセット';
-    item.onclick=()=>setChance(r.date,r.time);
+    item.onclick=()=>setChance(r.date,r.time,r.snapLat,r.snapLng,r.snapElev);
     const cv=document.createElement('canvas');
     cv.width=20;cv.height=20;
     cv.dataset.moonAge=r.age;
@@ -5681,9 +5692,10 @@ function calcChances(){
 
   setTimeout(()=>{
     const t=T[cur];
-    const tAz=brng(sLat,sLng,t.lat,t.lng);
-    const distH=hav(sLat,sLng,t.lat,t.lng);
-    const topAlt=elAng(distH,sElev,t.elev,t.h); // 対象頂点の仰角
+    const snapLat=sLat, snapLng=sLng, snapElev=sElev; // 検索時の撮影地点を保存
+    const tAz=brng(snapLat,snapLng,t.lat,t.lng);
+    const distH=hav(snapLat,snapLng,t.lat,t.lng);
+    const topAlt=elAng(distH,snapElev,t.elev,t.h); // 対象頂点の仰角
     // 対象の見かけ角度（飲み込み判定用）
     const targetAngDiam=Math.atan2(t.h, distH*1000)*180/Math.PI;
     const results=[];
@@ -5692,7 +5704,7 @@ function calcChances(){
     const STEP=60*1000; // 1分刻み
     const MOON_R=0.265; // 月/太陽の半径(°)
     const distM=distH*1000; // 撮影地点〜対象の水平距離(m)
-    const baseAlt=elAng(distH,sElev,t.elev,0); // 根元仰角
+    const baseAlt=elAng(distH,snapElev,t.elev,0); // 根元仰角
 
     for(let d=0;d<365;d++){
       const base=new Date(today.getTime()+d*86400000);
@@ -5716,7 +5728,7 @@ function calcChances(){
 
       for(let i=0;i<=1440;i++){
         const dt=new Date(dayStart.getTime()+i*STEP);
-        const bp=sunsetMode?sunPos(dt,sLat,sLng):moonPos(dt,sLat,sLng);
+        const bp=sunsetMode?sunPos(dt,snapLat,snapLng):moonPos(dt,snapLat,snapLng);
         const azD=Math.abs(((bp.az-tAz+180)%360)-180);
         const inAlt=bp.alt>=(baseAlt-MOON_R) && bp.alt<=(topAlt+MOON_R);
         // 太陽モード：日の出後30分または日没前30分の範囲のみ
@@ -5734,7 +5746,8 @@ function calcChances(){
           if(found){
             const age=sunsetMode?null:moonAge(new Date(ds+'T03:00:00Z'));
             results.push({date:ds,time:jst(found.dt),azDiff:found.azDiff,
-              alt:found.alt,baseAlt,topAlt,distM,age,ts:found.dt,angDiam:found.angDiam});
+              alt:found.alt,baseAlt,topAlt,distM,age,ts:found.dt,angDiam:found.angDiam,
+              snapLat,snapLng,snapElev});
             found=null;
           }
         }
@@ -5742,7 +5755,8 @@ function calcChances(){
       if(found){
         const age=sunsetMode?null:moonAge(new Date(ds+'T03:00:00Z'));
         results.push({date:ds,time:jst(found.dt),azDiff:found.azDiff,
-          alt:found.alt,baseAlt,topAlt,distM,age,ts:found.dt,angDiam:found.angDiam});
+          alt:found.alt,baseAlt,topAlt,distM,age,ts:found.dt,angDiam:found.angDiam,
+          snapLat,snapLng,snapElev});
       }
     }
 
@@ -5788,10 +5802,11 @@ function calcFullMoonChances(){
 
   setTimeout(()=>{
     const t=T[cur];
-    const tAz=brng(sLat,sLng,t.lat,t.lng);
-    const distH=hav(sLat,sLng,t.lat,t.lng);
-    const topAlt=elAng(distH,sElev,t.elev,t.h);
-    const baseAlt=elAng(distH,sElev,t.elev,0);
+    const snapLat=sLat, snapLng=sLng, snapElev=sElev; // 検索時の撮影地点を保存
+    const tAz=brng(snapLat,snapLng,t.lat,t.lng);
+    const distH=hav(snapLat,snapLng,t.lat,t.lng);
+    const topAlt=elAng(distH,snapElev,t.elev,t.h);
+    const baseAlt=elAng(distH,snapElev,t.elev,0);
     const targetAngDiam=Math.atan2(t.h, distH*1000)*180/Math.PI;
     const AZ_THR=2.5;
     const STEP=60*1000; // 1分刻み
@@ -5814,7 +5829,7 @@ function calcFullMoonChances(){
       let found=null;
       for(let i=0;i<=1440;i++){
         const dt=new Date(dayStart.getTime()+i*STEP);
-        const mp=moonPos(dt,sLat,sLng);
+        const mp=moonPos(dt,snapLat,snapLng);
         const azD=Math.abs(((mp.az-tAz+180)%360)-180);
         if(azD<=AZ_THR&&mp.alt>=(baseAlt-MOON_R)&&mp.alt<=(topAlt+MOON_R)){
           if(!found) found={dt,az:mp.az,alt:mp.alt,azDiff:azD,angDiam:mp.angDiam||0.53};
@@ -5822,14 +5837,14 @@ function calcFullMoonChances(){
         } else {
           if(found){
             const age=moonAge(new Date(ds+'T03:00:00Z'));
-            results.push({date:ds,time:jst(found.dt),azDiff:found.azDiff,alt:found.alt,topAlt,baseAlt,distM:distH*1000,age,ts:found.dt,angDiam:found.angDiam});
+            results.push({date:ds,time:jst(found.dt),azDiff:found.azDiff,alt:found.alt,topAlt,baseAlt,distM:distH*1000,age,ts:found.dt,angDiam:found.angDiam,snapLat,snapLng,snapElev});
             found=null;
           }
         }
       }
       if(found){
         const age=moonAge(new Date(ds+'T03:00:00Z'));
-        results.push({date:ds,time:jst(found.dt),azDiff:found.azDiff,alt:found.alt,topAlt,baseAlt,distM:distH*1000,age,ts:found.dt,angDiam:found.angDiam});
+        results.push({date:ds,time:jst(found.dt),azDiff:found.azDiff,alt:found.alt,topAlt,baseAlt,distM:distH*1000,age,ts:found.dt,angDiam:found.angDiam,snapLat,snapLng,snapElev});
       }
     }
 
@@ -5863,7 +5878,13 @@ function calcFullMoonChances(){
   },20);
 }
 
-function setChance(ds,ts){
+function setChance(ds,ts,snapLat,snapLng,snapElev){
+  // 撮影地点が渡された場合は地点もセットしてonPickまで呼ぶ
+  if(snapLat!=null&&snapLng!=null){
+    sLat=snapLat; sLng=snapLng;
+    if(snapElev!=null) sElev=snapElev;
+    if(map) map.setView([sLat,sLng],map.getZoom());
+  }
   document.getElementById('idate').value=ds;
   document.getElementById('idate').dispatchEvent(new Event('change'));
   const itime=document.getElementById('itime');
@@ -5874,6 +5895,8 @@ function setChance(ds,ts){
   itime.dispatchEvent(new Event('change'));
   updateDrawerIfOpen();
   triggerWeatherFetch();
+  // 地点が変わった場合はonPickで標高取得・マーカー更新
+  if(snapLat!=null&&snapLng!=null) onPick();
 }
 
 function shiftPvOfs(dAz, dAlt){
