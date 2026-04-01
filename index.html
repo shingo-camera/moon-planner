@@ -5571,6 +5571,7 @@ function renderChanceList(targetList){
     item.className='chance-item';
     item.title='クリックで日時をセット';
     item.onclick=()=>setChance(r.date,r.time,r.snapLat,r.snapLng,r.snapElev);
+    if(!sunsetMode){
       const cv=document.createElement('canvas');
       cv.width=20;cv.height=20;
       cv.dataset.moonAge=r.age;
