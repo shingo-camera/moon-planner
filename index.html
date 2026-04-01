@@ -596,7 +596,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
         <button onclick="clearPinpointChanceList()" title="結果をクリア" style="background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--sub);font-family:'Space Mono',monospace;font-size:10px;padding:2px 6px;cursor:pointer;">✕</button>
       </div>
       <div id="pinpoint-chance-list" style="color:var(--tx);"></div>
-      <div style="display:flex;gap:3px;align-items:stretch;margin-top:6px;margin-bottom:4px;">
+      <div id="div-fullmoon" style="display:flex;gap:3px;align-items:stretch;margin-top:6px;margin-bottom:4px;">
         <button id="btn-fullmoon" onclick="calcFullMoonChances()" style="flex:1;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;">🌕 満月チャンス検索（365日）</button>
         <button onclick="clearFullMoonList()" title="結果をクリア" style="background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--sub);font-family:'Space Mono',monospace;font-size:10px;padding:2px 6px;cursor:pointer;">✕</button>
       </div>
@@ -4320,6 +4320,8 @@ function setSunsetMode(v){
   const pvLabel=document.getElementById('pv-label-text');
   if(pvLabel)pvLabel.textContent=v?'◎ プレビュー（対象 + 太陽）':'◎ プレビュー（対象 + 月）';
   _all('btn-chance').forEach(el=>{el.textContent=v?'📅 チャンス検索（365日）（太陽）':'📅 チャンス検索（365日）';});
+  _all('btn-pinpoint').forEach(el=>{el.textContent=v?'📍 ピンポイントチャンス検索（365日）（太陽）':'📍 ピンポイントチャンス検索（365日）';});
+  _all('div-fullmoon').forEach(el=>{el.style.display=v?'none':'flex';});
   _all('btn-fullmoon').forEach(el=>{el.style.display=v?'none':'';});
   _all('btn-mooncal').forEach(el=>{el.style.display=v?'none':'';});
   // 満月リストをクリア（太陽モード時）
