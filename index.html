@@ -2676,7 +2676,8 @@ function drawView(dist,tAz,va){
   // 塔根本の仰角（負の値 = 地平線より下、俯瞰時）
   // ピン未選択時(sLat===null)はsElevが0のままなので城標高をデフォルトとして使う
   const vaBaseElev = sLat!==null ? sElev : T[cur].elev;
-  const vaBase=elAng(dist, vaBaseElev, T[cur].elev, 0);
+  const distH_v = sLat!==null ? hav(sLat,sLng,T[cur].lat,T[cur].lng) : dist;
+  const vaBase=elAng(distH_v, vaBaseElev, T[cur].elev, 0);
 
   // 頂点位置の計算：
   // 地平線（仰角0°）を基準に、頂点はgnoV(vaTop)上、根本はgnoV(vaBase)の位置
