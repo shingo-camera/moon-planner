@@ -602,7 +602,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
       </div>
       <div id="fullmoon-list" style="color:var(--tx);"></div>
       <button id="btn-mooncal" onclick="openMoonCal()" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;margin-top:6px;">🌙 満ち欠けカレンダー</button>
-      <button onclick="window.open('./guide.html','_blank')" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--sub);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;margin-top:16px;">📖 操作ガイド</button>
+      <button onclick="openDataTransferPanel()" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--sub);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;margin-top:16px;">📲 データ移行</button>
+      <button onclick="window.open('./guide.html','_blank')" style="width:100%;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--sub);font-family:'Space Mono',monospace;font-size:10px;padding:5px;cursor:pointer;margin-top:6px;">📖 操作ガイド</button>
     </div>
     <!--
     <div>
@@ -832,6 +833,27 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:11px;heigh
     <button onclick="clearPinBulkResults()" title="結果をクリア" style="background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--sub);font-family:'Space Mono',monospace;font-size:10px;padding:2px 6px;cursor:pointer;">✕</button>
   </div>
   <div id="pin-list" style="overflow-y:auto;flex:1;padding:8px 16px;"></div>
+</div>
+<div id="data-transfer-overlay" onclick="if(event.target===this)closeDataTransferPanel()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:10100;"></div>
+<div id="data-transfer-popup" style="display:none;position:fixed;top:5%;left:50%;transform:translateX(-50%);
+  width:min(96vw,520px);max-height:88vh;background:var(--sur);border:1px solid var(--bd);
+  border-radius:8px;z-index:10101;flex-direction:column;overflow:hidden;">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px 10px;border-bottom:1px solid var(--bd);flex-shrink:0;">
+    <span style="font-family:'Space Mono',monospace;font-size:13px;font-weight:700;color:var(--ac);">📲 データ移行</span>
+    <span onclick="closeDataTransferPanel()" style="cursor:pointer;font-size:18px;color:var(--sub);padding:4px 8px;">✕</span>
+  </div>
+  <div style="padding:12px 16px;overflow-y:auto;flex:1;">
+    <p style="font-family:'Space Mono',monospace;font-size:10px;color:var(--sub);line-height:1.6;margin:0 0 10px;">
+      撮影計画（保存地点）と登録地点（撮影マップ）を、別の端末に移行できます。「エクスポート」でテキストをコピーし、別の端末で貼り付けて「インポート」してください。インポートすると現在のデータは上書きされます。
+    </p>
+    <div style="display:flex;gap:6px;margin-bottom:8px;">
+      <button onclick="exportPlannerData()" style="flex:1;background:var(--sur2);border:1px solid var(--bd);border-radius:4px;color:var(--ac);font-family:'Space Mono',monospace;font-size:11px;padding:8px;cursor:pointer;font-weight:700;">📋 エクスポート（コピー）</button>
+    </div>
+    <textarea id="data-transfer-area" rows="5" style="width:100%;box-sizing:border-box;font-size:10px;font-family:monospace;background:var(--bg);color:var(--tx);border:1px solid var(--bd);border-radius:6px;padding:6px;resize:vertical;" placeholder="ここにエクスポートしたテキストが表示されます。別端末からコピーしたテキストを貼り付けてインポートしてください。"></textarea>
+    <div style="margin-top:8px;">
+      <button onclick="importPlannerData()" style="width:100%;background:var(--ac);border:none;border-radius:4px;color:#10131c;font-family:'Space Mono',monospace;font-size:11px;padding:8px;cursor:pointer;font-weight:700;">📥 インポート（読み込む）</button>
+    </div>
+  </div>
 </div>
 <div id="mooncal-popup" style="display:none;position:fixed;top:5%;left:50%;transform:translateX(-50%);
   z-index:10200;background:var(--sur);border:1px solid var(--bd);border-radius:10px;
@@ -6438,7 +6460,67 @@ window.addEventListener('pageshow', e=>{
     _loadFromURLHash();
   }
 });
+
+// ═══════════════════════════════════════════════
+// データ移行（撮影計画・登録地点のエクスポート/インポート）
+// ═══════════════════════════════════════════════
+function openDataTransferPanel(){
+  document.getElementById('data-transfer-overlay').style.display='block';
+  document.getElementById('data-transfer-popup').style.display='flex';
+}
+function closeDataTransferPanel(){
+  document.getElementById('data-transfer-overlay').style.display='none';
+  document.getElementById('data-transfer-popup').style.display='none';
+}
+function exportPlannerData(){
+  const json=JSON.stringify({
+    savedSpots: savedSpots,
+    pins: loadPins(),
+  }, null, 0);
+  const area=document.getElementById('data-transfer-area');
+  if(area){ area.value=json; area.select(); }
+  try{
+    document.execCommand('copy');
+    alert('クリップボードにコピーしました。メモ帳やメッセージアプリ等で別端末に送ってください。');
+  }catch(e){
+    alert('コピーに失敗しました。テキストエリアの内容を手動でコピーしてください。');
+  }
+}
+function importPlannerData(){
+  const area=document.getElementById('data-transfer-area');
+  if(!area||!area.value.trim()){ alert('テキストエリアにデータを貼り付けてください。'); return; }
+  let data;
+  try{
+    data=JSON.parse(area.value);
+  }catch(e){
+    alert('データの読み込みに失敗しました。テキストが正しいか確認してください。');
+    return;
+  }
+  if(!data||(!Array.isArray(data.savedSpots)&&!Array.isArray(data.pins))){
+    alert('データの形式が正しくありません。');
+    return;
+  }
+  if(!confirm('現在の撮影計画・登録地点を上書きします。よろしいですか？')) return;
+  if(Array.isArray(data.savedSpots)){
+    savedSpots=data.savedSpots;
+    while(savedSpots.length<SPOT_MAX) savedSpots.push(null);
+    savedSpots.length=SPOT_MAX;
+    _saveToLocalStorage();
+  }
+  if(Array.isArray(data.pins)){
+    savePins(data.pins);
+  }
+  renderSpotPanel();
+  renderSpotPins();
+  renderPinList();
+  alert('インポートが完了しました。');
+  closeDataTransferPanel();
+}
+
+
+
 </script>
+
 <!-- 保存地点オーバーレイ -->
 <div id="spot-overlay-bg" onclick="closeSpotPanel()"
   style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:11000;"></div>
