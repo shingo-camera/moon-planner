@@ -2288,7 +2288,10 @@ function moonPhaseName(age){
 
 // 月相描画ヘルパー（ctx座標系に直接描く）
 // cx,cy: 中心, r: 半径, age: 月齢(日)
+// tilt: null=固定慣習モード（回転なし・カレンダー等）
+//       数値=太陽方向モード（明縁を太陽の実方向へ回転）
 // アルゴリズム:
+//  [固定慣習モード（北半球の見え方の慣習）]
 //   phase<0.5（新月→満月）: 右半円が光る
 //     境界楕円の右半分(-PI/2〜PI/2)を:
 //       ex<0 → 黒（右半円を削って三日月）
@@ -2297,7 +2300,11 @@ function moonPhaseName(age){
 //     境界楕円の左半分(PI/2〜-PI/2)を:
 //       ex<0 → 黒（左半円を削って三日月）
 //       ex>0 → 金色（光の面を右に拡張して凸月）
-function drawMoonIcon(ctx, cx, cy, r, age, tilt=0){
+//  [太陽方向モード]
+//   tilt回転が太陽の左右上下方向を既に含むため、月齢によらず
+//   常に右半円を光らせて回転する（左右反転すると二重反転で鏡像になる）
+function drawMoonIcon(ctx, cx, cy, r, age, tilt=null){
+  const sunDirMode=(tilt!==null&&tilt!==undefined&&isFinite(tilt));
   const phase=age/29.53058867;
   const illum=(1-Math.cos(2*Math.PI*phase))/2;
   const ex=r*(2*illum-1);
@@ -2310,7 +2317,7 @@ function drawMoonIcon(ctx, cx, cy, r, age, tilt=0){
   // translate+rotate して中心(0,0)基準で描画
   ctx.save();
   ctx.translate(cx,cy);
-  if(tilt) ctx.rotate(tilt);
+  if(sunDirMode) ctx.rotate(tilt);
   const mg=ctx.createRadialGradient(-r*.3,-r*.3,1,0,0,r);
   mg.addColorStop(0,'#fffde8');mg.addColorStop(0.6,'#e8d5a0');mg.addColorStop(1,'#b89840');
 
@@ -2325,8 +2332,8 @@ function drawMoonIcon(ctx, cx, cy, r, age, tilt=0){
   ctx.fillStyle=mg;
   const exAbs=Math.max(0.5,Math.abs(ex));
 
-  if(phase<0.5){
-    // ── 右が光る（新月→満月）──
+  if(sunDirMode||phase<0.5){
+    // ── 右が光る（太陽方向モード時は常時 / 固定慣習では新月→満月）──
     ctx.beginPath();ctx.moveTo(0,0);ctx.arc(0,0,r,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();
     if(ex<0){
       ctx.fillStyle=DARK;
@@ -2867,19 +2874,12 @@ function drawView(dist,tAz,va){
       const ex2=mr*(2*illum2-1);
       const ex2Abs=Math.max(0.5,Math.abs(ex2));
       ctx.fillStyle=moonGrad(-mr*.3,-mrV*.3);
-      if(phase<0.5){
-        // 右半円を光らせる
-        ctx.beginPath();ctx.moveTo(0,0);ctx.ellipse(0,0,mr,mrV,0,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();
-        // 境界楕円の右半分で調整
-        if(ex2<0){ctx.fillStyle=DARK2;ctx.beginPath();ctx.moveTo(0,0);ctx.ellipse(0,0,ex2Abs,mrV,0,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();}
-        else{ctx.fillStyle=moonGrad(-mr*.3,-mrV*.3);ctx.beginPath();ctx.moveTo(0,0);ctx.ellipse(0,0,ex2Abs,mrV,0,Math.PI/2,-Math.PI/2,false);ctx.closePath();ctx.fill();}
-      }else{
-        // 左半円を光らせる
-        ctx.beginPath();ctx.moveTo(0,0);ctx.ellipse(0,0,mr,mrV,0,Math.PI/2,-Math.PI/2,false);ctx.closePath();ctx.fill();
-        // 境界楕円の左半分で調整
-        if(ex2<0){ctx.fillStyle=DARK2;ctx.beginPath();ctx.moveTo(0,0);ctx.ellipse(0,0,ex2Abs,mrV,0,Math.PI/2,-Math.PI/2,false);ctx.closePath();ctx.fill();}
-        else{ctx.fillStyle=moonGrad(-mr*.3,-mrV*.3);ctx.beginPath();ctx.moveTo(0,0);ctx.ellipse(0,0,ex2Abs,mrV,0,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();}
-      }
+      // moonTilt回転が太陽の実方向（左右上下）を既に含むため、
+      // 月齢によらず常に右半円を光らせる（月齢で左右反転すると二重反転で鏡像になる）
+      ctx.beginPath();ctx.moveTo(0,0);ctx.ellipse(0,0,mr,mrV,0,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();
+      // 境界楕円の右半分で調整（ex2<0=三日月側:削る / ex2>0=凸月側:拡張）
+      if(ex2<0){ctx.fillStyle=DARK2;ctx.beginPath();ctx.moveTo(0,0);ctx.ellipse(0,0,ex2Abs,mrV,0,-Math.PI/2,Math.PI/2,false);ctx.closePath();ctx.fill();}
+      else{ctx.fillStyle=moonGrad(-mr*.3,-mrV*.3);ctx.beginPath();ctx.moveTo(0,0);ctx.ellipse(0,0,ex2Abs,mrV,0,Math.PI/2,-Math.PI/2,false);ctx.closePath();ctx.fill();}
       ctx.restore();
       // 外形グロー
       ctx.beginPath();ctx.ellipse(0,0,mr,mrV,0,0,Math.PI*2);
@@ -3898,7 +3898,7 @@ function drawCompass(tAz,va){
         const pname=moonPhaseName(age2);
         const pr=Math.min(16,Math.floor(phaseAreaH*0.40));
         const pmx=margin+pr+2, pmy=phaseY0+pr+2;
-        drawMoonIcon(ctx,pmx,pmy,pr,age2,sunsetMode?0:gMoonTilt);
+        drawMoonIcon(ctx,pmx,pmy,pr,age2,sunsetMode?null:gMoonTilt);
         const tx2=pmx+pr+6;
         ctx.textAlign='left';ctx.textBaseline='alphabetic';
         ctx.font=`bold 12px 'Space Mono',monospace`;ctx.fillStyle='rgba(200,169,110,0.95)';ctx.fillText(`${age2.toFixed(1)}日`,tx2,pmy);
@@ -3919,7 +3919,7 @@ function drawCompass(tAz,va){
         const pname=moonPhaseName(age2);
         const pr=Math.min(16,Math.floor(phaseAreaH*0.40));
         const pmx=margin+pr+2, pmy=phaseY0+pr+2;
-        drawMoonIcon(ctx,pmx,pmy,pr,age2,sunsetMode?0:gMoonTilt);
+        drawMoonIcon(ctx,pmx,pmy,pr,age2,sunsetMode?null:gMoonTilt);
         const tx2=pmx+pr+6;
         ctx.textAlign='left';ctx.textBaseline='alphabetic';
         ctx.font=`bold 12px 'Space Mono',monospace`;ctx.fillStyle='rgba(200,169,110,0.95)';ctx.fillText(`${age2.toFixed(1)}日`,tx2,pmy);
@@ -3958,7 +3958,7 @@ function drawCompass(tAz,va){
     if(ds2){
       const age2 = moonAge(new Date(ds2+'T03:00:00Z'));
       const pname = moonPhaseName(age2);
-      drawMoonIcon(ctx, pmx, pmy, pr, age2, sunsetMode ? 0 : gMoonTilt);
+      drawMoonIcon(ctx, pmx, pmy, pr, age2, sunsetMode ? null : gMoonTilt);
       const tx2 = pmx + pr + 8;
       ctx.textAlign='left'; ctx.textBaseline='alphabetic';
       ctx.font=`bold 14px 'Space Mono',monospace`;
